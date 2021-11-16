@@ -30,38 +30,74 @@ visheader=vishead(vislist[0],mode='list',listitems=[])
 telescope=visheader['telescope'][0][0]
 apply_cal_mode_default='calflag'
 
-
 #Find scan times, integration times and numbers of integrations
 listdict,scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
 spwslist=spwsarray.tolist()
 spwstring=','.join(str(spw) for spw in spwslist)
 
-for vis in vislist:
-   if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
-       flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
-   else:
-      flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
-
 #flag based on the cont.dat
 if os.path.exists("cont.dat"):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
    for vis in vislist:
+      if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
+         flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
+      else:
+         flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
          contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
-meanfreq=get_mean_freq(vislist,spwsarray)
+
+if 'VLA' in telescope:
+  bands,band_properties=get_VLA_bands(vislist)
+  listdict={}
+  scantimesdict={}
+  integrationsdict={}
+  integrationtimesdict={}
+  for band in bands:
+     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+     listdict[band]=listdict_temp.copy
+     scantimesdict[band]=scantimesdict_temp.copy()
+     integrationsdict[band]=integrationsdict_temp.copy()
+     integrationtimesdict[band]=integrationtimesdict_temp.copy()
+if telescope=='ALMA':
+  bands,band_properties=get_ALMA_bands(vislist,meanfreq,spwstring,spwsarray)
+  listdict={}
+  scantimesdict={}
+  integrationsdict={}
+  integrationtimesdict={}
+  for band in bands:
+     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+     listdict[band]=listdict_temp.copy
+     scantimesdict[band]=scantimesdict_temp.copy()
+     integrationsdict[band]=integrationsdict_temp.copy()
+     integrationtimesdict[band]=integrationtimesdict_temp.copy()
+
+
+#meanfreq=get_mean_freq(vislist,spwsarray)
 #spectrally average all to have a minimum channel width of 15.625 MHz and restore flags to original MS
 for vis in vislist:
     os.system('rm -rf '+vis.replace('.ms','.selfcal.ms')+'*')
+    spwstring=''
+    chan_widths=[]
     if spectral_average:
-       desiredWidth=get_desired_width(meanfreq)
-       chan_widths=get_spw_chanavg(vis,get_spw_chanwidths(vis,spwsarray),desiredWidth=15.625e6)
-       chan_widths=chan_widths.astype('int').tolist()
+       for band in band_properties[vis]['bands']:
+          desiredWidth=get_desired_width(band_properties[vis][band]['meanfreq'])
+          print(band,desiredWidth)
+          band_properties[vis][band]['chan_widths']=get_spw_chanavg(vis,get_spw_chanwidths(vis,band_properties[vis][band]['spwarray']),desiredWidth=desiredWidth)
+          print(band_properties[vis][band]['chan_widths'])
+          chan_widths=chan_widths+band_properties[vis][band]['chan_widths'].astype('int').tolist()
+          if spwstring =='':
+             spwstring=band_properties[vis][band]['spwstring']+''
+          else:
+             spwstring=spwstring+','+band_properties[vis][band]['spwstring']
        split(vis=vis,width=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
     else:
        os.system('cp -r '+vis+' '+vis.replace('.ms','.selfcal.ms'))
-    flagmanager(vis=vis,mode='restore',versionname='before_line_flags')     
+       if os.path.exists(vis+".flagversions/flags.before_line_flags"):
+          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')     
 
 vislist=glob.glob('*selfcal.ms')
 listdict,scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
@@ -87,7 +123,6 @@ if telescope=='ALMA':
   scantimesdict={}
   integrationsdict={}
   integrationtimesdict={}
-
   for band in bands:
      listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
      integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)

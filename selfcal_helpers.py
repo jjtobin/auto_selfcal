@@ -739,10 +739,14 @@ def get_desired_width(meanfreq):
    elif (meanfreq < 40.0e9) and (meanfreq >=26.0e9):
       desiredWidth=8.0e6
    elif (meanfreq < 26.0e9) and (meanfreq >=18.0e9):
-      desiredWidth=6.0e6
+      desiredWidth=16.0e6
    elif (meanfreq < 18.0e9) and (meanfreq >=8.0e9):
+      desiredWidth=8.0e6
+   elif (meanfreq < 8.0e9) and (meanfreq >=4.0e9):
       desiredWidth=4.0e6
-   elif (meanfreq < 8.0e9):
+   elif (meanfreq < 4.0e9) and (meanfreq >=2.0e9):
+      desiredWidth=4.0e6
+   elif (meanfreq < 4.0e9):
       desiredWidth=2.0e6
    return desiredWidth
 
@@ -776,6 +780,7 @@ def get_ALMA_bands(vislist,meanfreq,spwstring,spwarray):
          observed_bands[vis][band]={}
          observed_bands[vis][band]['spwarray']=spwarray
          observed_bands[vis][band]['spwstring']=spwstring+''
+         observed_bands[vis][band]['meanfreq']=meanfreq
 
    return bands,observed_bands
 
@@ -787,9 +792,11 @@ def get_VLA_bands(vislist):
       visheader=vishead(vis,mode='list',listitems=[])
       spw_names=visheader['spw_name'][0]
       spw_names_band=visheader['spw_name'][0].copy()
+      spw_names_bb=visheader['spw_name'][0].copy()
       spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
       for i in range(len(spw_names)):
          spw_names_band[i]=spw_names[i].split('#')[0]
+         spw_names_bb[i]=spw_names[i].split('#')[1]
          spw_names_spw[i]=int(spw_names[i].split('#')[2])
       all_bands=np.unique(spw_names_band)
       observed_bands[vis]['n_bands']=len(all_bands)
@@ -800,13 +807,26 @@ def get_VLA_bands(vislist):
             observed_bands[vis]['n_bands']=observed_bands[vis]['n_bands']-1
             observed_bands[vis]['bands'].remove('EVLA_X')
             continue
-         else:
-
+         elif (band == 'EVLA_X') and (len(index[0]) > 2): # ignore pointing band
             observed_bands[vis][band]={}
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
-            spwslist=spw_names_spw[index[0]].tolist()
+            indices_to_remove=np.array([])
+            for i in range(len(observed_bands[vis][band]['spwarray'])):
+                meanfreq=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
+                if (meanfreq==8.332e9) or (meanfreq==8.460e9):
+                   indices_to_remove=np.append(indices_to_remove,[i])
+            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove)
+            spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
             observed_bands[vis][band]['spwstring']=spwstring+''
+            observed_bands[vis][band]['meanfreq']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+         else:
+            observed_bands[vis][band]={}
+            observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
+            spwslist=observed_bands[vis][band]['spwarray'].tolist()
+            spwstring=','.join(str(spw) for spw in spwslist)
+            observed_bands[vis][band]['spwstring']=spwstring+''
+            observed_bands[vis][band]['meanfreq']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):
