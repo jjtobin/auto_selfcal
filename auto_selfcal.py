@@ -125,7 +125,7 @@ if 'VLA' in telescope:
   bands,band_properties=get_VLA_bands(vislist)
 
 if telescope=='ALMA':
-  bands,band_properties=get_ALMA_bands(vislist,meanfreq,spwstring,spwsarray)
+  bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
 
 listdict={}
 scantimesdict={}
