@@ -62,6 +62,7 @@ if 'VLA' in telescope:
      integrationsdict[band]=integrationsdict_temp.copy()
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
 if telescope=='ALMA':
+  meanfreq=get_mean_freq(vislist,spwsarray)
   bands,band_properties=get_ALMA_bands(vislist,meanfreq,spwstring,spwsarray)
   listdict={}
   scantimesdict={}
@@ -76,7 +77,7 @@ if telescope=='ALMA':
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
 
 
-#meanfreq=get_mean_freq(vislist,spwsarray)
+
 #spectrally average all to have a minimum channel width of 15.625 MHz and restore flags to original MS
 for vis in vislist:
     os.system('rm -rf '+vis.replace('.ms','.selfcal.ms')+'*')
