@@ -789,7 +789,7 @@ def get_VLA_bands(vislist):
    observed_bands={}
    for vis in vislist:
       observed_bands[vis]={}
-      visheader=vishead(vis,mode='list',listitems=[])
+      #visheader=vishead(vis,mode='list',listitems=[])
       tb.open(vis+'/SPECTRAL_WINDOW') 
       spw_names=tb.getcol('NAME')
       tb.close()
