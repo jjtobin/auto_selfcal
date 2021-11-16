@@ -823,6 +823,23 @@ def get_VLA_bands(vislist):
             spwstring=','.join(str(spw) for spw in spwslist)
             observed_bands[vis][band]['spwstring']=spwstring+''
             observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+         elif (band == 'EVLA_C') and (len(index[0]) == 2): # ignore pointing band
+            observed_bands[vis]['n_bands']=observed_bands[vis]['n_bands']-1
+            observed_bands[vis]['bands'].remove('EVLA_C')
+            continue
+         elif (band == 'EVLA_C') and (len(index[0]) > 2): # ignore pointing band
+            observed_bands[vis][band]={}
+            observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
+            indices_to_remove=np.array([])
+            for i in range(len(observed_bands[vis][band]['spwarray'])):
+                meanfreq=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
+                if (meanfreq==4.832e9) or (meanfreq==4.960e9):
+                   indices_to_remove=np.append(indices_to_remove,[i])
+            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove)
+            spwslist=observed_bands[vis][band]['spwarray'].tolist()
+            spwstring=','.join(str(spw) for spw in spwslist)
+            observed_bands[vis][band]['spwstring']=spwstring+''
+            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
          else:
             observed_bands[vis][band]={}
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
