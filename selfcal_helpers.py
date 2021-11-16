@@ -693,24 +693,18 @@ def get_spw_chanavg(vis,widtharray,desiredWidth=15.625e6):
    return avgarray
 
 
-def get_image_parameters(vislist,telescope,spwsarray):
+def get_image_parameters(vislist,telescope,band,band_properties):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       im.open(vislist[i])
+      im.selectvis(vis=vislist[i],spw=band_properties[vislist[i]][band]['spwarray'])
       adviseparams= im.advise() 
       cells[i]=adviseparams[2]['value']/2.0
       im.close()
    cell=np.mean(cells)
    cellsize='{:0.3f}arcsec'.format(cell)
-   tb.open(vislist[0]+'/SPECTRAL_WINDOW')
-   freqarray=tb.getcol('REF_FREQUENCY')
-   tb.close()
-   meanfreq=np.mean(freqarray[spwsarray])
-   minfreq=np.min(freqarray[spwsarray])
-   maxfreq=np.max(freqarray[spwsarray])
-   fracbw=np.abs(maxfreq-minfreq)/meanfreq
    nterms=1
-   if fracbw > 0.1:
+   if band_properties[vislist[0]][band]['fracbw'] > 0.1:
       nterms=2
    if 'VLA' in telescope:
       fov=45.0e9/meanfreq*60.0*1.5
@@ -729,7 +723,7 @@ def get_mean_freq(vislist,spwsarray):
    minfreq=np.min(freqarray[spwsarray])
    maxfreq=np.max(freqarray[spwsarray])
    fracbw=np.abs(maxfreq-minfreq)/meanfreq
-   return meanfreq
+   return meanfreq, maxfreq,minfreq,fracbw
 
 def get_desired_width(meanfreq):
    if meanfreq >= 50.0e9:
@@ -822,14 +816,14 @@ def get_VLA_bands(vislist):
             spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
             observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
          else:
             observed_bands[vis][band]={}
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
             observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):

@@ -62,7 +62,7 @@ if 'VLA' in telescope:
      integrationsdict[band]=integrationsdict_temp.copy()
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
 if telescope=='ALMA':
-  meanfreq=get_mean_freq(vislist,spwsarray)
+  meanfreq,maxfreq,minfreq,fracbw=get_mean_freq(vislist,spwsarray)
   bands,band_properties=get_ALMA_bands(vislist,meanfreq,spwstring,spwsarray)
   listdict={}
   scantimesdict={}
@@ -140,7 +140,7 @@ meanfreq={}
 applycal_interp={}
 
 for band in bands:
-   cellsize[band],imsize[band],nterms[band],meanfreq[band]=get_image_parameters(vislist,telescope,spwsarray)
+   cellsize[band],imsize[band],nterms[band],meanfreq[band]=get_image_parameters(vislist,telescope,band,band_properties,band)
    if meanfreq[band] >12.0e9:
       applycal_interp[band]='linearPD'
    else:
