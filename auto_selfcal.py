@@ -114,7 +114,7 @@ for vis in vislist:
 
 
 ##
-## Reimport MS to self calibrate since frequency averaging and splitting may have changed it
+## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
 ##
 vislist=glob.glob('*selfcal.ms')
 listdict,scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
