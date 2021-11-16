@@ -746,7 +746,8 @@ def get_desired_width(meanfreq):
    return desiredWidth
 
 
-def get_ALMA_bands(vislist,meanfreq,spwstring,spwarray):
+def get_ALMA_bands(vislist,spwstring,spwarray):
+   meanfreq, maxfreq,minfreq,fracbw=get_mean_freq(vislist,spwarray)
    observed_bands={}
    if (meanfreq < 950.0e9) and (meanfreq >=787.0e9):
       band='Band_10'
@@ -771,11 +772,15 @@ def get_ALMA_bands(vislist,meanfreq,spwstring,spwarray):
    bands=[band]
    for vis in vislist:
       observed_bands[vis]={}
+      
       for band in bands:
          observed_bands[vis][band]={}
          observed_bands[vis][band]['spwarray']=spwarray
          observed_bands[vis][band]['spwstring']=spwstring+''
          observed_bands[vis][band]['meanfreq']=meanfreq
+         observed_bands[vis][band]['maxfreq']=maxfreq
+         observed_bands[vis][band]['minfreq']=minfreq
+         observed_bands[vis][band]['fracbw']=fracbw
 
    return bands,observed_bands
 

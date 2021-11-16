@@ -8,20 +8,37 @@ import numpy as np
 from scipy import stats
 import glob
 execfile('selfcal_helpers.py',globals())
+
+
+###################################################################################################
+######################## All this stuff is basically jumping through hoops ########################
+######################## to get at metadata pipeline should have in the context ###################
+######################## Some of this code is not elegant nor efficient ###########################
+###################################################################################################
+##
+## Get list of MS files in directory
+##
 vislist=glob.glob('*_target.ms')
 
+##
+## save starting flags or restore to the starting flags
+##
 for vis in vislist:
    if os.path.exists(vis+".flagversions/flags.starting_flags"):
        flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
    else:
       flagmanager(vis=vis,mode='save',versionname='starting_flags')
-#assume all targets are in all ms files for simplicity and only science targets
+
+## 
+## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
+##
 all_targets=fetch_targets(vislist[0])
 
+##
+## Global environment variables for control of selfcal
+##
 spectral_average=False
 parallel=True
-# C7 and above
-longbaseline=False
 gaincal_minsnr=2.0
 minsnr_to_proceed=3.0
 delta_beam_thresh=0.05
@@ -30,12 +47,36 @@ visheader=vishead(vislist[0],mode='list',listitems=[])
 telescope=visheader['telescope'][0][0]
 apply_cal_mode_default='calflag'
 
-#Find scan times, integration times and numbers of integrations
+
+##
+## Import inital MS files to get relevant meta data
+##
 listdict,scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
 spwslist=spwsarray.tolist()
 spwstring=','.join(str(spw) for spw in spwslist)
 
-#flag based on the cont.dat
+if 'VLA' in telescope:
+  bands,band_properties=get_VLA_bands(vislist)
+
+if telescope=='ALMA':
+  bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
+
+listdict={}
+scantimesdict={}
+integrationsdict={}
+integrationtimesdict={}
+for band in bands:
+     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+     listdict[band]=listdict_temp.copy
+     scantimesdict[band]=scantimesdict_temp.copy()
+     integrationsdict[band]=integrationsdict_temp.copy()
+     integrationtimesdict[band]=integrationtimesdict_temp.copy()
+
+
+##
+## flag spectral lines in MS(es) if there is a cont.dat file present
+##
 if os.path.exists("cont.dat"):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
    for vis in vislist:
@@ -47,38 +88,9 @@ if os.path.exists("cont.dat"):
          contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
-
-if 'VLA' in telescope:
-  bands,band_properties=get_VLA_bands(vislist)
-  listdict={}
-  scantimesdict={}
-  integrationsdict={}
-  integrationtimesdict={}
-  for band in bands:
-     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
-     listdict[band]=listdict_temp.copy
-     scantimesdict[band]=scantimesdict_temp.copy()
-     integrationsdict[band]=integrationsdict_temp.copy()
-     integrationtimesdict[band]=integrationtimesdict_temp.copy()
-if telescope=='ALMA':
-  meanfreq,maxfreq,minfreq,fracbw=get_mean_freq(vislist,spwsarray)
-  bands,band_properties=get_ALMA_bands(vislist,meanfreq,spwstring,spwsarray)
-  listdict={}
-  scantimesdict={}
-  integrationsdict={}
-  integrationtimesdict={}
-  for band in bands:
-     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
-     listdict[band]=listdict_temp.copy
-     scantimesdict[band]=scantimesdict_temp.copy()
-     integrationsdict[band]=integrationsdict_temp.copy()
-     integrationtimesdict[band]=integrationtimesdict_temp.copy()
-
-
-
-#spectrally average all to have a minimum channel width of 15.625 MHz and restore flags to original MS
+##
+## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
+##
 for vis in vislist:
     os.system('rm -rf '+vis.replace('.ms','.selfcal.ms')+'*')
     spwstring=''
@@ -100,6 +112,10 @@ for vis in vislist:
        if os.path.exists(vis+".flagversions/flags.before_line_flags"):
           flagmanager(vis=vis,mode='restore',versionname='before_line_flags')     
 
+
+##
+## Reimport MS to self calibrate since frequency averaging and splitting may have changed it
+##
 vislist=glob.glob('*selfcal.ms')
 listdict,scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
 spwslist=spwsarray.tolist()
@@ -107,24 +123,15 @@ spwstring=','.join(str(spw) for spw in spwslist)
 
 if 'VLA' in telescope:
   bands,band_properties=get_VLA_bands(vislist)
-  listdict={}
-  scantimesdict={}
-  integrationsdict={}
-  integrationtimesdict={}
-  for band in bands:
-     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
-     listdict[band]=listdict_temp.copy
-     scantimesdict[band]=scantimesdict_temp.copy()
-     integrationsdict[band]=integrationsdict_temp.copy()
-     integrationtimesdict[band]=integrationtimesdict_temp.copy()
+
 if telescope=='ALMA':
   bands,band_properties=get_ALMA_bands(vislist,meanfreq,spwstring,spwsarray)
-  listdict={}
-  scantimesdict={}
-  integrationsdict={}
-  integrationtimesdict={}
-  for band in bands:
+
+listdict={}
+scantimesdict={}
+integrationsdict={}
+integrationtimesdict={}
+for band in bands:
      listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
      integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
      listdict[band]=listdict_temp.copy
@@ -132,7 +139,9 @@ if telescope=='ALMA':
      integrationsdict[band]=integrationsdict_temp.copy()
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
 
-#set image parameters based on data properties
+##
+## set image parameters based on the visibility data properties and frequency
+##
 cellsize={}
 imsize={}
 nterms={}
@@ -145,18 +154,22 @@ for band in bands:
    else:
       applycal_interp[band]='linear'
 
-'''
-#Redundant if splitting to new MS
-for vis in vislist:
-   if not os.path.exists(vis+".flagversions/flags.starting_flags"):
-       flagmanager(vis=vis, mode = 'save', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
-   else:
-      clearcal(vis=vis)
-      flagmanager(vis=vis,mode='restore',versionname='starting_flags')
-'''
 
 
-  
+
+###################################################################################################
+################################# End Metadata gathering for Selfcal ##############################
+###################################################################################################
+
+
+
+###################################################################################################
+############################# Start Actual important stuff for selfcal ############################
+###################################################################################################
+
+##
+## begin setting up a selfcal_library with all relevant metadata to keep track of during selfcal
+## 
 selfcal_library={}
 
 for target in all_targets:
@@ -165,11 +178,13 @@ for target in all_targets:
       selfcal_library[target][band]={}
       for vis in vislist:
          selfcal_library[target][band][vis]={}
-
-#finds solints, starting with inf, ending with int, and tries to align
-#solints with number of integrations
-#solints reduce by factor of 2 in each self-cal interation
-#e.g., inf, max_scan_time/2.0, prev_solint/2.0, ..., int
+##
+## finds solints, starting with inf, ending with int, and tries to align
+## solints with number of integrations
+## solints reduce by factor of 2 in each self-cal interation
+## e.g., inf, max_scan_time/2.0, prev_solint/2.0, ..., int
+## starting solints will have solint the length of the entire EB to correct bulk offsets
+##
 solints={}
 gaincal_combine={}
 applycal_mode={}
@@ -180,17 +195,14 @@ for band in bands:
    solints[band].insert(0,'inf_EB')
    gaincal_combine[band].insert(0,'spw,scan')
    applycal_mode[band]=[apply_cal_mode_default]*len(solints[band])
-#insert another solint, but with combine='scan,spw' for long baseline data to align average phases of each EB
 
 
-#don't do calflag first two iterations to avoid flagging too much data initially (tends to be the long baselines)
-'''
-if longbaseline:
-   applycal_mode=['calonly']*2+['calflag']*(len(solints)-2) 
-else:
-   applycal_mode=['calflag']*len(solints)
-'''
 
+##
+## puts stuff in right place from other MS metadata to perform proper data selections
+## in tclean, gaincal, and applycal
+## Also gets relevant times on source to estimate SNR per EB/scan
+##
 for target in all_targets:
  for band in bands:
    print(target)
@@ -220,9 +232,12 @@ for target in all_targets:
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
 
 
-
-#create initial images for each target to evaluate SNR and beam
-#replicates what a preceding hif_makeimages would do
+##
+## create initial images for each target to evaluate SNR and beam
+## replicates what a preceding hif_makeimages would do
+## Enables before/after comparison and thresholds to be calculated
+## based on the achieved S/N in the real data
+##
 for target in all_targets:
  for band in bands:
    #make images using the appropriate tclean heuristics for each telescope
@@ -244,13 +259,26 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
    selfcal_library[target][band]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
 
-   #estimate per scan S/N using total time on source divided by average scan time
+##
+## estimate per scan/EB S/N using time on source and median scan times
+##
 get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants)
 for band in bands:
  for target in all_targets:
    print(target,band)
    print('Per Scan SNR: ',selfcal_library[target][band]['per_scan_SNR'])
    print('Per EB SNR: ',selfcal_library[target][band]['per_EB_SNR'])
+
+
+##
+## Set clean selfcal thresholds
+### Open question about determining the starting and progression of clean threshold for
+### each iteration
+### Peak S/N > 100; SNR/15 for first, successivly reduce to 3.0 sigma through each iteration?
+### Peak S/N < 100; SNR/10.0 
+##
+for band in bands:
+ for target in all_targets:
    nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/15.0,5.0]) # restricts initial nsigma to be at least 5
    #selfcal_library[target]['nsigma']=np.linspace(nsigma_init,3.0,len(solints))
    #logspace to reduce in nsigma more quickly
@@ -261,11 +289,18 @@ for band in bands:
       sensitivity=0.0
    selfcal_library[target][band]['thresholds']=selfcal_library[target][band]['nsigma']*sensitivity
 
-
+##
+## Save self-cal library
+##
 import pickle
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+
+
+##
+## Begin Self-cal loops
+##
 for target in all_targets:
  for band in bands:
    print('Starting selfcal procedure on: '+target+' '+band)
@@ -285,12 +320,9 @@ for target in all_targets:
          else:
             print('Continuing with solint: '+solint)
          os.system('rm -rf '+target+'_'+band+'_'+solint+'_'+str(iteration)+'*')
-         ### Open question about determining the starting and progression of clean threshold for
-         ### each iteration
-         ### Peak S/N > 100; SNR/10 for first, successivly reduce to 3.0 sigma through each iteration?
-         ### Peak S/N < 100; SNR/10.0 
-
-         #make images using the appropriate tclean heuristics for each telescope
+         ##
+         ## make images using the appropriate tclean heuristics for each telescope
+         ##
          tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_'+solint+'_'+str(iteration),
                      telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['thresholds'][iteration])+'Jy',
@@ -309,6 +341,9 @@ for target in all_targets:
          for vis in vislist:
             gaintables[vis]=[]
             spwmaps[vis]=[]
+            ##
+            ## Solve gain solutions per MS, target, solint, and band
+            ##
             os.system('rm -rf '+target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
             gaincal(vis=vis,\
                     caltable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
@@ -319,11 +354,17 @@ for target in all_targets:
             if os.path.exists(vis+".flagversions/flags.selfcal_"+target+'_'+band+'_'+solint):
                flagmanager(vis=vis,mode='delete',versionname='selfcal_'+target+'_'+band+'_'+solint)
             flagmanager(vis=vis,mode='save',versionname='selfcal_'+target+'_'+band+'_'+solint)
+            ##
+            ## Apply gain solutions per MS, target, solint, and band
+            ##
             applycal(vis=vis,\
                      gaintable=gaintables[vis]+[target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g'],\
                      interp=applycal_interp[band], calwt=True,spwmap=[selfcal_library[target][band][vis]['spwmap']],\
                      applymode=applycal_mode[band][iteration],field=target,spw=selfcal_library[target][band][vis]['spws'])
          for vis in vislist:
+            ##
+            ## record self cal results/details for this solint
+            ##
             selfcal_library[target][band][vis][solint]={}
             selfcal_library[target][band][vis][solint]['SNR_pre']=SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_pre']=RMS.copy()
@@ -333,6 +374,9 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['spwmap']=selfcal_library[target][band][vis]['spwmap']
             selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
             selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+         ##
+         ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
+         ##
          if nterms[band]==1:
             startmodel=[target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0']
          elif nterms[band]==2:
@@ -348,7 +392,9 @@ for target in all_targets:
          b_min_post=header['restoringbeam']['minor']['value']
          b_pa_post=header['restoringbeam']['positionangle']['value'] 
 
-         #compare relative to original image to ensure we are not incrementally changing the beam in each iteration
+         ##
+         ## compare beam relative to original image to ensure we are not incrementally changing the beam in each iteration
+         ##
          beamarea_pre=selfcal_library[target][band]['Beam_major_orig']*selfcal_library[target][band]['Beam_minor_orig']
          beamarea_post=b_maj_post*b_min_post
          '''
@@ -357,8 +403,10 @@ for target in all_targets:
          delta_b_pa=np.abs((b_pa_post-selfcal_library[target]['Beam_PA_orig']))
          '''
          delta_beamarea=(beamarea_post-beamarea_pre)/beamarea_pre
+         ## 
+         ## if S/N improvement, and beamarea is changing by < delta_beam_thresh, accept solutions to main calibration dictionary
+         ##
          if (post_SNR >= SNR) and (delta_beamarea < delta_beam_thresh): 
-            #if S/N improvement, and beamarea is changing by < delta_beam_thresh, accept solutions to main calibration dictionary
             selfcal_library[target][band]['SC_success']=True
             for vis in vislist:
                selfcal_library[target][band][vis]['gaintable']=selfcal_library[target][band][vis][solint]['gaintable']
@@ -377,7 +425,10 @@ for target in all_targets:
                print('****************Selfcal passed, shortening solint*************')
             else:
                print('****************Selfcal passed for Minimum solint*************')
-         else: #if S/N worsens, and/or beam area increases reject solutions and backout calibration
+         ## 
+         ## if S/N worsens, and/or beam area increases reject current solutions and reapply previous (or revert to origional data)
+         ##  
+         else: 
             selfcal_library[target][band][vis][solint]['Pass']=False
             reason=''
             if (post_SNR <= SNR):
@@ -404,9 +455,13 @@ for target in all_targets:
             print('****************Aborting further self-calibration attempts for '+target+'**************')
             break # breakout of loops of successive solints since solutions are getting worse
 
+
+
+##
+## Make a final image per target to assess overall improvement
+##
 for target in all_targets:
  for band in bands:
-   #make images using the appropriate tclean heuristics for each telescope
    if telescope=='ALMA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
    else:
@@ -419,7 +474,9 @@ for target in all_targets:
    selfcal_library[target][band]['SNR_final']=final_SNR
    selfcal_library[target][band]['RMS_final']=final_RMS
 
-
+##
+## Print final results
+##
 for target in all_targets:
  for band in bands:
    print(target+' '+band+' Summary')
@@ -436,6 +493,9 @@ for target in all_targets:
    else:
       print('Selfcal failed on '+target+'. No solutions applied.')
 
+##
+## Save final library results
+##
 import pickle
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
