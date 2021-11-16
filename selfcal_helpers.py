@@ -715,6 +715,7 @@ def get_image_parameters(vislist,telescope,band,band_properties):
       npixels=16384
    return cellsize,npixels,nterms
 
+
 def get_mean_freq(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')
    freqarray=tb.getcol('REF_FREQUENCY')
