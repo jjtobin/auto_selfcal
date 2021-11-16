@@ -790,14 +790,17 @@ def get_VLA_bands(vislist):
    for vis in vislist:
       observed_bands[vis]={}
       visheader=vishead(vis,mode='list',listitems=[])
-      spw_names=visheader['spw_name'][0]
-      spw_names_band=visheader['spw_name'][0].copy()
-      spw_names_bb=visheader['spw_name'][0].copy()
+      tb.open(vis+'/SPECTRAL_WINDOW') 
+      spw_names=tb.getcol('NAME')
+      tb.close()
+      #spw_names=visheader['spw_name'][0]
+      spw_names_band=spw_names.copy()
+      spw_names_bb=spw_names.copy()
       spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
       for i in range(len(spw_names)):
          spw_names_band[i]=spw_names[i].split('#')[0]
          spw_names_bb[i]=spw_names[i].split('#')[1]
-         spw_names_spw[i]=int(spw_names[i].split('#')[2])
+         spw_names_spw[i]=i
       all_bands=np.unique(spw_names_band)
       observed_bands[vis]['n_bands']=len(all_bands)
       observed_bands[vis]['bands']=all_bands.tolist()
