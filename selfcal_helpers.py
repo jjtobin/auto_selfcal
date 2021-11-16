@@ -696,7 +696,7 @@ def get_spw_chanavg(vis,widtharray,desiredWidth=15.625e6):
 def get_image_parameters(vislist,telescope,band,band_properties):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
-      im.open(vislist[i])
+      #im.open(vislist[i])
       im.selectvis(vis=vislist[i],spw=band_properties[vislist[i]][band]['spwarray'])
       adviseparams= im.advise() 
       cells[i]=adviseparams[2]['value']/2.0
@@ -707,13 +707,13 @@ def get_image_parameters(vislist,telescope,band,band_properties):
    if band_properties[vislist[0]][band]['fracbw'] > 0.1:
       nterms=2
    if 'VLA' in telescope:
-      fov=45.0e9/meanfreq*60.0*1.5
+      fov=45.0e9/band_properties[vislist[0]][band]['meanfreq']*60.0*1.5
    if telescope=='ALMA':
-      fov=63.0*100.0e9/meanfreq*1.5
+      fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
    npixels=int(np.ceil(fov/cell / 100.0)) * 100
    if npixels > 16384:
       npixels=16384
-   return cellsize,npixels,nterms,meanfreq
+   return cellsize,npixels,nterms
 
 def get_mean_freq(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')

@@ -136,12 +136,11 @@ if telescope=='ALMA':
 cellsize={}
 imsize={}
 nterms={}
-meanfreq={}
 applycal_interp={}
 
 for band in bands:
-   cellsize[band],imsize[band],nterms[band],meanfreq[band]=get_image_parameters(vislist,telescope,band,band_properties,band)
-   if meanfreq[band] >12.0e9:
+   cellsize[band],imsize[band],nterms[band]=get_image_parameters(vislist,telescope,band,band_properties)
+   if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
       applycal_interp[band]='linearPD'
    else:
       applycal_interp[band]='linear'
