@@ -24,7 +24,7 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
        smoothfactor=1.0
        noisethreshold=5.0
        lownoisethreshold=1.5    
-       threshold = '0.0Jy'
+       pblimit=-0.1
     for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
         os.system('rm -rf '+ imagename + ext)
     tclean(vis= vis, 
@@ -321,7 +321,8 @@ def get_solints_simple(vislist,scantimesdict,integrationtimes):
    for vis in vislist:
       targets=integrationtimes[vis].keys()
       for target in targets:
-         all_integrations=np.append(all_integrations,integrationtimes[vis][target])
+         if np.isfinite(integrationtimes[vis][target]):
+            all_integrations=np.append(all_integrations,integrationtimes[vis][target])
    integration_time=np.max(all_integrations) # use the longest integration time from all MS files
 
    allscantimes=np.array([])
@@ -347,7 +348,7 @@ def get_solints_simple(vislist,scantimesdict,integrationtimes):
          solint=solint-remainder*integration_time # add remainder to make solint a fixed number of integrations
 
       ints_per_solint=float(int(ints_per_solint))
-      #print('Checking solint = ',ints_per_solint*integration_time)
+      print('Checking solint = ',ints_per_solint*integration_time)
       delta=test_truncated_scans(ints_per_solint, allscantimes,integration_time) 
       solint=(ints_per_solint+delta)*integration_time
       
@@ -414,7 +415,7 @@ def estimate_SNR(imagename):
     print("#%s" % imagename)
     print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
     image_stats= imstat(imagename = imagename)
-    residual_stats=imstat(imagename=imagename.replace('image','residual'))
+    residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
     peak_intensity = image_stats['max'][0]
     print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
     rms = residual_stats['rms'][0]
