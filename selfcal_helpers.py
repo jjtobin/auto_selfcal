@@ -24,7 +24,7 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
        smoothfactor=1.0
        noisethreshold=5.0
        lownoisethreshold=1.5    
-       pblimit=-0.1
+
     for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
         os.system('rm -rf '+ imagename + ext)
     tclean(vis= vis, 
@@ -414,7 +414,10 @@ def estimate_SNR(imagename):
     beampa = headerlist['beampa']['value']
     print("#%s" % imagename)
     print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+    #immath(imagename=imagename.replace('image','mask').replace('.tt0',''),expr='(IM0-1)*-1.0',outfile=imagename.replace('image','reversemask').replace('.tt0',''))
     image_stats= imstat(imagename = imagename)
+    #maskname=imagename.replace('image','mask').replace('.tt0','')
+    #reversemask=mask(imagename.replace('image','mask').replace('.tt0',''))
     residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
     peak_intensity = image_stats['max'][0]
     print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
