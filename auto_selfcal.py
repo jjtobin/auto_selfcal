@@ -273,8 +273,8 @@ for target in all_targets:
 ## estimate per scan/EB S/N using time on source and median scan times
 ##
 get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants)
-for band in bands:
- for target in all_targets:
+for target in all_targets:
+ for band in selfcal_library[target].keys():
    print(target,band)
    print('Per Scan SNR: ',selfcal_library[target][band]['per_scan_SNR'])
    print('Per EB SNR: ',selfcal_library[target][band]['per_EB_SNR'])

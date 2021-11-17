@@ -488,7 +488,7 @@ def rank_refants(vis):
 
 def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant):
    for target in all_targets:
-    for band in bands:
+    for band in selfcal_library[target].keys():
       SNR_self_EB=np.zeros(len(vislist))
       for i in range(len(vislist)):
          SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
