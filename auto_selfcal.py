@@ -473,7 +473,7 @@ for target in all_targets:
 ##
 for target in all_targets:
  for band in selfcal_library[target].keys():
-   vislist=list(selfcal_library[target][band].keys())
+   vislist=selfcal_library[target][band]['vislist'].copy()
    if telescope=='ALMA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
    else:
