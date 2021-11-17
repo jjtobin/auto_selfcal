@@ -291,12 +291,19 @@ for target in all_targets:
 ##
 for target in all_targets:
   for band in selfcal_library[target].keys():
-   nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/15.0,5.0]) # restricts initial nsigma to be at least 5
+   dividing_factor=15.0
+   if band_properties[selfcal_library[target][band]['vislist'][0]][band]['meanfreq'] <8.0e9:
+      dividing_factor=40.0
+   else:
+      dividing_factor=15.0
+   nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
    #selfcal_library[target]['nsigma']=np.linspace(nsigma_init,3.0,len(solints))
    #logspace to reduce in nsigma more quickly
    selfcal_library[target][band]['nsigma']=10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band]))
-   if telescope=='ALMA':
+   if telescope=='ALMA' or ('VLA' in telescope):
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
+      if ('VLA' in telescope):
+         sensitivity=sensitivity*3.0 # empirical correction, VLA estimates for sensitivity have tended to be a factor of ~3 low
    else:
       sensitivity=0.0
    selfcal_library[target][band]['thresholds']=selfcal_library[target][band]['nsigma']*sensitivity
