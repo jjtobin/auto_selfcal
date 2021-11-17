@@ -2,8 +2,8 @@
 # get_sensitivity to properly weight the estimated sensitivity by the relative fraction of time on source
 # heuristics for switching between calonly and calflag
 # heuristics to switch from combine=spw to combine=''
-# telescope to argument to tclean wrapper and set defaults inside
-
+# account for targets that do not get obserbed with all bands in an MS remove bands with 0.0 TOS 
+# account for when nsigma is initially too large, (max initial nsigma?)
 import numpy as np
 from scipy import stats
 import glob
@@ -233,13 +233,22 @@ for target in all_targets:
 
 
 ##
+## 
+## 
+for target in all_targets:
+   for band in bands:
+      if selfcal_library[target][band]['Total_TOS'] == 0.0:
+         selfcal_library[target].pop(band)
+
+
+##
 ## create initial images for each target to evaluate SNR and beam
 ## replicates what a preceding hif_makeimages would do
 ## Enables before/after comparison and thresholds to be calculated
 ## based on the achieved S/N in the real data
 ##
 for target in all_targets:
- for band in bands:
+ for band in selfcal_library[target].keys():
    #make images using the appropriate tclean heuristics for each telescope
    if not os.path.exists(target+'_'+band+'_initial.image.tt0'):
       if telescope=='ALMA':
@@ -302,7 +311,8 @@ with open('selfcal_library.pickle', 'wb') as handle:
 ## Begin Self-cal loops
 ##
 for target in all_targets:
- for band in bands:
+ for band in selfcal_library[target].keys():
+   vislist=list(selfcal_library[target][band].keys())
    print('Starting selfcal procedure on: '+target+' '+band)
    for iteration in range(len(solints[band])):
       if iteration==0:
@@ -461,7 +471,8 @@ for target in all_targets:
 ## Make a final image per target to assess overall improvement
 ##
 for target in all_targets:
- for band in bands:
+ for band in selfcal_library[target].keys():
+   vislist=list(selfcal_library[target][band].keys())
    if telescope=='ALMA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
    else:
@@ -478,7 +489,7 @@ for target in all_targets:
 ## Print final results
 ##
 for target in all_targets:
- for band in bands:
+ for band in selfcal_library[target].keys():
    print(target+' '+band+' Summary')
    print('At least 1 successful selfcal iteration?: ', selfcal_library[target][band]['SC_success'])
    if selfcal_library[target][band]['SC_success']:
