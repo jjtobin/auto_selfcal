@@ -287,8 +287,8 @@ for target in all_targets:
 ### Peak S/N > 100; SNR/15 for first, successivly reduce to 3.0 sigma through each iteration?
 ### Peak S/N < 100; SNR/10.0 
 ##
-for band in bands:
- for target in all_targets:
+for target in all_targets:
+  for band in selfcal_library[target].keys():
    nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/15.0,5.0]) # restricts initial nsigma to be at least 5
    #selfcal_library[target]['nsigma']=np.linspace(nsigma_init,3.0,len(solints))
    #logspace to reduce in nsigma more quickly
