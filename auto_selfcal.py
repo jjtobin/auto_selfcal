@@ -210,6 +210,7 @@ for target in all_targets:
    selfcal_library[target][band]['final_solint']='None'
    selfcal_library[target][band]['Total_TOS']=0.0
    selfcal_library[target][band]['spws']=[]
+   selfcal_library[target][band]['vislist']=vislist.copy()
    allscantimes=np.array([])
    for vis in vislist:
       selfcal_library[target][band][vis]['gaintable']=[]
@@ -312,7 +313,7 @@ with open('selfcal_library.pickle', 'wb') as handle:
 ##
 for target in all_targets:
  for band in selfcal_library[target].keys():
-   vislist=list(selfcal_library[target][band].keys())
+   vislist=selfcal_library[target][band]['vislist'].copy()
    print('Starting selfcal procedure on: '+target+' '+band)
    for iteration in range(len(solints[band])):
       if iteration==0:
