@@ -24,7 +24,7 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
        smoothfactor=1.0
        noisethreshold=5.0
        lownoisethreshold=1.5    
-
+       pblimit=-0.1
     for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
         os.system('rm -rf '+ imagename + ext)
     tclean(vis= vis, 
