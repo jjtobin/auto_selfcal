@@ -857,7 +857,7 @@ def get_VLA_bands(vislist):
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwsttbring+''
+            observed_bands[vis][band]['spwstring']=spwstring+''
             observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
    bands_match=True
    for i in range(len(vislist)):
