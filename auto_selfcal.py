@@ -467,7 +467,7 @@ for target in all_targets:
             selfcal_library[target][band]['iteration']=iteration
             if (iteration == 0) and (selfcal_library[target][band][vis][solint]['SNR_post'] > selfcal_library[target][band]['SNR_orig']):
                print('Updating per-scan SNR was: ',selfcal_library[target][band]['per_scan_SNR'])
-               get_SNR_self_update([target],[band],selfcal_library,n_ant,solint)
+               get_SNR_self_update([target],[band],selfcal_library,n_ants,solint)
                print('Now: ',selfcal_library[target][band]['per_scan_SNR'])
                
             if iteration < (len(solints[band])-1):
