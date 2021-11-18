@@ -276,6 +276,8 @@ for target in all_targets:
    if not os.path.exists(target+'_'+band+'_initial.image.tt0'):
       if telescope=='ALMA' or telescope =='ACA':
          sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
+      if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+         sensitivity=sensitivity*2.0 
       else:
          sensitivity=0.0
       tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_initial',
@@ -322,6 +324,8 @@ for target in all_targets:
    selfcal_library[target][band]['nsigma']=10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band]))
    if telescope=='ALMA' or ('VLA' in telescope) or telescope =='ACA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
+      if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+         sensitivity=sensitivity*2.0 
       if ('VLA' in telescope):
          sensitivity=sensitivity*3.0 # empirical correction, VLA estimates for sensitivity have tended to be a factor of ~3 low
    else:
@@ -430,8 +434,6 @@ for target in all_targets:
          selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
          selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
          header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         selfcal_library[target][band][vis][solint]['SNR_post']=SNR.copy()
-         selfcal_library[target][band][vis][solint]['RMS_post']=RMS.copy()
          selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
          selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
          selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
@@ -463,7 +465,10 @@ for target in all_targets:
 
             selfcal_library[target][band]['final_solint']=solint
             selfcal_library[target][band]['iteration']=iteration
-
+            if (iteration == 0) and (selfcal_library[target][band][vis][solint]['SNR_post'] > selfcal_library[target][band]['SNR_orig']):
+               print('Updating per-scan 
+               get_SNR_self_update([target],[band],selfcal_library,n_ant,solint)
+               
             if iteration < (len(solints[band])-1):
                print('****************Selfcal passed, shortening solint*************')
             else:
@@ -508,6 +513,8 @@ for target in all_targets:
    vislist=selfcal_library[target][band]['vislist'].copy()
    if telescope=='ALMA' or telescope =='ACA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
+      if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+         sensitivity=sensitivity*2.0 
    else:
       sensitivity=0.0
    tclean_wrapper(vis=vislist,imagename=target+'_'+band+'_final',\
