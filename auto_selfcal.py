@@ -276,8 +276,8 @@ for target in all_targets:
    if not os.path.exists(target+'_'+band+'_initial.image.tt0'):
       if telescope=='ALMA' or telescope =='ACA':
          sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
-      if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-         sensitivity=sensitivity*2.0 
+         if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+            sensitivity=sensitivity*2.0 
       else:
          sensitivity=0.0
       tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_initial',
