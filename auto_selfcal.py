@@ -73,7 +73,7 @@ for band in bands:
      scantimesdict[band]=scantimesdict_temp.copy()
      integrationsdict[band]=integrationsdict_temp.copy()
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
-     if n_spws_temp -99:
+     if n_spws_temp == -99:
         for vis in vislist:
            band_properties[vis].pop(band)
            band_properties[vis]['bands'].remove(band)
@@ -144,7 +144,7 @@ for band in bands:
      scantimesdict[band]=scantimesdict_temp.copy()
      integrationsdict[band]=integrationsdict_temp.copy()
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
-     if n_spws_temp -99:
+     if n_spws_temp == -99:
         for vis in vislist:
            band_properties[vis].pop(band)
            band_properties[vis]['bands'].remove(band)
