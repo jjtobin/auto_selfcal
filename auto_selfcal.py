@@ -367,7 +367,7 @@ for target in all_targets:
                      telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['thresholds'][iteration])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band][vis]['spws'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'])
          print('Pre selfcal assessemnt: '+target)
          SNR,RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
          header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
@@ -424,11 +424,11 @@ for target in all_targets:
          tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                   telescope=telescope,scales=[0], nsigma=0.0,\
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
-                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band][vis]['spws'])
+                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'])
          print('Post selfcal assessemnt: '+target)
          post_SNR,post_RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         selfcal_library[target][band][vis][solint]['SNR_post']=SNR.copy()
-         selfcal_library[target][band][vis][solint]['RMS_post']=RMS.copy()
+         selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
+         selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
          header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          selfcal_library[target][band][vis][solint]['SNR_post']=SNR.copy()
          selfcal_library[target][band][vis][solint]['RMS_post']=RMS.copy()
@@ -513,7 +513,7 @@ for target in all_targets:
    tclean_wrapper(vis=vislist,imagename=target+'_'+band+'_final',\
                telescope=telescope,nsigma=3.0, threshold=str(sensitivity*3.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-               nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band][vis]['spws'])
+               nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'])
    final_SNR,final_RMS=estimate_SNR(target+'_'+band+'_final.image.tt0')
    selfcal_library[target][band]['SNR_final']=final_SNR
    selfcal_library[target][band]['RMS_final']=final_RMS
