@@ -183,11 +183,14 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          #assume each band only has a single integration time
          integrationtimesdict[vis][target]=np.median(integrationtime)
          integrationsdict[vis][target]=integrations.copy()
-   if np.mean(n_spws) != np.max(n_spws):
-      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
-   if np.max(min_spws) != np.min(min_spws):
-      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
-   spwslist=np.unique(spwslist).astype(int)
+   if len(n_spws) > 0:
+      if np.mean(n_spws) != np.max(n_spws):
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+      if np.max(min_spws) != np.min(min_spws):
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+      spwslist=np.unique(spwslist).astype(int)
+   else:
+     return listdict,scantimesdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist 
    return listdict,scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
 
 
