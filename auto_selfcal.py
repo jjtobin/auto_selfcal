@@ -59,7 +59,7 @@ spwstring=','.join(str(spw) for spw in spwslist)
 if 'VLA' in telescope:
   bands,band_properties=get_VLA_bands(vislist)
 
-if telescope=='ALMA':
+if telescope=='ALMA' or telescope =='ACA':
   bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
 
 listdict={}
@@ -125,7 +125,7 @@ spwstring=','.join(str(spw) for spw in spwslist)
 if 'VLA' in telescope:
   bands,band_properties=get_VLA_bands(vislist)
 
-if telescope=='ALMA':
+if telescope=='ALMA' or telescope =='ACA':
   bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
 
 listdict={}
@@ -253,7 +253,7 @@ for target in all_targets:
  for band in selfcal_library[target].keys():
    #make images using the appropriate tclean heuristics for each telescope
    if not os.path.exists(target+'_'+band+'_initial.image.tt0'):
-      if telescope=='ALMA':
+      if telescope=='ALMA' or telescope =='ACA':
          sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       else:
          sensitivity=0.0
@@ -299,7 +299,7 @@ for target in all_targets:
    #selfcal_library[target]['nsigma']=np.linspace(nsigma_init,3.0,len(solints))
    #logspace to reduce in nsigma more quickly
    selfcal_library[target][band]['nsigma']=10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band]))
-   if telescope=='ALMA' or ('VLA' in telescope):
+   if telescope=='ALMA' or ('VLA' in telescope) or telescope =='ACA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       if ('VLA' in telescope):
          sensitivity=sensitivity*3.0 # empirical correction, VLA estimates for sensitivity have tended to be a factor of ~3 low
@@ -485,7 +485,7 @@ for target in all_targets:
 for target in all_targets:
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
-   if telescope=='ALMA':
+   if telescope=='ALMA' or telescope =='ACA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
    else:
       sensitivity=0.0
