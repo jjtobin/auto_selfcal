@@ -45,8 +45,7 @@ gaincal_minsnr=2.0
 minsnr_to_proceed=3.0
 delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
-visheader=vishead(vislist[0],mode='list',listitems=[])
-telescope=visheader['telescope'][0][0]
+telescope=get_telescope(vislist[0])
 apply_cal_mode_default='calflag'
 
 

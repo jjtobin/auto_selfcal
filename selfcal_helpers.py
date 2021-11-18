@@ -19,6 +19,12 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
        noisethreshold=5.0
        lownoisethreshold=1.5
        nsigma=0.0
+    if telescope=='ACA':
+       sidelobethreshold=1.25
+       smoothfactor=1.0
+       noisethreshold=5.0
+       lownoisethreshold=2.0
+       nsigma=0.0
     elif 'VLA' in telescope:
        sidelobethreshold=2.0
        smoothfactor=1.0
@@ -849,7 +855,7 @@ def get_VLA_bands(vislist):
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwstring+''
+            observed_bands[vis][band]['spwstring']=spwsttbring+''
             observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
    bands_match=True
    for i in range(len(vislist)):
@@ -864,6 +870,15 @@ def get_VLA_bands(vislist):
 
 
 
-
+def get_telescope(vis):
+   visheader=vishead(vis,mode='list',listitems=[])
+   telescope=visheader['telescope'][0][0]
+   if telescope == 'ALMA':
+      tb.open(vis+'/ANTENNA')
+      ant_diameter=np.unique(tb.getcol('DISH_DIAMETER'))[0]
+      if ant_diameter==7.0:
+         telescope='ACA'
+   return telescope
+      
 
 
