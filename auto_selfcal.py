@@ -466,8 +466,9 @@ for target in all_targets:
             selfcal_library[target][band]['final_solint']=solint
             selfcal_library[target][band]['iteration']=iteration
             if (iteration == 0) and (selfcal_library[target][band][vis][solint]['SNR_post'] > selfcal_library[target][band]['SNR_orig']):
-               print('Updating per-scan 
+               print('Updating per-scan SNR was: ',selfcal_library[target][band]['per_scan_SNR'])
                get_SNR_self_update([target],[band],selfcal_library,n_ant,solint)
+               print('Now: ',selfcal_library[target][band]['per_scan_SNR'])
                
             if iteration < (len(solints[band])-1):
                print('****************Selfcal passed, shortening solint*************')
