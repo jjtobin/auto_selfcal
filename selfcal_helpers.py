@@ -721,6 +721,8 @@ def get_image_parameters(vislist,telescope,band,band_properties):
       nterms=2
    if 'VLA' in telescope:
       fov=45.0e9/band_properties[vislist[0]][band]['meanfreq']*60.0*1.5
+      if band_properties[vislist[0]][band]['meanfreq'] < 12.0e9:
+         fov=fov*2.0
    if telescope=='ALMA':
       fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
    if telescope=='ACA':
@@ -871,7 +873,7 @@ def get_VLA_bands(vislist):
    if not bands_match:
      print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
    
-   return observed_bands[vislist[0]]['bands'],observed_bands
+   return observed_bands[vislist[0]]['bands'].copy(),observed_bands
 
 
 

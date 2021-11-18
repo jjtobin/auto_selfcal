@@ -66,7 +66,9 @@ listdict={}
 scantimesdict={}
 integrationsdict={}
 integrationtimesdict={}
+bands_to_remove=[]
 for band in bands:
+     print(band)
      listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
      integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
      listdict[band]=listdict_temp.copy
@@ -77,8 +79,12 @@ for band in bands:
         for vis in vislist:
            band_properties[vis].pop(band)
            band_properties[vis]['bands'].remove(band)
+           bands_to_remove.append(band)
+           print('Removing '+band+' bands from list due to no observations')
 
-
+if len(bands_to_remove) > 0:
+   for delband in bands_to_remove:
+      bands.remove(delband)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
@@ -138,6 +144,7 @@ scantimesdict={}
 integrationsdict={}
 integrationtimesdict={}
 for band in bands:
+     print(band)
      listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
      integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
      listdict[band]=listdict_temp.copy
@@ -148,6 +155,11 @@ for band in bands:
         for vis in vislist:
            band_properties[vis].pop(band)
            band_properties[vis]['bands'].remove(band)
+           print('Removing '+band+' bands from list due to no observations')
+
+if len(bands_to_remove) > 0:
+   for delband in bands_to_remove:
+      bands.remove(delband)
 
 ##
 ## set image parameters based on the visibility data properties and frequency
