@@ -351,9 +351,6 @@ for target in all_targets:
          print('Pre selfcal assessemnt: '+target)
          SNR,RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
          header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
-         b_maj_pre=header['restoringbeam']['major']['value']
-         b_min_pre=header['restoringbeam']['minor']['value']
-         b_pa_pre=header['restoringbeam']['positionangle']['value'] 
 
          if iteration == 0:
             gaintables={}
@@ -388,6 +385,9 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]={}
             selfcal_library[target][band][vis][solint]['SNR_pre']=SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_pre']=RMS.copy()
+            selfcal_library[target][band][vis][solint]['Beam_major_pre']=header['restoringbeam']['major']['value']
+            selfcal_library[target][band][vis][solint]['Beam_minor_pre']=header['restoringbeam']['minor']['value']
+            selfcal_library[target][band][vis][solint]['Beam_PA_pre']=header['restoringbeam']['positionangle']['value'] 
             selfcal_library[target][band][vis][solint]['gaintable']=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g'
             selfcal_library[target][band][vis][solint]['iteration']=iteration+0
             selfcal_library[target][band][vis][solint]['flags']='selfcal_'+target+'_'+band+'_'+solint
@@ -410,21 +410,24 @@ for target in all_targets:
          selfcal_library[target][band][vis][solint]['SNR_post']=SNR.copy()
          selfcal_library[target][band][vis][solint]['RMS_post']=RMS.copy()
          header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         b_maj_post=header['restoringbeam']['major']['value']
-         b_min_post=header['restoringbeam']['minor']['value']
-         b_pa_post=header['restoringbeam']['positionangle']['value'] 
+         selfcal_library[target][band][vis][solint]['SNR_post']=SNR.copy()
+         selfcal_library[target][band][vis][solint]['RMS_post']=RMS.copy()
+         selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
+         selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
+         selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
+
 
          ##
          ## compare beam relative to original image to ensure we are not incrementally changing the beam in each iteration
          ##
-         beamarea_pre=selfcal_library[target][band]['Beam_major_orig']*selfcal_library[target][band]['Beam_minor_orig']
-         beamarea_post=b_maj_post*b_min_post
+         beamarea_orig=selfcal_library[target][band]['Beam_major_orig']*selfcal_library[target][band]['Beam_minor_orig']
+         beamarea_post=selfcal_library[target][band][vis][solint]['Beam_major_post']*selfcal_library[target][band][vis][solint]['Beam_minor_post']
          '''
          frac_delta_b_maj=np.abs((b_maj_post-selfcal_library[target]['Beam_major_orig'])/selfcal_library[target]['Beam_major_orig'])
          frac_delta_b_min=np.abs((b_min_post-selfcal_library[target]['Beam_minor_orig'])/selfcal_library[target]['Beam_minor_orig'])
          delta_b_pa=np.abs((b_pa_post-selfcal_library[target]['Beam_PA_orig']))
          '''
-         delta_beamarea=(beamarea_post-beamarea_pre)/beamarea_pre
+         delta_beamarea=(beamarea_post-beamarea_orig)/beamarea_orig
          ## 
          ## if S/N improvement, and beamarea is changing by < delta_beam_thresh, accept solutions to main calibration dictionary
          ##
