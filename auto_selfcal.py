@@ -405,6 +405,8 @@ for target in all_targets:
                   niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band][vis]['spws'])
          print('Post selfcal assessemnt: '+target)
          post_SNR,post_RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+         selfcal_library[target][band][vis][solint]['SNR_post']=SNR.copy()
+         selfcal_library[target][band][vis][solint]['RMS_post']=RMS.copy()
          header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          b_maj_post=header['restoringbeam']['major']['value']
          b_min_post=header['restoringbeam']['minor']['value']
@@ -436,8 +438,6 @@ for target in all_targets:
 
             selfcal_library[target][band]['final_solint']=solint
             selfcal_library[target][band]['iteration']=iteration
-            selfcal_library[target][band]['SNR_post']=post_SNR.copy()
-            selfcal_library[target][band]['RMS_post']=post_RMS.copy()
 
             if iteration < (len(solints[band])-1):
                print('****************Selfcal passed, shortening solint*************')
