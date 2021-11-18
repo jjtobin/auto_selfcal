@@ -490,10 +490,10 @@ def rank_refants(vis):
 
      # Print out the antenna scores.
 
-     print("Scores for "+vis)
-     for i in numpy.argsort(score):
-         print(names[i], score[i])
-
+     print("Refant list for "+vis)
+     #for i in numpy.argsort(score):
+     #    print(names[i], score[i])
+     print(','.join(numpy.array(names)[numpy.argsort(score)]))
      # Return the antenna names sorted by score.
 
      return ','.join(numpy.array(names)[numpy.argsort(score)])
