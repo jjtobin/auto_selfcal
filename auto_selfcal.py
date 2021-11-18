@@ -11,10 +11,12 @@ execfile('selfcal_helpers.py',globals())
 
 
 ###################################################################################################
-######################## All this stuff is basically jumping through hoops ########################
+######################## All code until line ~170 is just jumping through hoops ###################
 ######################## to get at metadata pipeline should have in the context ###################
+#################### And it will do flagging of lines and/or spectral averaging ###################
 ######################## Some of this code is not elegant nor efficient ###########################
 ###################################################################################################
+
 ##
 ## Get list of MS files in directory
 ##
