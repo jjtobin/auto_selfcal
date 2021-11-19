@@ -510,10 +510,9 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant):
      
       selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
 
-def get_SNR_self_update(all_targets,bands,selfcal_library,n_ant,solint):
+def get_SNR_self_update(all_targets,bands,vislist,selfcal_library,n_ant,solint):
    for target in all_targets:
-    for band in selfcal_library[target].keys():
-      selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band][solint]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
+      selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band][vislist[0]][solint]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
 
 
 

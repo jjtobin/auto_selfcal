@@ -2,8 +2,10 @@
 # get_sensitivity to properly weight the estimated sensitivity by the relative fraction of time on source
 # heuristics for switching between calonly and calflag
 # heuristics to switch from combine=spw to combine=''
-# account for targets that do not get obserbed with all bands in an MS remove bands with 0.0 TOS 
 # account for when nsigma is initially too large, (max initial nsigma?)
+# switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
+#    in the per vis level instead of per solint
+
 import numpy as np
 from scipy import stats
 import glob
@@ -431,19 +433,20 @@ for target in all_targets:
                   niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'])
          print('Post selfcal assessemnt: '+target)
          post_SNR,post_RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
-         selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
-         header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
-         selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
-         selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
+         for vis in vislist:
+            selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
+            selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
+            header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+            selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
+            selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
+            selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
 
 
          ##
          ## compare beam relative to original image to ensure we are not incrementally changing the beam in each iteration
          ##
          beamarea_orig=selfcal_library[target][band]['Beam_major_orig']*selfcal_library[target][band]['Beam_minor_orig']
-         beamarea_post=selfcal_library[target][band][vis][solint]['Beam_major_post']*selfcal_library[target][band][vis][solint]['Beam_minor_post']
+         beamarea_post=selfcal_library[target][band][vislist[0]][solint]['Beam_major_post']*selfcal_library[target][band][vislist[0]][solint]['Beam_minor_post']
          '''
          frac_delta_b_maj=np.abs((b_maj_post-selfcal_library[target]['Beam_major_orig'])/selfcal_library[target]['Beam_major_orig'])
          frac_delta_b_min=np.abs((b_min_post-selfcal_library[target]['Beam_minor_orig'])/selfcal_library[target]['Beam_minor_orig'])
@@ -467,7 +470,7 @@ for target in all_targets:
             selfcal_library[target][band]['iteration']=iteration
             if (iteration == 0) and (selfcal_library[target][band][vis][solint]['SNR_post'] > selfcal_library[target][band]['SNR_orig']):
                print('Updating per-scan SNR was: ',selfcal_library[target][band]['per_scan_SNR'])
-               get_SNR_self_update([target],[band],selfcal_library,n_ants,solint)
+               get_SNR_self_update([target],[band],vislist,selfcal_library,n_ants,solint)
                print('Now: ',selfcal_library[target][band]['per_scan_SNR'])
                
             if iteration < (len(solints[band])-1):
