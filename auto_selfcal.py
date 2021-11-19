@@ -275,9 +275,21 @@ for target in all_targets:
 for target in all_targets:
  for band in selfcal_library[target].keys():
    #make images using the appropriate tclean heuristics for each telescope
+   if not os.path.exists(target+'_'+band+'_dirty.image.tt0'):
+      tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_dirty',
+                     telescope=telescope,nsigma=3.0, scales=[0],
+                     threshold='0.0Jy',niter=0,
+                     savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'])
+   dirty_SNR,dirty_RMS=estimate_SNR(target+'_'+band+'_dirty.image.tt0')
+   dr_mod=1.0
+   if telescope =='ALMA' or telescope =='ACA':
+      sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
+      dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
+      print('DR modifier: ',dr_mod)
    if not os.path.exists(target+'_'+band+'_initial.image.tt0'):
       if telescope=='ALMA' or telescope =='ACA':
-         sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
+         sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])*dr_mod
          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
             sensitivity=sensitivity*4.0 
       else:
@@ -286,7 +298,7 @@ for target in all_targets:
                      telescope=telescope,nsigma=3.0, scales=[0],
                      threshold=str(sensitivity*3.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band][vis]['spws'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'])
    initial_SNR,initial_RMS=estimate_SNR(target+'_'+band+'_initial.image.tt0')
    header=imhead(imagename=target+'_'+band+'_initial.image.tt0')
    selfcal_library[target][band]['SNR_orig']=initial_SNR
@@ -524,6 +536,7 @@ for target in all_targets:
 for target in all_targets:
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
+   ## omit DR modifiers here since we should have increased DR significantly
    if telescope=='ALMA' or telescope =='ACA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase

@@ -894,5 +894,51 @@ def get_telescope(vis):
          telescope='ACA'
    return telescope
       
+def get_dr_correction(telescope,dirty_peak,theoretical_sens,vislist):
+   dirty_dynamic_range=dirty_peak/theoretical_sens
+   n_dr=1.0
+   if telescope=='ALMA':
+      if dirty_dynamic_range > 150.:
+                    maxSciEDR = 150.0
+                    new_threshold = max(n_dr_max * theoretical_sens, residual_max / maxSciEDR * tlimit)
+      else:
+                    if dirty_dynamic_range > 100.:
+                        n_dr = 2.5
+                    elif 50. < dirty_dynamic_range <= 100.:
+                        n_dr = 2.0
+                    elif 20. < dirty_dynamic_range <= 50.:
+                        n_dr = 1.5
+                    elif dirty_dynamic_range <= 20.:
+                        n_dr = 1.0
+   if telescope=='ACA':
+      numberEBs = len(vislist)
+      if numberEBs == 1:
+         # single-EB 7m array datasets have limited dynamic range
+         maxSciEDR = 30
+         dirtyDRthreshold = 30
+         n_dr_max = 2.5
+      else:
+         # multi-EB 7m array datasets will have better dynamic range and can be cleaned somewhat deeper
+         maxSciEDR = 55
+         dirtyDRthreshold = 75
+         n_dr_max = 3.5
 
+      if dirty_dynamic_range > dirtyDRthreshold:
+         new_threshold = max(n_dr_max * old_threshold, residual_max / maxSciEDR * tlimit)
+         n_dr_effective = new_threshold / old_threshold
+      else:
+         if dirty_dynamic_range > 40.:
+            n_dr = 3.0
+         elif dirty_dynamic_range > 20.:
+            n_dr = 2.5
+         elif 10. < dirty_dynamic_range <= 20.:
+            n_dr = 2.0
+         elif 4. < dirty_dynamic_range <= 10.:
+            n_dr = 1.5
+         elif dirty_dynamic_range <= 4.:
+            n_dr = 1.0
+
+
+
+   return n_dr
 
