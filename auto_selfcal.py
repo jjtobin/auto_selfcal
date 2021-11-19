@@ -291,6 +291,7 @@ for target in all_targets:
    header=imhead(imagename=target+'_'+band+'_initial.image.tt0')
    selfcal_library[target][band]['SNR_orig']=initial_SNR
    selfcal_library[target][band]['RMS_orig']=initial_RMS
+   selfcal_library[target][band]['RMS_curr']=initial_RMS
    selfcal_library[target][band]['Beam_major_orig']=header['restoringbeam']['major']['value']
    selfcal_library[target][band]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
    selfcal_library[target][band]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
@@ -313,6 +314,9 @@ for target in all_targets:
 ### Peak S/N > 100; SNR/15 for first, successivly reduce to 3.0 sigma through each iteration?
 ### Peak S/N < 100; SNR/10.0 
 ##
+## Switch to a sensitivity for low frequency that is based on the residuals of the initial image for the
+# first couple rounds and then switch to straight nsigma? Determine based on fraction of pixels that the # initial mask covers to judge very extended sources?
+
 for target in all_targets:
   for band in selfcal_library[target].keys():
    dividing_factor=15.0
@@ -368,10 +372,12 @@ for target in all_targets:
          os.system('rm -rf '+target+'_'+band+'_'+solint+'_'+str(iteration)+'*')
          ##
          ## make images using the appropriate tclean heuristics for each telescope
+         ## set threshold based on RMS of initial image and lower if value becomes lower
+         ## during selfcal by resetting 'RMS_curr' after the post-applycal evaluation
          ##
          tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_'+solint+'_'+str(iteration),
                      telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                     threshold=str(selfcal_library[target][band]['thresholds'][iteration])+'Jy',
+                     threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'])
          print('Pre selfcal assessemnt: '+target)
@@ -436,6 +442,9 @@ for target in all_targets:
          for vis in vislist:
             selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
+            ## Update RMS value if necessary
+            if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr']:
+               selfcal_library[target][band]['RMS_curr']=selfcal_library[target][band][vis][solint]['RMS_post'].copy()
             header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
             selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
             selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
