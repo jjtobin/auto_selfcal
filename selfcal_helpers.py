@@ -896,11 +896,14 @@ def get_telescope(vis):
       
 def get_dr_correction(telescope,dirty_peak,theoretical_sens,vislist):
    dirty_dynamic_range=dirty_peak/theoretical_sens
+   n_dr_max=2.5
    n_dr=1.0
+   tlimit=2.0
    if telescope=='ALMA':
       if dirty_dynamic_range > 150.:
                     maxSciEDR = 150.0
-                    new_threshold = max(n_dr_max * theoretical_sens, residual_max / maxSciEDR * tlimit)
+                    new_threshold = np.max([n_dr_max * theoretical_sens, dirty_peak / maxSciEDR * tlimit])
+                    n_dr=new_threshold/theoretical_sens
       else:
                     if dirty_dynamic_range > 100.:
                         n_dr = 2.5
@@ -924,8 +927,8 @@ def get_dr_correction(telescope,dirty_peak,theoretical_sens,vislist):
          n_dr_max = 3.5
 
       if dirty_dynamic_range > dirtyDRthreshold:
-         new_threshold = max(n_dr_max * old_threshold, residual_max / maxSciEDR * tlimit)
-         n_dr_effective = new_threshold / old_threshold
+         new_threshold = np.max([n_dr_max * theoretical_sens, dirty_peak / maxSciEDR * tlimit])
+         n_dr=new_threshold/theoretical_sens
       else:
          if dirty_dynamic_range > 40.:
             n_dr = 3.0
