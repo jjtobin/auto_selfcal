@@ -279,7 +279,7 @@ for target in all_targets:
       if telescope=='ALMA' or telescope =='ACA':
          sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-            sensitivity=sensitivity*2.0 
+            sensitivity=sensitivity*4.0 
       else:
          sensitivity=0.0
       tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_initial',
@@ -324,12 +324,12 @@ for target in all_targets:
    #selfcal_library[target]['nsigma']=np.linspace(nsigma_init,3.0,len(solints))
    #logspace to reduce in nsigma more quickly
    selfcal_library[target][band]['nsigma']=10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band]))
-   if telescope=='ALMA' or ('VLA' in telescope) or telescope =='ACA':
+   if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-         sensitivity=sensitivity*2.0 
+         sensitivity=sensitivity*4.0 
       if ('VLA' in telescope):
-         sensitivity=sensitivity*3.0 # empirical correction, VLA estimates for sensitivity have tended to be a factor of ~3 low
+         sensitivity=sensitivity*0.0 # empirical correction, VLA estimates for sensitivity have tended to be a factor of ~3 low
    else:
       sensitivity=0.0
    selfcal_library[target][band]['thresholds']=selfcal_library[target][band]['nsigma']*sensitivity
@@ -518,7 +518,7 @@ for target in all_targets:
    if telescope=='ALMA' or telescope =='ACA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-         sensitivity=sensitivity*2.0 
+         sensitivity=sensitivity*4.0 
    else:
       sensitivity=0.0
    tclean_wrapper(vis=vislist,imagename=target+'_'+band+'_final',\
