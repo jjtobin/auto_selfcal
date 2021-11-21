@@ -291,7 +291,7 @@ for target in all_targets:
       if telescope=='ALMA' or telescope =='ACA':
          sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])*dr_mod
          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-            sensitivity=sensitivity*4.0 
+            sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
       else:
          sensitivity=0.0
       tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_initial',
@@ -529,6 +529,10 @@ for target in all_targets:
             break # breakout of loops of successive solints since solutions are getting worse
 
 
+##
+## If we want to try amplitude selfcal, should we do it as a function out of the main loop or a separate loop?
+## Mechanics are likely to be a bit more simple since I expect we'd only try a single solint=inf solution
+##
 
 ##
 ## Make a final image per target to assess overall improvement
