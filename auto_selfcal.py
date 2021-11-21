@@ -229,11 +229,12 @@ for band in bands:
 ##
 for target in all_targets:
  for band in bands:
-   print(target)
+   print(target, band)
    selfcal_library[target][band]['SC_success']=False
    selfcal_library[target][band]['final_solint']='None'
    selfcal_library[target][band]['Total_TOS']=0.0
    selfcal_library[target][band]['spws']=[]
+   selfcal_library[target][band]['spws_per_vis']=[]
    selfcal_library[target][band]['vislist']=vislist.copy()
    allscantimes=np.array([])
    for vis in vislist:
@@ -253,7 +254,7 @@ for target in all_targets:
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
       selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
       selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
-      selfcal_library[target][band]['spws_per_vis']=selfcal_library[target][band]['spws'].append([band_properties[vis][band]['spwstring']])
+      selfcal_library[target][band]['spws_per_vis']=selfcal_library[target][band]['spws_per_vis'].append([band_properties[vis][band]['spwstring']])
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
 
 
