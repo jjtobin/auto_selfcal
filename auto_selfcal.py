@@ -523,9 +523,10 @@ for target in all_targets:
                           applymode=applycal_mode[band][selfcal_library[target][band]['iteration']],field=target,spw=selfcal_library[target][band][vis]['spws'])    
             else:            
                print('****************Removing all calibrations for '+target+'**************')
-               clearcal(vis=vis,field=target)
-               selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
-               selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
+               for vis in vislist:
+                  clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
+                  selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
+                  selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
             print('****************Aborting further self-calibration attempts for '+target+'**************')
             break # breakout of loops of successive solints since solutions are getting worse
 
