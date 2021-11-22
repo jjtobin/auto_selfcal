@@ -257,6 +257,7 @@ for target in all_targets:
       selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
       selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
+   selfcal_library[target][band]['uvrange']=get_uv_range(band,band_properties,vislist)
 
 
 ##
@@ -282,7 +283,7 @@ for target in all_targets:
                      telescope=telescope,nsigma=3.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
    dirty_SNR,dirty_RMS=estimate_SNR(target+'_'+band+'_dirty.image.tt0')
    dr_mod=1.0
    if telescope =='ALMA' or telescope =='ACA':
@@ -300,7 +301,7 @@ for target in all_targets:
                      telescope=telescope,nsigma=3.0, scales=[0],
                      threshold=str(sensitivity*3.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
    initial_SNR,initial_RMS=estimate_SNR(target+'_'+band+'_initial.image.tt0')
    header=imhead(imagename=target+'_'+band+'_initial.image.tt0')
    selfcal_library[target][band]['SNR_orig']=initial_SNR
@@ -393,7 +394,7 @@ for target in all_targets:
                      telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
          print('Pre selfcal assessemnt: '+target)
          SNR,RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
          header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
@@ -411,7 +412,7 @@ for target in all_targets:
             gaincal(vis=vis,\
                     caltable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
                     gaintype='T', spw=selfcal_library[target][band][vis]['spws'],refant=selfcal_library[target][band][vis]['refant'], calmode='p', solint=solint.replace('_EB',''),\
-                    minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],field=target,gaintable='',spwmap='') 
+                    minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],field=target,gaintable='',spwmap='',uvrange=selfcal_library[target][band]['uvrange']) 
                     # for simplicity don't do incremental solutions,gaintable=gaintables[vis],spwmap=spwmaps[vis])
          for vis in vislist:
             if os.path.exists(vis+".flagversions/flags.selfcal_"+target+'_'+band+'_'+solint):
@@ -450,7 +451,7 @@ for target in all_targets:
          tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                   telescope=telescope,scales=[0], nsigma=0.0,\
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
-                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'])
+                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
          print('Post selfcal assessemnt: '+target)
          post_SNR,post_RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          for vis in vislist:
@@ -553,7 +554,7 @@ for target in all_targets:
    tclean_wrapper(vis=vislist,imagename=target+'_'+band+'_final',\
                telescope=telescope,nsigma=3.0, threshold=str(sensitivity*3.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-               nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'])
+               nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
    final_SNR,final_RMS=estimate_SNR(target+'_'+band+'_final.image.tt0')
    selfcal_library[target][band]['SNR_final']=final_SNR
    selfcal_library[target][band]['RMS_final']=final_RMS

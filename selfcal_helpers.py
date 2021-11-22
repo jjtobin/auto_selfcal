@@ -879,7 +879,7 @@ def get_VLA_bands(vislist):
             bands_match=False
    if not bands_match:
      print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
-   
+   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
    return observed_bands[vislist[0]]['bands'].copy(),observed_bands
 
 
@@ -940,8 +940,54 @@ def get_dr_correction(telescope,dirty_peak,theoretical_sens,vislist):
             n_dr = 1.5
          elif dirty_dynamic_range <= 4.:
             n_dr = 1.0
-
-
-
    return n_dr
+
+
+def get_baseline_dist(vis):
+     # Get the antenna names and offsets.
+
+     msmd = casatools.msmetadata()
+
+     msmd.open(vis)
+     names = msmd.antennanames()
+     offset = [msmd.antennaoffset(name) for name in names]
+     msmd.close()
+     baselines=np.array([])
+     for i in range(len(offset)):
+        for j in range(i+1,len(offset)):
+           baseline = numpy.sqrt((offset[i]["longitude offset"]['value'] -\
+             offset[j]["longitude offset"]['value'])**2 + (offset[i]["latitude offset"]\
+             ['value'] - offset[j]["latitude offset"]['value'])**2)
+           
+           baselines=np.append(baselines,np.array([baseline]))
+     return baselines
+
+
+
+def get_max_uvdist(vislist,bands,band_properties):
+   for band in bands:   
+      all_baselines=np.array([])
+      for vis in vislist:
+         baselines=get_baseline_dist(vis)
+         all_baselines=np.append(all_baselines,baselines)
+      max_baseline=np.max(all_baselines)
+      meanlam=3.0e8/band_properties[vis][band]['meanfreq']
+      max_uv_dist=max_baseline/meanlam/1000.0
+      band_properties[vis][band]['maxuv']=max_uv_dist
+
+def get_uv_range(band,band_properties,vislist):
+   if (band == 'EVLA_C') or (band == 'EVLA_X') or (band == 'EVLA_S') or (band == 'EVLA_L'):
+      n_vis=len(vislist)
+      mean_max_uv=0.0
+      for vis in vislist:
+         mean_max_uv+=band_properties[vis][band]['maxuv']
+      mean_max_uv=mean_max_uv/float(n_vis)
+      min_uv=0.05*mean_max_uv
+      uvrange='>{:0.2f}klambda'.format(min_uv)
+   else:
+      uvrange=''
+   return uvrange
+
+
+
 
