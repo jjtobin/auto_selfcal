@@ -5,6 +5,7 @@
 # account for when nsigma is initially too large, (max initial nsigma?)
 # switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
 #    in the per vis level instead of per solint
+# save a master listobs dictionary to avoid so many listobs calls
 
 import numpy as np
 from scipy import stats
