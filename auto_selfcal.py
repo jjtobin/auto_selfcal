@@ -2,7 +2,6 @@
 # get_sensitivity to properly weight the estimated sensitivity by the relative fraction of time on source
 # heuristics for switching between calonly and calflag
 # heuristics to switch from combine=spw to combine=''
-# account for when nsigma is initially too large, (max initial nsigma?)
 # switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
 #    in the per vis level instead of per solint
 # save a master listobs dictionary to avoid so many listobs calls
@@ -258,7 +257,7 @@ for target in all_targets:
       selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
    selfcal_library[target][band]['uvrange']=get_uv_range(band,band_properties,vislist)
-
+   print(selfcal_library[target][band]['uvrange'])
 
 ##
 ## 
@@ -516,7 +515,7 @@ for target in all_targets:
             if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round
                print('****************Reapplying previous solint solutions*************')
                for vis in vislist:
-                  print('****************Applying '+selfcal_library[target][band][vis]['gaintable']+' to '+target+'*************')
+                  print('****************Applying '+selfcal_library[target][band][vis]['gaintable']+' to '+target+' '+band+'*************')
                   flagmanager(vis=vis,mode='restore',versionname=selfcal_library[target][band][vis]['flags'])
                   applycal(vis=vis,\
                           gaintable=selfcal_library[target][band][vis]['gaintable'],\
@@ -524,12 +523,12 @@ for target in all_targets:
                           calwt=True,spwmap=[selfcal_library[target][band][vis]['spwmap']],\
                           applymode=applycal_mode[band][selfcal_library[target][band]['iteration']],field=target,spw=selfcal_library[target][band][vis]['spws'])    
             else:            
-               print('****************Removing all calibrations for '+target+'**************')
+               print('****************Removing all calibrations for '+target+' '+band+'**************')
                for vis in vislist:
                   clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
                   selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                   selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
-            print('****************Aborting further self-calibration attempts for '+target+'**************')
+            print('****************Aborting further self-calibration attempts for '+target+' '+band+'**************')
             break # breakout of loops of successive solints since solutions are getting worse
 
 
