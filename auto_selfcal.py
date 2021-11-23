@@ -110,7 +110,7 @@ for vis in vislist:
     spwstring=''
     chan_widths=[]
     if spectral_average:
-       for band in band_properties[vis]['bands']:
+       for band in bands:
           desiredWidth=get_desired_width(band_properties[vis][band]['meanfreq'])
           print(band,desiredWidth)
           band_properties[vis][band]['chan_widths']=get_spw_chanavg(vis,get_spw_chanwidths(vis,band_properties[vis][band]['spwarray']),desiredWidth=desiredWidth)
