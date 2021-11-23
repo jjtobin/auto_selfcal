@@ -103,8 +103,14 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
                  phasecenter=phasecenter,spw=spw)
     
 
-def fetch_scan_times(vislist,targets):
+
+def collect_listobs_per_vis(vislist):
    listdict={}
+   for vis in vislist:
+      listdict[vis]=listobs(vis)
+   return listdict
+
+def fetch_scan_times(vislist,targets,listdict):
    scantimesdict={}
    integrationsdict={}
    integrationtimesdict={}
@@ -113,7 +119,6 @@ def fetch_scan_times(vislist,targets):
    min_spws=np.array([])
    spwslist=np.array([])
    for vis in vislist:
-      listdict[vis]=listobs(vis)
       scantimesdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
@@ -145,10 +150,9 @@ def fetch_scan_times(vislist,targets):
    if np.max(min_spws) != np.min(min_spws):
       print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
    spwslist=np.unique(spwslist).astype(int)
-   return listdict,scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
 
-def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
-   listdict={}
+def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
    scantimesdict={}
    integrationsdict={}
    integrationtimesdict={}
@@ -157,7 +161,6 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    min_spws=np.array([])
    spwslist=np.array([])
    for vis in vislist:
-      listdict[vis]=listobs(vis)
       scantimesdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
@@ -191,12 +194,11 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
       spwslist=np.unique(spwslist).astype(int)
    else:
-     return listdict,scantimesdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist 
-   return listdict,scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
+     return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist 
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
 
 
-def fetch_spws(vislist,targets):
-   listdict={}
+def fetch_spws(vislist,targets,listdict):
    scantimesdict={}
    n_spws=np.array([])
    min_spws=np.array([])
@@ -220,13 +222,12 @@ def fetch_spws(vislist,targets):
          print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
    spwslist=np.unique(spwslist).astype(int)
    if len(n_spws) == 1:
-      return listdict,n_spws,min_spws,spwslist
+      return n_spws,min_spws,spwslist
    else:
-      return listdict,np.max(n_spws),np.min(min_spws),spwslist
+      return np.max(n_spws),np.min(min_spws),spwslist
 
 
-def fetch_scan_times_target(vislist,target):
-   listdict={}
+def fetch_scan_times_target(vislist,target,listdict):
    scantimesdict={}
    integrationsdict={}
    integrationtimesdict={}

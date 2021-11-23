@@ -54,7 +54,9 @@ apply_cal_mode_default='calflag'
 ##
 ## Import inital MS files to get relevant meta data
 ##
-listdict,scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
+listdict=collect_listobs_per_vis(vislist)
+
+scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
 spwslist=spwsarray.tolist()
 spwstring=','.join(str(spw) for spw in spwslist)
 
@@ -64,16 +66,15 @@ if 'VLA' in telescope:
 if telescope=='ALMA' or telescope =='ACA':
   bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
 
-listdict={}
+
 scantimesdict={}
 integrationsdict={}
 integrationtimesdict={}
 bands_to_remove=[]
 for band in bands:
      print(band)
-     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
-     listdict[band]=listdict_temp.copy
+     scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
      scantimesdict[band]=scantimesdict_temp.copy()
      integrationsdict[band]=integrationsdict_temp.copy()
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
@@ -131,7 +132,8 @@ for vis in vislist:
 ## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
 ##
 vislist=glob.glob('*selfcal.ms')
-listdict,scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
+listdict=collect_listobs_per_vis(vislist)
+scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
 spwslist=spwsarray.tolist()
 spwstring=','.join(str(spw) for spw in spwslist)
 
@@ -141,15 +143,14 @@ if 'VLA' in telescope:
 if telescope=='ALMA' or telescope =='ACA':
   bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
 
-listdict={}
 scantimesdict={}
 integrationsdict={}
 integrationtimesdict={}
 for band in bands:
      print(band)
-     listdict_temp,scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
-     listdict[band]=listdict_temp.copy
+     scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
+
      scantimesdict[band]=scantimesdict_temp.copy()
      integrationsdict[band]=integrationsdict_temp.copy()
      integrationtimesdict[band]=integrationtimesdict_temp.copy()
@@ -244,7 +245,7 @@ for target in all_targets:
       allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
       selfcal_library[target][band][vis]['flags']=[]
       selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
-      dm0,n_spws,minspw,spwsarray=fetch_spws([vis],[target])
+      dm0,n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
       spwslist=spwsarray.tolist()
       spwstring=','.join(str(spw) for spw in spwslist)
       selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
