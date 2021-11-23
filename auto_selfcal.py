@@ -245,7 +245,7 @@ for target in all_targets:
       allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
       selfcal_library[target][band][vis]['flags']=[]
       selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
-      dm0,n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
+      n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
       spwslist=spwsarray.tolist()
       spwstring=','.join(str(spw) for spw in spwslist)
       selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
