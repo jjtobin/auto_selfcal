@@ -419,24 +419,36 @@ def fetch_targets(vis):
 
 
 def estimate_SNR(imagename):
+    MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
     beamminor = headerlist['beamminor']['value']
     beampa = headerlist['beampa']['value']
     print("#%s" % imagename)
     print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-    #immath(imagename=imagename.replace('image','mask').replace('.tt0',''),expr='(IM0-1)*-1.0',outfile=imagename.replace('image','reversemask').replace('.tt0',''))
     image_stats= imstat(imagename = imagename)
-    #maskname=imagename.replace('image','mask').replace('.tt0','')
-    #reversemask=mask(imagename.replace('image','mask').replace('.tt0',''))
-    residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
+    maskImage=imagename.replace('image','mask').replace('.tt0','')
+    if os.path.exists(maskImage):
+       residualImage=imagename.replace('image','residual')
+       ia.open(residualImage)
+       ia.calcmask(maskImage+"<0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       mask0Stats = ia.statistics(robust=True,axes=[0,1])
+       ia.maskhandler(op='set',name='mask0')
+       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
+       residualMean = mask0Stats['median'][0]
+    else:
+       residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
+       rms = residual_stats['rms'][0]
     peak_intensity = image_stats['max'][0]
     print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-    rms = residual_stats['rms'][0]
     print("#rms: %.2e mJy/beam" % (rms*1000,))
     SNR = peak_intensity/rms
     print("#Peak SNR: %.2f" % (SNR,))
+    ia.close()
+    ia.done()
     return SNR,rms
+
+ia.open
 
 
 def get_n_ants(vislist):

@@ -4,7 +4,6 @@
 # heuristics to switch from combine=spw to combine=''
 # switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
 #    in the per vis level instead of per solint
-# save a master listobs dictionary to avoid so many listobs calls
 
 import numpy as np
 from scipy import stats
@@ -566,17 +565,16 @@ for target in all_targets:
  for band in selfcal_library[target].keys():
    print(target+' '+band+' Summary')
    print('At least 1 successful selfcal iteration?: ', selfcal_library[target][band]['SC_success'])
-   if selfcal_library[target][band]['SC_success']:
-      print('Final solint: ',selfcal_library[target][band]['final_solint'])
-      print('Original SNR: ',selfcal_library[target][band]['SNR_orig'])
-      print('Final SNR: ',selfcal_library[target][band]['SNR_final'])
-      print('Original RMS: ',selfcal_library[target][band]['RMS_orig'])
-      print('Final RMS: ',selfcal_library[target][band]['RMS_final'])
-      for vis in vislist:
-         print('Final gaintables: '+selfcal_library[target][band][vis]['gaintable'])
-         print('Final spwmap: ',selfcal_library[target][band][vis]['spwmap'])
-   else:
-      print('Selfcal failed on '+target+'. No solutions applied.')
+   print('Final solint: ',selfcal_library[target][band]['final_solint'])
+   print('Original SNR: ',selfcal_library[target][band]['SNR_orig'])
+   print('Final SNR: ',selfcal_library[target][band]['SNR_final'])
+   print('Original RMS: ',selfcal_library[target][band]['RMS_orig'])
+   print('Final RMS: ',selfcal_library[target][band]['RMS_final'])
+   #   for vis in vislist:
+   #      print('Final gaintables: '+selfcal_library[target][band][vis]['gaintable'])
+   #      print('Final spwmap: ',selfcal_library[target][band][vis]['spwmap'])
+   #else:
+   #   print('Selfcal failed on '+target+'. No solutions applied.')
 
 ##
 ## Save final library results
