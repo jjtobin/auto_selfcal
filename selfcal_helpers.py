@@ -541,12 +541,12 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
    for target in all_targets:
       if solint_next == 'inf':
          selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
-         solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
+         solint_snr[target][band][solint_next]=selfcal_library[target][band]['per_scan_SNR']
       elif solint_next == 'int':
-         solint_snr[target][band][solint]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
+         solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
       else:
-         solint_float=float(solint.replace('s',''))
-         solint_snr[target][band][solint]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
+         solint_float=float(solint_next.replace('s',''))
+         solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
 def get_sensitivity(vislist,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):

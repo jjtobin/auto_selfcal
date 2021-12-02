@@ -317,9 +317,10 @@ for target in all_targets:
 solint_snr=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time)
 for target in all_targets:
  for band in solint_snr[target].keys():
+   print('Estimated SNR per solint:')
    print(target,band)
    for solint in solints[band]:
-     print(solint,solint_snr[target][band][solint])
+     print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
 
 ##
 ## Set clean selfcal thresholds
