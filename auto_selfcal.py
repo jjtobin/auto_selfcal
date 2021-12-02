@@ -213,7 +213,7 @@ solints={}
 gaincal_combine={}
 applycal_mode={}
 for band in bands:
-   solints[band]=get_solints_simple(vislist,scantimesdict[band],integrationtimesdict[band])
+   solints[band],integration_time=get_solints_simple(vislist,scantimesdict[band],integrationtimesdict[band])
    print(band,solints[band])
    gaincal_combine[band]=['spw']*len(solints[band])
    solints[band].insert(0,'inf_EB')
@@ -275,15 +275,16 @@ for target in all_targets:
 ## based on the achieved S/N in the real data
 ##
 for target in all_targets:
+ sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    #make images using the appropriate tclean heuristics for each telescope
    if not os.path.exists(target+'_'+band+'_dirty.image.tt0'):
-      tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_dirty',
+      tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_dirty',
                      telescope=telescope,nsigma=3.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
-   dirty_SNR,dirty_RMS=estimate_SNR(target+'_'+band+'_dirty.image.tt0')
+   dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_dirty.image.tt0')
    dr_mod=1.0
    if telescope =='ALMA' or telescope =='ACA':
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
@@ -296,13 +297,13 @@ for target in all_targets:
             sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
       else:
          sensitivity=0.0
-      tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_initial',
+      tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_initial',
                      telescope=telescope,nsigma=3.0, scales=[0],
                      threshold=str(sensitivity*3.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
-   initial_SNR,initial_RMS=estimate_SNR(target+'_'+band+'_initial.image.tt0')
-   header=imhead(imagename=target+'_'+band+'_initial.image.tt0')
+   initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0')
+   header=imhead(imagename=sani_target+'_'+band+'_initial.image.tt0')
    selfcal_library[target][band]['SNR_orig']=initial_SNR
    selfcal_library[target][band]['RMS_orig']=initial_RMS
    selfcal_library[target][band]['RMS_curr']=initial_RMS
@@ -313,13 +314,12 @@ for target in all_targets:
 ##
 ## estimate per scan/EB S/N using time on source and median scan times
 ##
-get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants)
+solint_snr=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time)
 for target in all_targets:
- for band in selfcal_library[target].keys():
+ for band in solint_snr[target].keys():
    print(target,band)
-   print('Per Scan SNR: ',selfcal_library[target][band]['per_scan_SNR'])
-   print('Per EB SNR: ',selfcal_library[target][band]['per_EB_SNR'])
-
+   for solint in solints[band]:
+     print(solint,solint_snr[target][band][solint])
 
 ##
 ## Set clean selfcal thresholds
@@ -365,17 +365,13 @@ with open('selfcal_library.pickle', 'wb') as handle:
 ## Begin Self-cal loops
 ##
 for target in all_targets:
+ sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
    print('Starting selfcal procedure on: '+target+' '+band)
    for iteration in range(len(solints[band])):
-      if iteration==0:
-         SNR_key='per_EB_SNR'
-      else:
-         SNR_key='per_scan_SNR'
-
-      if selfcal_library[target][band][SNR_key] < minsnr_to_proceed:
-         print('*********** '+SNR_key+' too low, measured: '+str(selfcal_library[target][band][SNR_key])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
+      if solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed:
+         print('*********** '+SNR_key+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
          break
       else:
          solint=solints[band][iteration]
@@ -389,14 +385,14 @@ for target in all_targets:
          ## set threshold based on RMS of initial image and lower if value becomes lower
          ## during selfcal by resetting 'RMS_curr' after the post-applycal evaluation
          ##
-         tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_'+solint+'_'+str(iteration),
+         tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
          print('Pre selfcal assessemnt: '+target)
-         SNR,RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
-         header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
+         SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
+         header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
 
          if iteration == 0:
             gaintables={}
@@ -444,22 +440,22 @@ for target in all_targets:
          ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
          ##
          if nterms[band]==1:
-            startmodel=[target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0']
+            startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0']
          elif nterms[band]==2:
-            startmodel=[target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
-         tclean_wrapper(vis=vislist, imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
+            startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
+         tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                   telescope=telescope,scales=[0], nsigma=0.0,\
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
                   niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
          print('Post selfcal assessemnt: '+target)
-         post_SNR,post_RMS=estimate_SNR(target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+         post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          for vis in vislist:
             selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
             ## Update RMS value if necessary
             if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr']:
                selfcal_library[target][band]['RMS_curr']=selfcal_library[target][band][vis][solint]['RMS_post'].copy()
-            header=imhead(imagename=target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+            header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
             selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
             selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
             selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
@@ -491,10 +487,10 @@ for target in all_targets:
 
             selfcal_library[target][band]['final_solint']=solint
             selfcal_library[target][band]['iteration']=iteration
-            if (iteration == 0) and (selfcal_library[target][band][vis][solint]['SNR_post'] > selfcal_library[target][band]['SNR_orig']):
-               print('Updating per-scan SNR was: ',selfcal_library[target][band]['per_scan_SNR'])
-               get_SNR_self_update([target],band,vislist,selfcal_library,n_ants,solint)
-               print('Now: ',selfcal_library[target][band]['per_scan_SNR'])
+            if (iteration < len(solints[band])-1) and (selfcal_library[target][band][vis][solint]['SNR_post'] > selfcal_library[target][band]['SNR_orig']): #(iteration == 0) and 
+               print('Updating per-scan SNR was: ',solint_snr[target][band][solints[band][iteration+1]])
+               get_SNR_self_update([target],band,vislist,selfcal_library,n_ants,solint,solints[band][iteration+1],integration_time,solint_snr)
+               print('Now: ',solint_snr[target][band][solints[band][iteration+1]])
                
             if iteration < (len(solints[band])-1):
                print('****************Selfcal passed, shortening solint*************')
@@ -525,6 +521,7 @@ for target in all_targets:
             else:            
                print('****************Removing all calibrations for '+target+' '+band+'**************')
                for vis in vislist:
+                  flagmanager(vis=vis,mode='restore',versionname=selfcal_library[target][band][vis][solints[band][0]]['flags'])
                   clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
                   selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                   selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
@@ -550,11 +547,11 @@ for target in all_targets:
          sensitivity=sensitivity*4.0 
    else:
       sensitivity=0.0
-   tclean_wrapper(vis=vislist,imagename=target+'_'+band+'_final',\
+   tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_final',\
                telescope=telescope,nsigma=3.0, threshold=str(sensitivity*3.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
-   final_SNR,final_RMS=estimate_SNR(target+'_'+band+'_final.image.tt0')
+   final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
    selfcal_library[target][band]['SNR_final']=final_SNR
    selfcal_library[target][band]['RMS_final']=final_RMS
 

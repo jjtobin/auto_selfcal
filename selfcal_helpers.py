@@ -373,7 +373,7 @@ def get_solints_simple(vislist,scantimesdict,integrationtimes):
       solints_list.append(solint_string)
    solints_list.insert(0,'inf')
    solints_list.append('int')
-   return solints_list
+   return solints_list,integration_time
 
 
 
@@ -448,7 +448,7 @@ def estimate_SNR(imagename):
     ia.done()
     return SNR,rms
 
-ia.open
+
 
 
 def get_n_ants(vislist):
@@ -513,21 +513,40 @@ def rank_refants(vis):
      return ','.join(numpy.array(names)[numpy.argsort(score)])
 
 
-def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant):
+def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time):
+   solint_snr={}
    for target in all_targets:
+    solint_snr[target]={}
     for band in selfcal_library[target].keys():
-      SNR_self_EB=np.zeros(len(vislist))
-      for i in range(len(vislist)):
-         SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
-      selfcal_library[target][band]['per_EB_SNR']=np.mean(SNR_self_EB)
-     
-      selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
+      solint_snr[target][band]={}
+      for solint in solints[band]:
+         solint_snr[target][band][solint]=0.0
+         if solint == 'inf_EB':
+            SNR_self_EB=np.zeros(len(vislist))
+            for i in range(len(vislist)):
+               SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
+               selfcal_library[target][band]['per_EB_SNR']=np.mean(SNR_self_EB)
+               solint_snr[target][band][solint]=np.mean(SNR_self_EB)
+         elif solint =='inf':
+               selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
+               solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
+         elif solint == 'int':
+               solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
+         else:
+               solint_float=float(solint.replace('s',''))
+               solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
+   return solint_snr
 
-def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint):
+def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
    for target in all_targets:
-    
-      selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band][vislist[0]][solint]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
-
+      if solint_next == 'inf':
+         selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
+         solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
+      elif solint_next == 'int':
+         solint_snr[target][band][solint]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
+      else:
+         solint_float=float(solint.replace('s',''))
+         solint_snr[target][band][solint]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
 def get_sensitivity(vislist,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
@@ -1001,6 +1020,7 @@ def get_uv_range(band,band_properties,vislist):
       uvrange=''
    return uvrange
 
-
-
+def sanitize_string(string):
+   sani_string=string.replace('-','_').replace(' ','_').replace('+','_')
+   return sani_string
 
