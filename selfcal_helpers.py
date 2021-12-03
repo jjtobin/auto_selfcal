@@ -428,8 +428,15 @@ def estimate_SNR(imagename):
     print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
     image_stats= imstat(imagename = imagename)
     maskImage=imagename.replace('image','mask').replace('.tt0','')
+    residualImage=imagename.replace('image','residual')
+    os.system('rm -rf temp.mask temp.residual')
     if os.path.exists(maskImage):
-       residualImage=imagename.replace('image','residual')
+       os.system('cp -r '+maskImage+ ' temp.mask')
+       maskImage='temp.mask'
+    os.system('cp -r '+residualImage+ ' temp.residual')
+    residualImage='temp.residual'
+    if os.path.exists(maskImage):
+
        ia.open(residualImage)
        #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
@@ -447,6 +454,7 @@ def estimate_SNR(imagename):
     print("#Peak SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
+    os.system('rm -rf temp.mask temp.residual')
     return SNR,rms
 
 
