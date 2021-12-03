@@ -431,7 +431,7 @@ def estimate_SNR(imagename):
     if os.path.exists(maskImage):
        residualImage=imagename.replace('image','residual')
        ia.open(residualImage)
-       ia.calcmask(maskImage+"<0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        mask0Stats = ia.statistics(robust=True,axes=[0,1])
        ia.maskhandler(op='set',name='mask0')
        rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
@@ -1022,5 +1022,6 @@ def get_uv_range(band,band_properties,vislist):
 
 def sanitize_string(string):
    sani_string=string.replace('-','_').replace(' ','_').replace('+','_')
+   sani_string='Target_'+sani_string
    return sani_string
 
