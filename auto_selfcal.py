@@ -4,6 +4,7 @@
 # heuristics to switch from combine=spw to combine=''
 # switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
 #    in the per vis level instead of per solint
+# clean final image with appropriate RMS noise level derived empirically, like self-cal loops, rather than theoretical
 
 import numpy as np
 from scipy import stats
