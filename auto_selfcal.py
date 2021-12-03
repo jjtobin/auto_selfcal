@@ -546,6 +546,7 @@ for target in all_targets:
 ## Make a final image per target to assess overall improvement
 ##
 for target in all_targets:
+ sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
    ## omit DR modifiers here since we should have increased DR significantly
