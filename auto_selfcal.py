@@ -449,6 +449,8 @@ for target in all_targets:
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
                   niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
          print('Post selfcal assessemnt: '+target)
+         #copy mask for use in post-selfcal SNR measurement
+         os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
          post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          for vis in vislist:
             selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
