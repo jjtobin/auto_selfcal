@@ -443,7 +443,7 @@ for target in all_targets:
          if nterms[band]==1:
             startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0']
          elif nterms[band]==2:
-            startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
+            startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
          tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                   telescope=telescope,scales=[0], nsigma=0.0,\
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
