@@ -436,12 +436,13 @@ def estimate_SNR(imagename):
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
     if os.path.exists(maskImage):
-
+       ia.close()
+       ia.done()
        ia.open(residualImage)
        #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        mask0Stats = ia.statistics(robust=True,axes=[0,1])
-       ia.maskhandler(op='set',name='mask0')
+       ia.maskhandler(op='set',name='madpbmask0')
        rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
        residualMean = mask0Stats['median'][0]
     else:
