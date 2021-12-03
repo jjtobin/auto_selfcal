@@ -375,7 +375,7 @@ for target in all_targets:
    print('Starting selfcal procedure on: '+target+' '+band)
    for iteration in range(len(solints[band])):
       if solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed:
-         print('*********** estimated solint '+solint_snr[target][band][solints[band][iteration]]+' SNR too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
+         print('*********** estimated SNR for solint='+solints[band][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
          break
       else:
          solint=solints[band][iteration]
