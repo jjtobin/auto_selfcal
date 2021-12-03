@@ -475,8 +475,9 @@ for target in all_targets:
          delta_beamarea=(beamarea_post-beamarea_orig)/beamarea_orig
          ## 
          ## if S/N improvement, and beamarea is changing by < delta_beam_thresh, accept solutions to main calibration dictionary
+         ## allow to proceed if solint was inf_EB and SNR decrease was less than 2%
          ##
-         if (post_SNR >= SNR) and (delta_beamarea < delta_beam_thresh): 
+         if ((post_SNR >= SNR) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02)): 
             selfcal_library[target][band]['SC_success']=True
             for vis in vislist:
                selfcal_library[target][band][vis]['gaintable']=selfcal_library[target][band][vis][solint]['gaintable']
