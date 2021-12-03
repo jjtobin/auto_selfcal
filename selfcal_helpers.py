@@ -431,6 +431,7 @@ def estimate_SNR(imagename):
     if os.path.exists(maskImage):
        residualImage=imagename.replace('image','residual')
        ia.open(residualImage)
+       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        mask0Stats = ia.statistics(robust=True,axes=[0,1])
        ia.maskhandler(op='set',name='mask0')
