@@ -278,7 +278,7 @@ for target in all_targets:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    #make images using the appropriate tclean heuristics for each telescope
-   if not os.path.exists(target+'_'+band+'_dirty.image.tt0'):
+   if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
       tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_dirty',
                      telescope=telescope,nsigma=3.0, scales=[0],
                      threshold='0.0Jy',niter=0,
@@ -290,7 +290,7 @@ for target in all_targets:
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
       print('DR modifier: ',dr_mod)
-   if not os.path.exists(target+'_'+band+'_initial.image.tt0'):
+   if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0'):
       if telescope=='ALMA' or telescope =='ACA':
          sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])*dr_mod
          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
