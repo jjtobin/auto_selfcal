@@ -49,7 +49,10 @@ delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
 telescope=get_telescope(vislist[0])
 apply_cal_mode_default='calflag'
-
+rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
+dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
+                       # default is 40 for <8ghz and 15.0 for all other frequencies
+check_all_spws=True   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 
 ##
 ## Import inital MS files to get relevant meta data
@@ -281,7 +284,7 @@ for target in all_targets:
    #make images using the appropriate tclean heuristics for each telescope
    if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
       tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_dirty',
-                     telescope=telescope,nsigma=3.0, scales=[0],
+                     telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
@@ -299,8 +302,8 @@ for target in all_targets:
       else:
          sensitivity=0.0
       tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_initial',
-                     telescope=telescope,nsigma=3.0, scales=[0],
-                     threshold=str(sensitivity*3.0)+'Jy',
+                     telescope=telescope,nsigma=4.0, scales=[0],
+                     threshold=str(sensitivity*4.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
    initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0')
@@ -313,6 +316,43 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_major_orig']=header['restoringbeam']['major']['value']
    selfcal_library[target][band]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
    selfcal_library[target][band]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
+
+
+
+##
+## Make a initial image per spw images to assess overall improvement
+##
+if check_all_spws:
+   for target in all_targets:
+      sani_target=sanitize_string(target)
+      for band in selfcal_library[target].keys():
+         vislist=selfcal_library[target][band]['vislist'].copy()
+
+         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
+         for spw in spwlist:
+   ## omit DR modifiers here since we should have increased DR significantly
+            if telescope=='ALMA' or telescope =='ACA':
+               sensitivity=get_sensitivity(vislist,spw,spw=np.array([int(spw)]),imsize=imsize[band],cellsize=cellsize[band])
+               dr_mod=1.0
+               dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vislist)
+               print('DR modifier: ',dr_mod)
+               sensitivity=sensitivity*dr_mod 
+               if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
+                  sensitivity=sensitivity*4.0 
+            else:
+               sensitivity=0.0
+            spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
+            tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_'+spw+'_initial',\
+                       telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
+                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
+                       nterms=1,field=target,datacolumn='corrected',\
+                       spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'])
+
+
+
+
+
+
 
 ##
 ## estimate per scan/EB S/N using time on source and median scan times
@@ -337,15 +377,19 @@ for target in all_targets:
 
 for target in all_targets:
   for band in selfcal_library[target].keys():
-   dividing_factor=15.0
-   if band_properties[selfcal_library[target][band]['vislist'][0]][band]['meanfreq'] <8.0e9:
+   if band_properties[selfcal_library[target][band]['vislist'][0]][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):
       dividing_factor=40.0
-   else:
+   elif (dividing_factor ==-99.0):
       dividing_factor=15.0
    nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
-   #selfcal_library[target]['nsigma']=np.linspace(nsigma_init,3.0,len(solints))
-   #logspace to reduce in nsigma more quickly
-   selfcal_library[target][band]['nsigma']=10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band]))
+
+   if rel_thresh_scaling == 'loge':
+      selfcal_library[target][band]['nsigma']=np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band])))
+   elif rel_thresh_scaling == 'linear':
+      selfcal_library[target][band]['nsigma']=np.linspace(nsigma_init,3.0,len(solints[band]))
+   else: #implicitly making log10 the default
+      selfcal_library[target][band]['nsigma']=10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band]))
+
    if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
@@ -570,6 +614,43 @@ for target in all_targets:
    selfcal_library[target][band]['RMS_final']=final_RMS
 
 
+
+##
+## Make a final image per spw images to assess overall improvement
+##
+if check_all_spws:
+   for target in all_targets:
+      sani_target=sanitize_string(target)
+      for band in selfcal_library[target].keys():
+         vislist=selfcal_library[target][band]['vislist'].copy()
+
+         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
+         for spw in spwlist:
+   ## omit DR modifiers here since we should have increased DR significantly
+            if telescope=='ALMA' or telescope =='ACA':
+               sensitivity=get_sensitivity(vislist,spw,spw=np.array([int(spw)]),imsize=imsize[band],cellsize=cellsize[band])
+               dr_mod=1.0
+               if not selfcal_library[target][band]['SC_success']: # fetch the DR modifier if selfcal failed on source
+                  dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vislist)
+               print('DR modifier: ',dr_mod)
+               sensitivity=sensitivity*dr_mod 
+               if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
+                  sensitivity=sensitivity*4.0 
+            else:
+               sensitivity=0.0
+            spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
+            tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_'+spw+'_final',\
+                       telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
+                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
+                       nterms=1,field=target,datacolumn='corrected',\
+                       spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'])
+
+
+
+
+
+
+
 ##
 ## Print final results
 ##
@@ -587,6 +668,28 @@ for target in all_targets:
    #      print('Final spwmap: ',selfcal_library[target][band][vis]['spwmap'])
    #else:
    #   print('Selfcal failed on '+target+'. No solutions applied.')
+
+
+#
+# Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration
+#
+if check_all_spws:
+   for target in all_targets:
+      sani_target=sanitize_string(target)
+      for band in selfcal_library[target].keys():
+         vislist=selfcal_library[target][band]['vislist'].copy()
+
+         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
+         for spw in spwlist:
+            SNR_spw_pre_sc,RMS_spw_pre_sc=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
+            SNR_spw_post_sc,RMS_spw_post_sc=estimate_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
+            delta_SNR=SNR_spw_post_sc-SNR_spw_pre_sc
+            delta_RMS=RMS_spw_post_sc-RMS_spw_pre_sc
+            if delta_SNR < 0.0:
+               print('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL')
+            if delta_RMS > 0.0:
+               print('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL')
+
 
 ##
 ## Save final library results

@@ -18,12 +18,16 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
        smoothfactor=1.0
        noisethreshold=5.0
        lownoisethreshold=1.5
+       cycleniter=-1
+       cyclefactor=1.0
        nsigma=0.0
     if telescope=='ACA':
        sidelobethreshold=1.25
        smoothfactor=1.0
        noisethreshold=5.0
        lownoisethreshold=2.0
+       cycleniter=-1
+       cyclefactor=1.0
        nsigma=0.0
     elif 'VLA' in telescope:
        sidelobethreshold=2.0
@@ -31,6 +35,8 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
        noisethreshold=5.0
        lownoisethreshold=1.5    
        pblimit=-0.1
+       cycleniter=-1
+       cyclefactor=3.0
        pbmask=0.0
     for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
         os.system('rm -rf '+ imagename + ext)
