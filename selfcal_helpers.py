@@ -259,7 +259,7 @@ def fetch_scan_times_target(vislist,target,listdict):
 
    return allscantimes
 
-
+#deprecated function
 def get_common_intervals(vis,integrationsdict,integrationtime):
    allintegrations=np.array([])
 
@@ -287,7 +287,7 @@ def get_common_intervals(vis,integrationsdict,integrationtime):
       solints.append(solint)
    return common_multiples,solints
 
-
+#deprecated function
 def get_solints_vla(vis,scantimesdict,integrationtime):
    allscantimes=np.array([])
 
@@ -332,7 +332,7 @@ def get_solints_vla(vis,scantimesdict,integrationtime):
 
     
 
-
+#actual routine used for getting solints
 def get_solints_simple(vislist,scantimesdict,integrationtimes):
    all_integrations=np.array([])
    for vis in vislist:
@@ -424,14 +424,12 @@ def fetch_targets(vis):
 
 
 
-def estimate_SNR(imagename):
+def estimate_SNR(imagename,verbose=True):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
     beamminor = headerlist['beamminor']['value']
     beampa = headerlist['beampa']['value']
-    print("#%s" % imagename)
-    print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
     image_stats= imstat(imagename = imagename)
     maskImage=imagename.replace('image','mask').replace('.tt0','')
     residualImage=imagename.replace('image','residual')
@@ -455,10 +453,13 @@ def estimate_SNR(imagename):
        residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
        rms = residual_stats['rms'][0]
     peak_intensity = image_stats['max'][0]
-    print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-    print("#rms: %.2e mJy/beam" % (rms*1000,))
     SNR = peak_intensity/rms
-    print("#Peak SNR: %.2f" % (SNR,))
+    if verbose:
+           print("#%s" % imagename)
+           print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+           print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
+           print("#rms: %.2e mJy/beam" % (rms*1000,))
+           print("#Peak SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
     os.system('rm -rf temp.mask temp.residual')
@@ -1041,3 +1042,18 @@ def sanitize_string(string):
    sani_string='Target_'+sani_string
    return sani_string
 
+
+def compare_beams(image1, image2):
+    header_1 = imhead(image1, mode = 'list')
+    beammajor_1 = header_1['beammajor']['value']
+    beamminor_1 = header_1['beamminor']['value']
+    beampa_1 = header_1['beampa']['value']
+
+    header_2 = imhead(image2, mode = 'list')
+    beammajor_2 = header_2['beammajor']['value']
+    beamminor_2 = header_2['beamminor']['value']
+    beampa_2 = header_2['beampa']['value']
+    beamarea_1=beammajor_1*beamminor_1
+    beamarea_2=beammajor_2*beamminor_2
+    delta_beamarea=(beamarea_2-beamarea_1)/beamarea_1
+    return delta_beamarea

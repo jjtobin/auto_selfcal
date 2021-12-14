@@ -681,15 +681,21 @@ if check_all_spws:
 
          spwlist=selfcal_library[target][band][vis]['spws'].split(',')
          for spw in spwlist:
-            SNR_spw_pre_sc,RMS_spw_pre_sc=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
-            SNR_spw_post_sc,RMS_spw_post_sc=estimate_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
+            SNR_spw_pre_sc,RMS_spw_pre_sc=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',verbose=False)
+            SNR_spw_post_sc,RMS_spw_post_sc=estimate_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0',verbose=False)
+            delta_beamarea=compare_beams(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',\
+                                         sani_target+'_'+band+'_'+spw+'_final.image.tt0')
             delta_SNR=SNR_spw_post_sc-SNR_spw_pre_sc
             delta_RMS=RMS_spw_post_sc-RMS_spw_pre_sc
+            print(sani_target+'_'+band+'_'+spw,\
+                  'Pre SNR: {:0.2f}, Post SNR: {:0.2f} Pre RMS: {:0.3f}, Post RMS: {:0.3f}'.format(SNR_spw_pre_sc,\
+                   SNR_spw_post_sc,RMS_spw_pre_sc*1000.0,RMS_spw_post_sc*1000.0))
             if delta_SNR < 0.0:
                print('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL')
             if delta_RMS > 0.0:
                print('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL')
-
+            if delta_beamarea > 0.05:
+               print('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL')
 
 ##
 ## Save final library results
