@@ -319,6 +319,8 @@ for target in all_targets:
 
 
 
+
+####MAKE DIRTY PER SPW IMAGES TO PROPERLY ASSESS DR MODIFIERS
 ##
 ## Make a initial image per spw images to assess overall improvement
 ##
@@ -330,11 +332,20 @@ if check_all_spws:
 
          spwlist=selfcal_library[target][band][vis]['spws'].split(',')
          for spw in spwlist:
-   ## omit DR modifiers here since we should have increased DR significantly
+            if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
+               spws_per_vis=[spw]*len(vislist)
+               tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+spw+'_dirty',
+                     telescope=telescope,nsigma=4.0, scales=[0],
+                     threshold='0.0Jy',niter=0,
+                     savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],spw=spws_per_vis,
+                     uvrange=selfcal_library[target][band]['uvrange'])
+            dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0')
+
             if telescope=='ALMA' or telescope =='ACA':
                sensitivity=get_sensitivity(vislist,spw,spw=np.array([int(spw)]),imsize=imsize[band],cellsize=cellsize[band])
                dr_mod=1.0
-               dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vislist)
+               dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
                print('DR modifier: ',dr_mod,'SPW: ',spw)
                sensitivity=sensitivity*dr_mod 
                if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
