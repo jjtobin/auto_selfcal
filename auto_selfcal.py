@@ -332,7 +332,7 @@ if check_all_spws:
 
          spwlist=selfcal_library[target][band][vis]['spws'].split(',')
          for spw in spwlist:
-            if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
+            if not os.path.exists(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0'):
                spws_per_vis=[spw]*len(vislist)
                tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+spw+'_dirty',
                      telescope=telescope,nsigma=4.0, scales=[0],
