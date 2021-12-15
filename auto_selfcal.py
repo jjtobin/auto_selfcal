@@ -338,7 +338,7 @@ if check_all_spws:
                      telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],spw=spws_per_vis,
+                     field=target,spw=spws_per_vis,
                      uvrange=selfcal_library[target][band]['uvrange'])
             dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0')
 
