@@ -353,7 +353,7 @@ if check_all_spws:
             else:
                sensitivity=0.0
             spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
-            if not os.path.exists(sani_target+'_'+band+'_'+spw+'initial.image.tt0'):
+            if not os.path.exists(sani_target+'_'+band+'_'+spw+'_initial.image.tt0'):
                tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_'+spw+'_initial',\
                        telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                        savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
