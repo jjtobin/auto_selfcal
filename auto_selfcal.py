@@ -639,6 +639,7 @@ if check_all_spws:
          vislist=selfcal_library[target][band]['vislist'].copy()
 
          spwlist=selfcal_library[target][band][vis]['spws'].split(',')
+         print('Generating final per-SPW images for '+target+' in '+band)
          for spw in spwlist:
    ## omit DR modifiers here since we should have increased DR significantly
             if telescope=='ALMA' or telescope =='ACA':
@@ -646,7 +647,7 @@ if check_all_spws:
                dr_mod=1.0
                if not selfcal_library[target][band]['SC_success']: # fetch the DR modifier if selfcal failed on source
                   dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vislist)
-               print('DR modifier: ',dr_mod)
+               print('DR modifier: ',dr_mod, 'SPW: ',spw)
                sensitivity=sensitivity*dr_mod 
                if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
                   sensitivity=sensitivity*4.0 
