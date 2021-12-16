@@ -620,7 +620,7 @@ for target in all_targets:
    else:
       sensitivity=0.0
    tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_final',\
-               telescope=telescope,nsigma=3.0, threshold=str(sensitivity*3.0)+'Jy',scales=[0],\
+               telescope=telescope,nsigma=3.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
