@@ -127,8 +127,13 @@ for vis in vislist:
        split(vis=vis,width=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
     else:
        split(vis=vis,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
-       if os.path.exists(vis+".flagversions/flags.before_line_flags"):
-          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')     
+
+##
+## put flagging back at original state for originally input ms for when they are used next time
+##
+for vis in vislist:
+    if os.path.exists(vis+".flagversions/flags.before_line_flags"):
+       flagmanager(vis=vis,mode='restore',versionname='before_line_flags')     
 
 
 ##
