@@ -126,7 +126,7 @@ for vis in vislist:
              spwstring=spwstring+','+band_properties[vis][band]['spwstring']
        split(vis=vis,width=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
     else:
-       os.system('cp -r '+vis+' '+vis.replace('.ms','.selfcal.ms'))
+       split(vis=vis,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
        if os.path.exists(vis+".flagversions/flags.before_line_flags"):
           flagmanager(vis=vis,mode='restore',versionname='before_line_flags')     
 
