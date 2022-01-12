@@ -1081,6 +1081,7 @@ def generate_weblog(sclib,solints,bands):
    htmlOut.writelines('</head>\n')
    htmlOut.writelines('<body>\n')
    htmlOut.writelines('<a name="top"></a>\n')
+   htmlOut.writelines('<h1>SelfCal Weblog</h1>\n')
    htmlOut.writelines('<h2>Targets:</h2>\n')
    targets=list(sclib.keys())
    for target in targets:
