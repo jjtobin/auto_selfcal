@@ -482,6 +482,15 @@ def get_n_ants(vislist):
          n_ants=n_ant_vis
    return n_ants
     
+def get_ant_list(vis):
+   #Examines number of antennas in each ms file and returns the minimum number of antennas
+   msmd = casatools.msmetadata()
+   tb = casatools.table()
+   n_ants=50.0
+   msmd.open(vis)
+   names = msmd.antennanames()
+   msmd.close()
+   return names
 
 def rank_refants(vis):
      # Get the antenna names and offsets.
@@ -1059,3 +1068,194 @@ def compare_beams(image1, image2):
     beamarea_2=beammajor_2*beamminor_2
     delta_beamarea=(beamarea_2-beamarea_1)/beamarea_1
     return delta_beamarea
+
+
+def generate_weblog(sclib,solints,bands):
+   os.system('rm -rf weblog')
+   os.system('mkdir weblog')
+   os.system('mkdir weblog/images')
+   htmlOut=open('weblog/index.html','w')
+   htmlOut.writelines('<html>\n')
+   htmlOut.writelines('<title>SelfCal Weblog</title>\n')
+   htmlOut.writelines('<head>\n')
+   htmlOut.writelines('</head>\n')
+   htmlOut.writelines('<body>\n')
+   htmlOut.writelines('<a name="top"></a>\n')
+   htmlOut.writelines('<h2>Targets:</h2>\n')
+   targets=list(sclib.keys())
+   for target in targets:
+      htmlOut.writelines('<a href="#'+target+'">'+target+'</a><br>\n')
+   htmlOut.writelines('<h2>Bands:</h2>\n')
+   bands_string=', '.join([str(elem) for elem in bands])
+   htmlOut.writelines(''+bands_string+'\n')
+   htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
+   for band in bands:
+      solints_string=', '.join([str(elem) for elem in solints[band]])
+      htmlOut.writelines('<br>'+band+': '+solints_string)
+
+   for target in targets:
+      htmlOut.writelines('<a name="'+target+'"></a>\n')
+      htmlOut.writelines('<h2>'+target+' Summary</h2>\n')
+      htmlOut.writelines('<a href="#top">Back to Top</a><br>\n')
+      htmlOut.writelines('<a href="#'+target+'_plots">Phase vs. Time Plots</a><br>\n')
+      bands_obsd=list(sclib[target].keys())
+      for band in bands_obsd:
+         htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">'+band+'</a><br>\n')
+         htmlOut.writelines('Selfcal Success?: '+str(sclib[target][band]['SC_success'])+'<br>\n')
+         htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br>\n')
+         htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
+         htmlOut.writelines('Final SNR: {:0.2f}'.format(sclib[target][band]['SNR_final'])+'<br>Initial SNR: {:0.2f}'.format(sclib[target][band]['SNR_orig'])+'<br><br>\n')
+         htmlOut.writelines('Final RMS: {:0.7f}'.format(sclib[target][band]['RMS_final'])+' Jy/beam<br>Initial RMS: {:0.7f}'.format(sclib[target][band]['RMS_orig'])+' Jy/beam<br>\n')
+         htmlOut.writelines('Final Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_final'],sclib[target][band]['Beam_minor_final'],sclib[target][band]['Beam_PA_final'])+'<br>\n')
+         htmlOut.writelines('Initial Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_orig'],sclib[target][band]['Beam_minor_orig'],sclib[target][band]['Beam_PA_orig'])+'<br><br>\n')
+         spwlist=list(sclib[target][band]['per_spw_stats'].keys())
+         htmlOut.writelines('<br>Per SPW stats: <br>\n')
+         for spw in spwlist:
+            htmlOut.writelines(spw+': Pre SNR: {:0.2f}, Post SNR: {:0.2f} Pre RMS: {:0.7f}, Post RMS: {:0.7f}<br>\n'\
+                               .format(sclib[target][band]['per_spw_stats'][spw]['SNR_orig'],sclib[target][band]['per_spw_stats'][spw]['SNR_final'],\
+                                       sclib[target][band]['per_spw_stats'][spw]['RMS_orig'],sclib[target][band]['per_spw_stats'][spw]['RMS_final']))
+            if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+               htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>')
+            if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+               htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>')
+            if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+               htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>')
+
+   for target in targets:
+      bands_obsd=list(sclib[target].keys())
+      htmlOut.writelines('<h2>'+target+' Plots</h2>\n')
+      htmlOut.writelines('<a name="'+target+'_plots"></a>\n')
+      for band in bands_obsd:
+         htmlOut.writelines('<a name="'+target+'_'+band+'_plots"></a>\n')
+         htmlOut.writelines('<h3>'+band+'</h3>\n')
+         final_solint_index=solints[band].index(sclib[target][band]['final_solint']) 
+         vislist=sclib[target][band]['vislist']
+         index_addition=1
+         if sclib[target][band]['final_solint'] != 'int':
+            index_addition=2
+         solints_string=''
+         for i in range(final_solint_index+index_addition):
+               solints_string+='<a href="#'+target+'_'+band+'_'+solints[band][i]+'_plots">'+solints[band][i]+'  </a><br>\n'
+         
+         htmlOut.writelines('<br>Solints: '+solints_string)
+
+         for i in range(final_solint_index+index_addition):
+            htmlOut.writelines('<a name="'+target+'_'+band+'_'+solints[band][i]+'_plots"></a>\n')
+            htmlOut.writelines('<h3>Solint: '+solints[band][i]+'</h3>\n')
+            htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">Back to Target/Band</a><br>\n')
+            passed='True'
+            if i > final_solint_index:
+               htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
+            else:
+               htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
+            htmlOut.writelines('Post SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
+            htmlOut.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_pre'])+' Jy/beam<br>\n')
+            htmlOut.writelines('Post Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_post'])+'<br>\n')
+            htmlOut.writelines('Pre Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
+
+
+
+            htmlOut.writelines('<h3>Phase vs. Time Plots:</h3>\n')
+
+            for vis in vislist:
+               htmlOut.writelines('<h4>MS: '+vis+'</h4>\n')
+               ant_list=get_ant_list(vis)
+               gaintable=sclib[target][band][vis][solints[band][i]]['gaintable']
+               nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
+               frac_flagged_sols=nflagged_sols/nsols
+               plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png',vis,gaintable)
+               htmlOut.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a><br>\n')
+               htmlOut.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
+               htmlOut.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
+               htmlOut.writelines('Fraction Flagged Solutions: {:0.3f} <br>'.format(frac_flagged_sols))
+               for ant in ant_list:
+                  sani_target=sanitize_string(target)
+                  try:
+                     plotms(vis=gaintable,xaxis='time', yaxis='phase',showgui=False,\
+                         xselfscale=True,plotrange=[0,0,-180,180], antenna=ant,customflaggedsymbol=True,title=ant,\
+                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True)
+                     #htmlOut.writelines('<img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200>')
+                     htmlOut.writelines('<a href="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'"><img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200></a>\n')
+                  except:
+                     continue
+   htmlOut.writelines('</body>\n')
+   htmlOut.writelines('</html>\n')
+   htmlOut.close()
+
+def get_sols_flagged_solns(gaintable):
+   tb.open(gaintable)
+   flags=tb.getcol('FLAG').squeeze()
+   nsols=flags.size
+   flagged_sols=np.where(flags==True)
+   nflagged_sols=flagged_sols[0].size
+   return nflagged_sols, nsols
+
+def plot_ants_flagging_colored(filename,vis,gaintable):
+   names, offset_x,offset_y, offsets, nflags, nunflagged,fracflagged=get_flagged_solns_per_ant(gaintable,vis)
+   import matplotlib
+   matplotlib.use('Agg')
+   import matplotlib.pyplot as plt
+   ants_zero_flagging=np.where(fracflagged == 0.0)
+   ants_lt10pct_flagging=((fracflagged <= 0.1) & (fracflagged > 0.0)).nonzero()
+   ants_lt25pct_flagging=((fracflagged <= 0.25) & (fracflagged > 0.10)).nonzero()
+   ants_lt50pct_flagging=((fracflagged <= 0.5) & (fracflagged > 0.25)).nonzero()
+   ants_gt50pct_flagging=np.where(fracflagged > 50.0)
+   fig, ax = plt.subplots(1,1,figsize=(12, 12))
+   ax.scatter(offset_x[ants_zero_flagging[0]],offset_y[ants_zero_flagging[0]],marker='o',color='green',label='No Flagging',s=120)
+   ax.scatter(offset_x[ants_lt10pct_flagging[0]],offset_y[ants_lt10pct_flagging[0]],marker='o',color='blue',label='<10% Flagging',s=120)
+   ax.scatter(offset_x[ants_lt25pct_flagging[0]],offset_y[ants_lt25pct_flagging[0]],marker='o',color='yellow',label='<25% Flagging',s=120)
+   ax.scatter(offset_x[ants_lt50pct_flagging[0]],offset_y[ants_lt50pct_flagging[0]],marker='o',color='magenta',label='<50% Flagging',s=120)
+   ax.scatter(offset_x[ants_gt50pct_flagging[0]],offset_y[ants_gt50pct_flagging[0]],marker='o',color='black',label='>50% Flagging',s=120)
+   ax.legend(fontsize=20)
+   for i in range(len(names)):
+      ax.text(offset_x[i],offset_y[i],names[i])
+   ax.set_xlabel('Latitude Offset (m)',fontsize=20)
+   ax.set_ylabel('Longitude Offset (m)',fontsize=20)
+   ax.set_title('Antenna Positions colorized by Selfcal Flagging',fontsize=20)
+   plt.savefig(filename,dpi=200.0)
+   plt.close()
+
+
+def get_flagged_solns_per_ant(gaintable,vis):
+     # Get the antenna names and offsets.
+
+     msmd = casatools.msmetadata()
+     tb = casatools.table()
+
+     msmd.open(vis)
+     names = msmd.antennanames()
+     offset = [msmd.antennaoffset(name) for name in names]
+     msmd.close()
+
+     # Calculate the mean longitude and latitude.
+
+     mean_longitude = numpy.mean([offset[i]["longitude offset"]\
+             ['value'] for i in range(len(names))])
+     mean_latitude = numpy.mean([offset[i]["latitude offset"]\
+             ['value'] for i in range(len(names))])
+
+     # Calculate the offsets from the center.
+
+     offsets = [numpy.sqrt((offset[i]["longitude offset"]['value'] -\
+             mean_longitude)**2 + (offset[i]["latitude offset"]\
+             ['value'] - mean_latitude)**2) for i in \
+             range(len(names))]
+     offset_x=[(offset[i]["latitude offset"]['value']) for i in \
+             range(len(names))]
+     offset_y=[(offset[i]["longitude offset"]['value']) for i in \
+             range(len(names))]
+     # Calculate the number of flags for each antenna.
+
+     nflags = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
+             str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
+             range(len(names))]
+     nunflagged = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
+             str(i)+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
+             range(len(names))]
+
+     fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
+     # Calculate a score based on those two.
+     return names, np.array(offset_x),np.array(offset_y),offsets, nflags, nunflagged,fracflagged
+
+
+

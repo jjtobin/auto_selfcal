@@ -328,15 +328,18 @@ for target in all_targets:
 ####MAKE DIRTY PER SPW IMAGES TO PROPERLY ASSESS DR MODIFIERS
 ##
 ## Make a initial image per spw images to assess overall improvement
-##
-selfcal_library[target][band]['per_spw_stats']={}
+##   
+
+for target in all_targets:
+   for band in selfcal_library[target].keys():
+      selfcal_library[target][band]['per_spw_stats']={}
+
 if check_all_spws:
    for target in all_targets:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          vislist=selfcal_library[target][band]['vislist'].copy()
-
-         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
+         spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
          for spw in spwlist:
             keylist=selfcal_library[target][band]['per_spw_stats'].keys()
             if spw not in keylist:
@@ -552,6 +555,7 @@ for target in all_targets:
          ##
          if ((post_SNR >= SNR) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and (delta_beamarea < delta_beam_thresh)): 
             selfcal_library[target][band]['SC_success']=True
+            selfcal_library[target][band]['Stop_Reason']='None'
             for vis in vislist:
                selfcal_library[target][band][vis]['gaintable']=selfcal_library[target][band][vis][solint]['gaintable']
                selfcal_library[target][band][vis]['spwmap']=selfcal_library[target][band][vis][solint]['spwmap'].copy()
@@ -579,9 +583,12 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['Pass']=False
             reason=''
             if (post_SNR <= SNR):
-               reason=reason+' S/N decrease;'
+               reason=reason+' S/N decrease'
             if (delta_beamarea > delta_beam_thresh):
-               reason=reason+' Beam change beyond '+str(delta_beam_thresh)
+               if reason !='':
+                  reason=reason+'; '
+               reason=reason+'Beam change beyond '+str(delta_beam_thresh)
+            selfcal_library[target][band]['Stop_Reason']=reason
             print('****************Selfcal failed*************')
             print('REASON: '+reason)
             if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round
@@ -636,7 +643,10 @@ for target in all_targets:
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
    selfcal_library[target][band]['SNR_final']=final_SNR
    selfcal_library[target][band]['RMS_final']=final_RMS
-
+   header=imhead(imagename=sani_target+'_'+band+'_final.image.tt0')
+   selfcal_library[target][band]['Beam_major_final']=header['restoringbeam']['major']['value']
+   selfcal_library[target][band]['Beam_minor_final']=header['restoringbeam']['minor']['value']
+   selfcal_library[target][band]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
 
 
 ##
@@ -652,7 +662,7 @@ if check_all_spws:
          print('Generating final per-SPW images for '+target+' in '+band)
          for spw in spwlist:
    ## omit DR modifiers here since we should have increased DR significantly
-            if not os.path.exists(sani_target+'_'+band+'_'+spw+'_initial.image.tt0'):
+            if not os.path.exists(sani_target+'_'+band+'_'+spw+'_final.image.tt0'):
                if telescope=='ALMA' or telescope =='ACA':
                   sensitivity=get_sensitivity(vislist,spw,spw=np.array([int(spw)]),imsize=imsize[band],cellsize=cellsize[band])
                   dr_mod=1.0
@@ -673,6 +683,8 @@ if check_all_spws:
             final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_final']=final_per_spw_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_final']=final_per_spw_RMS
+
+
 
 
 
@@ -719,8 +731,8 @@ if check_all_spws:
             selfcal_library[target][band]['per_spw_stats'][spw]['delta_RMS']=delta_RMS
             selfcal_library[target][band]['per_spw_stats'][spw]['delta_beamarea']=delta_beamarea
             print(sani_target+'_'+band+'_'+spw,\
-                  'Pre SNR: {:0.2f}, Post SNR: {:0.2f} Pre RMS: {:0.3f}, Post RMS: {:0.3f}'.format(SNR_spw_pre_sc,\
-                   SNR_spw_post_sc,RMS_spw_pre_sc*1000.0,RMS_spw_post_sc*1000.0))
+                  'Pre SNR: {:0.2f}, Post SNR: {:0.2f} Pre RMS: {:0.3f}, Post RMS: {:0.3f}'.format(selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig'],\
+                   selfcal_library[target][band]['per_spw_stats'][spw]['SNR_final'],selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']*1000.0,selfcal_library[target][band]['per_spw_stats'][spw]['RMS_final']*1000.0))
             if delta_SNR < 0.0:
                print('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL')
             if delta_RMS > 0.0:
@@ -728,11 +740,19 @@ if check_all_spws:
             if delta_beamarea > 0.05:
                print('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL')
 
+generate_weblog(selfcal_library,solints,bands)
 ##
 ## Save final library results
 ##
 import pickle
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('solints.pickle', 'wb') as handle:
+    pickle.dump(solints, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('bands.pickle', 'wb') as handle:
+    pickle.dump(bands, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 
