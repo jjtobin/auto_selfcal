@@ -740,7 +740,7 @@ if check_all_spws:
             if delta_beamarea > 0.05:
                print('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL')
 
-generate_weblog(selfcal_library,solints,bands)
+
 ##
 ## Save final library results
 ##
@@ -754,5 +754,5 @@ with open('solints.pickle', 'wb') as handle:
 with open('bands.pickle', 'wb') as handle:
     pickle.dump(bands, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-
+generate_weblog(selfcal_library,solints,bands)
 
