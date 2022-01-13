@@ -1134,10 +1134,13 @@ def generate_weblog(sclib,solints,bands):
          htmlOut.writelines('Final RMS: {:0.7f}'.format(sclib[target][band]['RMS_final'])+' Jy/beam<br>Initial RMS: {:0.7f}'.format(sclib[target][band]['RMS_orig'])+' Jy/beam<br>\n')
          htmlOut.writelines('Final Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_final'],sclib[target][band]['Beam_minor_final'],sclib[target][band]['Beam_PA_final'])+'<br>\n')
          htmlOut.writelines('Initial Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_orig'],sclib[target][band]['Beam_minor_orig'],sclib[target][band]['Beam_PA_orig'])+'<br><br>\n')
-         plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
          plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+         image_stats=imstat(sanitize_string(target)+'_'+band+'_final.image.tt0')
+         
+         plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+         htmlOut.writelines('Initial and Final Images with scales set by Final Image<br>\n')
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
 
@@ -1197,11 +1200,13 @@ def generate_weblog(sclib,solints,bands):
                htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
             else:
                htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
-            
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png') 
+            htmlOut.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
             plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
+            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0')
+            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+
             htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
             htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
             htmlOut.writelines('Post SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
@@ -1255,13 +1260,15 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
    ants_lt10pct_flagging=((fracflagged <= 0.1) & (fracflagged > 0.0)).nonzero()
    ants_lt25pct_flagging=((fracflagged <= 0.25) & (fracflagged > 0.10)).nonzero()
    ants_lt50pct_flagging=((fracflagged <= 0.5) & (fracflagged > 0.25)).nonzero()
-   ants_gt50pct_flagging=np.where(fracflagged > 0.5)
+   ants_lt75pct_flagging=((fracflagged <= 0.75) & (fracflagged > 0.5)).nonzero()
+   ants_gt75pct_flagging=np.where(fracflagged > 0.75)
    fig, ax = plt.subplots(1,1,figsize=(12, 12))
    ax.scatter(offset_x[ants_zero_flagging[0]],offset_y[ants_zero_flagging[0]],marker='o',color='green',label='No Flagging',s=120)
    ax.scatter(offset_x[ants_lt10pct_flagging[0]],offset_y[ants_lt10pct_flagging[0]],marker='o',color='blue',label='<10% Flagging',s=120)
    ax.scatter(offset_x[ants_lt25pct_flagging[0]],offset_y[ants_lt25pct_flagging[0]],marker='o',color='yellow',label='<25% Flagging',s=120)
    ax.scatter(offset_x[ants_lt50pct_flagging[0]],offset_y[ants_lt50pct_flagging[0]],marker='o',color='magenta',label='<50% Flagging',s=120)
-   ax.scatter(offset_x[ants_gt50pct_flagging[0]],offset_y[ants_gt50pct_flagging[0]],marker='o',color='black',label='>50% Flagging',s=120)
+   ax.scatter(offset_x[ants_lt75pct_flagging[0]],offset_y[ants_lt75pct_flagging[0]],marker='o',color='cyan',label='<75% Flagging',s=120)
+   ax.scatter(offset_x[ants_gt75pct_flagging[0]],offset_y[ants_gt75pct_flagging[0]],marker='o',color='black',label='>75% Flagging',s=120)
    ax.legend(fontsize=20)
    for i in range(len(names)):
       ax.text(offset_x[i],offset_y[i],names[i])
@@ -1271,10 +1278,16 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
    plt.savefig(filename,dpi=200.0)
    plt.close()
 
-def plot_image(filename,outname):
+def plot_image(filename,outname,min=None,max=None):
    header=imhead(filename)
    size=np.max(header['shape'])
-   imview(raster={'file': filename, 'scaling': -1},\
+   if min == None:
+      imview(raster={'file': filename, 'scaling': -1},\
+          zoom={'blc': [int(size/4),int(size/4)],\
+                'trc': [int(size-size/4),int(size-size/4)]},\
+          out={'file': outname, 'orient': 'landscape'})
+   else:
+      imview(raster={'file': filename, 'scaling': -1, 'range': [min,max]},\
           zoom={'blc': [int(size/4),int(size/4)],\
                 'trc': [int(size-size/4),int(size-size/4)]},\
           out={'file': outname, 'orient': 'landscape'})
