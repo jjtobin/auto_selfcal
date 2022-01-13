@@ -1110,11 +1110,23 @@ def generate_weblog(sclib,solints,bands):
          if 'Stop_Reason' not in keylist:
             htmlOut.writelines('Stop Reason: Estimated Selfcal S/N too low for solint<br><br>\n')
             if sclib[target][band]['SC_success']==False:
+               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
+               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n') 
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
                continue
          else:   
             htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
             print(target,band,sclib[target][band]['Stop_Reason'])
             if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint']=='None':
+               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
+               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n') 
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
                continue
 
          htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br>\n')
@@ -1125,9 +1137,10 @@ def generate_weblog(sclib,solints,bands):
          plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
          plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png') 
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n') 
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
-         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+
  
 
          if 'per_spw_stats' in sclib[target][band].keys():
