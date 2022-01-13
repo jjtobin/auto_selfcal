@@ -1195,11 +1195,23 @@ def generate_weblog(sclib,solints,bands):
             htmlOut.writelines('<a name="'+target+'_'+band+'_'+solints[band][i]+'_plots"></a>\n')
             htmlOut.writelines('<h3>Solint: '+solints[band][i]+'</h3>\n')
             htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">Back to Target/Band</a><br>\n')
-            passed='True'
-            if i > final_solint_index:
+
+            keylist_top=sclib[target][band].keys()
+            #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
+            passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass']
+            '''
+            if (i > final_solint_index) or ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
                htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
+            elif 'Stop_Reason' in keylist_top:
+               if (i == final_solint_index) and ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
+                    htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n') 
             else:
                htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
+            '''
+            if passed:
+               htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
+            else:
+               htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
             htmlOut.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
             plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 

@@ -582,7 +582,8 @@ for target in all_targets:
          ## if S/N worsens, and/or beam area increases reject current solutions and reapply previous (or revert to origional data)
          ##  
          else: 
-            selfcal_library[target][band][vis][solint]['Pass']=False
+            for vis in vislist:
+               selfcal_library[target][band][vis][solint]['Pass']=False
             reason=''
             if (post_SNR <= SNR):
                reason=reason+' S/N decrease'
