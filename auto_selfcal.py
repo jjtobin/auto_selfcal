@@ -448,6 +448,7 @@ for target in all_targets:
    for iteration in range(len(solints[band])):
       if solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed:
          print('*********** estimated SNR for solint='+solints[band][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
+         selfcal_library[target][band]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+solints[band][iteration]
          break
       else:
          solint=solints[band][iteration]

@@ -1,6 +1,7 @@
 import numpy as np
 import numpy 
 import math
+from PIL import Image
 def tclean_wrapper(vis, imagename, scales,telescope='undefined', smallscalebias = 0.6, mask = '', nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000, cycleniter = 300, uvtaper = [], savemodel = 'none', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,lownoisethreshold=1.5,parallel=False,nterms=1,
 cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw=''):
     """
@@ -1100,27 +1101,48 @@ def generate_weblog(sclib,solints,bands):
       htmlOut.writelines('<a href="#top">Back to Top</a><br>\n')
       htmlOut.writelines('<a href="#'+target+'_plots">Phase vs. Time Plots</a><br>\n')
       bands_obsd=list(sclib[target].keys())
+
       for band in bands_obsd:
+         print(target,band)
          htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">'+band+'</a><br>\n')
          htmlOut.writelines('Selfcal Success?: '+str(sclib[target][band]['SC_success'])+'<br>\n')
+         keylist=sclib[target][band].keys()
+         if 'Stop_Reason' not in keylist:
+            htmlOut.writelines('Stop Reason: Estimated Selfcal S/N too low for solint<br><br>\n')
+            if sclib[target][band]['SC_success']==False:
+               continue
+         else:   
+            htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
+            print(target,band,sclib[target][band]['Stop_Reason'])
+            if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint']=='None':
+               continue
+
          htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br>\n')
-         htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
          htmlOut.writelines('Final SNR: {:0.2f}'.format(sclib[target][band]['SNR_final'])+'<br>Initial SNR: {:0.2f}'.format(sclib[target][band]['SNR_orig'])+'<br><br>\n')
          htmlOut.writelines('Final RMS: {:0.7f}'.format(sclib[target][band]['RMS_final'])+' Jy/beam<br>Initial RMS: {:0.7f}'.format(sclib[target][band]['RMS_orig'])+' Jy/beam<br>\n')
          htmlOut.writelines('Final Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_final'],sclib[target][band]['Beam_minor_final'],sclib[target][band]['Beam_PA_final'])+'<br>\n')
          htmlOut.writelines('Initial Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_orig'],sclib[target][band]['Beam_minor_orig'],sclib[target][band]['Beam_PA_orig'])+'<br><br>\n')
-         spwlist=list(sclib[target][band]['per_spw_stats'].keys())
-         htmlOut.writelines('<br>Per SPW stats: <br>\n')
-         for spw in spwlist:
-            htmlOut.writelines(spw+': Pre SNR: {:0.2f}, Post SNR: {:0.2f} Pre RMS: {:0.7f}, Post RMS: {:0.7f}<br>\n'\
-                               .format(sclib[target][band]['per_spw_stats'][spw]['SNR_orig'],sclib[target][band]['per_spw_stats'][spw]['SNR_final'],\
-                                       sclib[target][band]['per_spw_stats'][spw]['RMS_orig'],sclib[target][band]['per_spw_stats'][spw]['RMS_final']))
-            if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-               htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>')
-            if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-               htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>')
-            if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-               htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>')
+         plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
+         plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png') 
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+ 
+
+         if 'per_spw_stats' in sclib[target][band].keys():
+            spwlist=list(sclib[target][band]['per_spw_stats'].keys())
+            htmlOut.writelines('<br>Per SPW stats: <br>\n')
+            for spw in spwlist:
+               htmlOut.writelines(spw+': Pre SNR: {:0.2f}, Post SNR: {:0.2f} Pre RMS: {:0.7f}, Post RMS: {:0.7f}<br>\n'\
+                                  .format(sclib[target][band]['per_spw_stats'][spw]['SNR_orig'],sclib[target][band]['per_spw_stats'][spw]['SNR_final'],\
+                                          sclib[target][band]['per_spw_stats'][spw]['RMS_orig'],sclib[target][band]['per_spw_stats'][spw]['RMS_final']))
+               if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+                  htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>')
+               if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+                  htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>')
+               if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+                  htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>')
 
    for target in targets:
       bands_obsd=list(sclib[target].keys())
@@ -1129,18 +1151,31 @@ def generate_weblog(sclib,solints,bands):
       for band in bands_obsd:
          htmlOut.writelines('<a name="'+target+'_'+band+'_plots"></a>\n')
          htmlOut.writelines('<h3>'+band+'</h3>\n')
-         final_solint_index=solints[band].index(sclib[target][band]['final_solint']) 
+         if sclib[target][band]['final_solint'] == 'None':
+            final_solint_index=0
+         else:
+            final_solint_index=solints[band].index(sclib[target][band]['final_solint']) 
+
          vislist=sclib[target][band]['vislist']
          index_addition=1
-         if sclib[target][band]['final_solint'] != 'int':
+         if sclib[target][band]['final_solint'] != 'int' and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
+
+         final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
+         keylist=sclib[target][band][vislist[0]].keys()
+         if index_addition == 2 and final_solint_to_plot not in keylist:
+           index_addition=index_addition-1
+
          solints_string=''
          for i in range(final_solint_index+index_addition):
                solints_string+='<a href="#'+target+'_'+band+'_'+solints[band][i]+'_plots">'+solints[band][i]+'  </a><br>\n'
          
          htmlOut.writelines('<br>Solints: '+solints_string)
-
+         
          for i in range(final_solint_index+index_addition):
+            keylist=sclib[target][band][vislist[0]].keys()
+            if solints[band][i] not in keylist:
+               continue
             htmlOut.writelines('<a name="'+target+'_'+band+'_'+solints[band][i]+'_plots"></a>\n')
             htmlOut.writelines('<h3>Solint: '+solints[band][i]+'</h3>\n')
             htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">Back to Target/Band</a><br>\n')
@@ -1149,6 +1184,13 @@ def generate_weblog(sclib,solints,bands):
                htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
             else:
                htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
+            
+            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png') 
+            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
+            htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+            htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
             htmlOut.writelines('Post SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
             htmlOut.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_pre'])+' Jy/beam<br>\n')
             htmlOut.writelines('Post Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_post'])+'<br>\n')
@@ -1200,7 +1242,7 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
    ants_lt10pct_flagging=((fracflagged <= 0.1) & (fracflagged > 0.0)).nonzero()
    ants_lt25pct_flagging=((fracflagged <= 0.25) & (fracflagged > 0.10)).nonzero()
    ants_lt50pct_flagging=((fracflagged <= 0.5) & (fracflagged > 0.25)).nonzero()
-   ants_gt50pct_flagging=np.where(fracflagged > 50.0)
+   ants_gt50pct_flagging=np.where(fracflagged > 0.5)
    fig, ax = plt.subplots(1,1,figsize=(12, 12))
    ax.scatter(offset_x[ants_zero_flagging[0]],offset_y[ants_zero_flagging[0]],marker='o',color='green',label='No Flagging',s=120)
    ax.scatter(offset_x[ants_lt10pct_flagging[0]],offset_y[ants_lt10pct_flagging[0]],marker='o',color='blue',label='<10% Flagging',s=120)
@@ -1216,6 +1258,25 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
    plt.savefig(filename,dpi=200.0)
    plt.close()
 
+def plot_image(filename,outname):
+   header=imhead(filename)
+   size=np.max(header['shape'])
+   imview(raster={'file': filename, 'scaling': -1},\
+          zoom={'blc': [int(size/4),int(size/4)],\
+                'trc': [int(size-size/4),int(size-size/4)]},\
+          out={'file': outname, 'orient': 'landscape'})
+   #make image square since imview makes it a strange dimension
+   im = Image.open(outname)
+   width, height = im.size
+   if height > width:
+      remainder=height-width
+      trim_amount=int(remainder/2.0)
+      im1=im.crop((0,trim_amount,width-1,height-trim_amount-1))
+   else:
+      remainder=width-height
+      trim_amount=int(remainder/2.0)
+      im1=im.crop((trim_amount,height-1,width,width-trim_amount-1,0))
+   im1.save(outname)
 
 def get_flagged_solns_per_ant(gaintable,vis):
      # Get the antenna names and offsets.
@@ -1241,9 +1302,9 @@ def get_flagged_solns_per_ant(gaintable,vis):
              mean_longitude)**2 + (offset[i]["latitude offset"]\
              ['value'] - mean_latitude)**2) for i in \
              range(len(names))]
-     offset_x=[(offset[i]["latitude offset"]['value']) for i in \
+     offset_y=[(offset[i]["latitude offset"]['value']) for i in \
              range(len(names))]
-     offset_y=[(offset[i]["longitude offset"]['value']) for i in \
+     offset_x=[(offset[i]["longitude offset"]['value']) for i in \
              range(len(names))]
      # Calculate the number of flags for each antenna.
 
