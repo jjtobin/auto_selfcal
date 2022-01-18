@@ -1140,10 +1140,17 @@ def generate_weblog(sclib,solints,bands):
          
          plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
-         htmlOut.writelines('Initial and Final Images with scales set by Final Image<br>\n')
-         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
-         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+         os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
+         immath(imagename=[sanitize_string(target)+'_'+band+'_final.image.tt0',sanitize_string(target)+'_'+band+'_initial.image.tt0'],\
+                mode='evalexpr',expr='(IM0-IM1)/IM0',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
+         plot_image(sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
+                       min=-1.5,max=1.0) 
 
+         htmlOut.writelines('Initial, Final, and  Images with scales set by Final Image<br>\n')
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
  
 
          if 'per_spw_stats' in sclib[target][band].keys():
@@ -1294,12 +1301,12 @@ def plot_image(filename,outname,min=None,max=None):
    header=imhead(filename)
    size=np.max(header['shape'])
    if min == None:
-      imview(raster={'file': filename, 'scaling': -1},\
+      imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
           zoom={'blc': [int(size/4),int(size/4)],\
                 'trc': [int(size-size/4),int(size-size/4)]},\
           out={'file': outname, 'orient': 'landscape'})
    else:
-      imview(raster={'file': filename, 'scaling': -1, 'range': [min,max]},\
+      imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
           zoom={'blc': [int(size/4),int(size/4)],\
                 'trc': [int(size-size/4),int(size-size/4)]},\
           out={'file': outname, 'orient': 'landscape'})

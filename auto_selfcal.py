@@ -513,6 +513,7 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['spwmap']=selfcal_library[target][band][vis]['spwmap']
             selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
             selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+            selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
          ##
          ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
          ##
