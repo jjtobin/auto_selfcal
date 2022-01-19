@@ -1071,7 +1071,7 @@ def compare_beams(image1, image2):
     return delta_beamarea
 
 
-def generate_weblog(sclib,solints,bands):
+def generate_weblog_old(sclib,solints,bands):
    os.system('rm -rf weblog')
    os.system('mkdir weblog')
    os.system('mkdir weblog/images')
@@ -1363,6 +1363,387 @@ def get_flagged_solns_per_ant(gaintable,vis):
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
      # Calculate a score based on those two.
      return names, np.array(offset_x),np.array(offset_y),offsets, nflags, nunflagged,fracflagged
+
+
+def generate_weblog(sclib,solints,bands):
+   os.system('rm -rf weblog')
+   os.system('mkdir weblog')
+   os.system('mkdir weblog/images')
+   htmlOut=open('weblog/index.html','w')
+   htmlOut.writelines('<html>\n')
+   htmlOut.writelines('<title>SelfCal Weblog</title>\n')
+   htmlOut.writelines('<head>\n')
+   htmlOut.writelines('</head>\n')
+   htmlOut.writelines('<body>\n')
+   htmlOut.writelines('<a name="top"></a>\n')
+   htmlOut.writelines('<h1>SelfCal Weblog</h1>\n')
+   htmlOut.writelines('<h2>Targets:</h2>\n')
+   targets=list(sclib.keys())
+   for target in targets:
+      htmlOut.writelines('<a href="#'+target+'">'+target+'</a><br>\n')
+   htmlOut.writelines('<h2>Bands:</h2>\n')
+   bands_string=', '.join([str(elem) for elem in bands])
+   htmlOut.writelines(''+bands_string+'\n')
+   htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
+   for band in bands:
+      solints_string=', '.join([str(elem) for elem in solints[band]])
+      htmlOut.writelines('<br>'+band+': '+solints_string)
+
+   for target in targets:
+      htmlOut.writelines('<a name="'+target+'"></a>\n')
+      htmlOut.writelines('<h2>'+target+' Summary</h2>\n')
+      htmlOut.writelines('<a href="#top">Back to Top</a><br>\n')
+      bands_obsd=list(sclib[target].keys())
+
+      for band in bands_obsd:
+         htmlOut.writelines('<h2>'+band+'</h2>\n')
+         htmlOut.writelines('<a name="'+target+'_'+band+'"></a>\n')
+         htmlOut.writelines('Selfcal Success?: '+str(sclib[target][band]['SC_success'])+'<br>\n')
+         keylist=sclib[target][band].keys()
+         if 'Stop_Reason' not in keylist:
+            htmlOut.writelines('Stop Reason: Estimated Selfcal S/N too low for solint<br><br>\n')
+            if sclib[target][band]['SC_success']==False:
+               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
+               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+               continue
+         else:   
+            htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
+            print(target,band,sclib[target][band]['Stop_Reason'])
+            if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint']=='None':
+               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
+               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
+                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
+               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+               continue
+
+
+
+         htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br><br>\n')
+         '''
+         htmlOut.writelines('Final SNR: {:0.2f}'.format(sclib[target][band]['SNR_final'])+'<br>Initial SNR: {:0.2f}'.format(sclib[target][band]['SNR_orig'])+'<br><br>\n')
+         htmlOut.writelines('Final RMS: {:0.7f}'.format(sclib[target][band]['RMS_final'])+' Jy/beam<br>Initial RMS: {:0.7f}'.format(sclib[target][band]['RMS_orig'])+' Jy/beam<br>\n')
+         htmlOut.writelines('Final Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_final'],sclib[target][band]['Beam_minor_final'],sclib[target][band]['Beam_PA_final'])+'<br>\n')
+         htmlOut.writelines('Initial Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_orig'],sclib[target][band]['Beam_minor_orig'],sclib[target][band]['Beam_PA_orig'])+'<br><br>\n')
+         '''
+         plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+         image_stats=imstat(sanitize_string(target)+'_'+band+'_final.image.tt0')
+         
+         plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+         os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
+         immath(imagename=[sanitize_string(target)+'_'+band+'_final.image.tt0',sanitize_string(target)+'_'+band+'_initial.image.tt0'],\
+                mode='evalexpr',expr='(IM0-IM1)/IM0',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
+         plot_image(sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
+                       min=-1.5,max=1.0) 
+         '''
+         htmlOut.writelines('Initial, Final, and  Images with scales set by Final Image<br>\n')
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+         '''
+         # SUMMARY TABLE FOR FINAL IMAGES
+         htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+         htmlOut.writelines('	<tr>\n')
+         htmlOut.writelines('		<td>\n')
+         line='<table>\n  <tr bgcolor="#ffffff">\n    <th>Data:</th>\n    '
+         for data_type in ['Initial', 'Final', 'Comparison']:
+            line+='<th>'+data_type+'</th>\n    '
+         line+='</tr>\n'
+         htmlOut.writelines(line)
+         quantities=['Image','SNR','RMS','Beam']
+         for key in quantities:
+            if key =='Image':
+               line='<tr bgcolor="#ffffff">\n    <td>Image: </td>\n'
+            if key =='SNR':
+               line='<tr bgcolor="#ffffff">\n    <td>SNR: </td>\n'
+            if key =='RMS':
+               line='<tr bgcolor="#ffffff">\n    <td>RMS: </td>\n'
+            if key =='Beam':
+               line='<tr bgcolor="#ffffff">\n    <td>Beam: </td>\n'
+
+            for data_type in ['orig', 'final', 'comp']:
+               if data_type !='comp':
+                  if key =='Image':
+                     if data_type=='orig':
+                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+                     if data_type=='final':
+                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+                  if key =='SNR':
+                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
+                  if key =='RMS':
+                     line+='    <td>{:0.2f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
+                  if key=='Beam':
+                     line+='    <td>{:0.2f}"x{:0.2f}" {:0.2f} deg </td>\n'.format(sclib[target][band][key+'_major'+'_'+data_type],sclib[target][band][key+'_minor'+'_'+data_type],sclib[target][band][key+'_PA'+'_'+data_type])
+               else:
+                  if key =='Image':
+                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+                  if key =='SNR':
+                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                  if key =='RMS':
+                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
+                  if key=='Beam':
+                     line+='    <td>{:0.2f}</td>\n'.format((sclib[target][band][key+'_major_final']*sclib[target][band][key+'_minor_final'])/(sclib[target][band][key+'_major_orig']*sclib[target][band][key+'_minor_orig']))
+            line+='</tr>\n    '
+            htmlOut.writelines(line)
+         htmlOut.writelines('</table>\n')
+         htmlOut.writelines('	</td>\n')
+         htmlOut.writelines('	</tr>\n')
+         htmlOut.writelines('</table>\n')
+
+
+
+         #  SELFCAL SUMMARY TABLE   
+         vislist=sclib[target][band]['vislist']
+         solint_list=solints[band]
+         htmlOut.writelines('<br>Per solint stats: <br>\n')
+         htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+         htmlOut.writelines('	<tr>\n')
+         htmlOut.writelines('		<td>\n')
+         line='<table>\n  <tr bgcolor="#ffffff">\n    <th>Solint:</th>\n    '
+         for solint in solint_list:
+            line+='<th>'+solint+'</th>\n    '
+         line+='</tr>\n'
+         htmlOut.writelines(line)
+         vis_keys=list(sclib[target][band][vislist[len(vislist)-1]].keys())
+         quantities=['Pass','SNR_final','SNR_Improvement','RMS_final','RMS_Improvement','Beam_Ratio','clean_threshold','Plots']
+         for key in quantities:
+            if key =='Pass':
+               line='<tr bgcolor="#ffffff">\n    <td>Result: </td>\n'
+            if key =='SNR_final':
+               line='<tr bgcolor="#ffffff">\n    <td>Dynamic Range: </td>\n'
+            if key =='SNR_Improvement':
+               line='<tr bgcolor="#ffffff">\n    <td>DR Improvement: </td>\n'
+            if key =='RMS_final':
+               line='<tr bgcolor="#ffffff">\n    <td>RMS: </td>\n'
+            if key =='RMS_Improvement':
+               line='<tr bgcolor="#ffffff">\n    <td>RMS Improvement: </td>\n'
+            if key =='Beam_Ratio':
+               line='<tr bgcolor="#ffffff">\n    <td>Ratio of Beam Area: </td>\n'
+            if key =='clean_threshold':
+               line='<tr bgcolor="#ffffff">\n    <td>Clean Threshold: </td>\n'
+            if key =='Plots':
+               line='<tr bgcolor="#ffffff">\n    <td>Plots: </td>\n'
+            for solint in solint_list:
+               if solint in vis_keys:
+                  if key=='Pass':
+                     if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
+                        line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band]['Stop_Reason'])
+                     else:
+                        line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
+                      
+                  if key=='SNR_final':
+                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
+                  if key=='SNR_Improvement':
+                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_pre'])
+
+                  if key=='RMS_final':
+                     line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']*1000.0)
+                  if key=='RMS_Improvement':
+                     line+='    <td>{:0.2e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'])
+                  if key=='Beam_Ratio':
+                     line+='    <td>{:0.2e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post'])/(sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']))
+                  if key =='clean_threshold':
+                     if key in vis_keys:
+                        line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['clean_threshold']*1000.0)
+                     else:
+                        line+='    <td>Not Available</td>\n'
+                  if key =='Plots':
+                     line+='    <td><a href="'+target+'_'+band+'_'+solint+'.html">QA Plots</a></td>\n'
+
+               else:
+                  line+='    <td> - </td>\n'
+            line+='</tr>\n    '
+            htmlOut.writelines(line)
+         htmlOut.writelines('<tr bgcolor="#ffffff">\n    <td colspan="'+str(len(solint_list)+1)+'">Flagged solutions by antenna: </td></tr>\n')
+         for vis in vislist:
+            line='<tr bgcolor="#ffffff">\n    <td>'+vis+': </td>\n'
+            for solint in solint_list:
+               if solint in vis_keys:
+                  gaintable=sclib[target][band][vis][solint]['gaintable']
+                  line+='<td><a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=200 HEIGHT=200></a></td>\n'
+               else:
+                   line+='<td>-</td>\n'
+            line+='</tr>\n    '
+            htmlOut.writelines(line)
+            for quantity in ['Nsols','Flagged_Sols','Frac_Flagged']:
+               line='<tr bgcolor="#ffffff">\n    <td>'+quantity+'</td>\n'
+               for solint in solint_list:
+                  if solint in vis_keys:
+                     gaintable=sclib[target][band][vis][solint]['gaintable']
+                     nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
+                     if quantity =='Nsols':
+                        line+='<td>'+str(nsols)+'</td>\n'
+                     if quantity =='Flagged_Sols':
+                        line+='<td>'+str(nflagged_sols)+'</td>\n'
+                     if quantity =='Frac_Flagged':
+                        line+='<td>'+'{:0.3f}'.format(nflagged_sols/nsols)+'</td>\n'
+                  else:
+                     line+='<td>-</td>\n'
+               line+='</tr>\n    '
+
+               htmlOut.writelines(line)
+         htmlOut.writelines('</table>\n')
+         htmlOut.writelines('	</td>\n')
+         htmlOut.writelines('	</tr>\n')
+         htmlOut.writelines('</table>\n')
+
+
+               #ant_list=get_ant_list(vis)
+               #gaintable=sclib[target][band][vis][solints[band][i]]['gaintable']
+               ##nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
+               #frac_flagged_sols=nflagged_sols/nsols
+               #plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png',vis,gaintable)
+
+         # PER SPW STATS TABLE
+         if 'per_spw_stats' in sclib[target][band].keys():
+            spwlist=list(sclib[target][band]['per_spw_stats'].keys())
+            htmlOut.writelines('<br>Per SPW stats: <br>\n')
+            htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+            htmlOut.writelines('	<tr>\n')
+            htmlOut.writelines('		<td>\n')
+            line='<table>\n  <tr bgcolor="#ffffff">\n    <th></th>\n    '
+            for spw in spwlist:
+               line+='<th>'+spw+'</th>\n    '
+            line+='</tr>\n'
+            htmlOut.writelines(line)
+
+            quantities=['SNR_orig','SNR_final','RMS_orig','RMS_final']
+            for key in quantities:
+               line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
+               for spw in spwlist:
+                  if 'SNR' in key:
+                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
+                  if 'RMS' in key:
+                     line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
+               line+='</tr>\n    '
+               htmlOut.writelines(line)
+            htmlOut.writelines('</table>\n')
+            htmlOut.writelines('	</td>\n')
+            htmlOut.writelines('	</tr>\n')
+            htmlOut.writelines('</table>\n')
+            for spw in spwlist:
+
+               if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+                  htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
+               if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+                  htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
+               if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+                  htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
+
+   htmlOut.writelines('</body>\n')
+   htmlOut.writelines('</html>\n')
+   htmlOut.close()
+ 
+   ## Per Solint pages
+   targets=list(sclib.keys())
+   for target in targets:
+      bands_obsd=list(sclib[target].keys())
+      for band in bands_obsd:
+         if sclib[target][band]['final_solint'] == 'None':
+            final_solint_index=0
+         else:
+            final_solint_index=solints[band].index(sclib[target][band]['final_solint']) 
+
+         vislist=sclib[target][band]['vislist']
+         index_addition=1
+         if sclib[target][band]['final_solint'] != 'int' and sclib[target][band]['final_solint'] != 'None':
+            index_addition=2
+
+         final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
+         keylist=sclib[target][band][vislist[0]].keys()
+         if index_addition == 2 and final_solint_to_plot not in keylist:
+           index_addition=index_addition-1
+
+
+         
+         for i in range(final_solint_index+index_addition):
+            if solints[band][i] not in keylist:
+               continue
+            htmlOutSolint=open('weblog/'+target+'_'+band+'_'+solints[band][i]+'.html','w')
+            htmlOutSolint.writelines('<html>\n')
+            htmlOutSolint.writelines('<title>SelfCal Weblog</title>\n')
+            htmlOutSolint.writelines('<head>\n')
+            htmlOutSolint.writelines('</head>\n')
+            htmlOutSolint.writelines('<body>\n')
+            htmlOutSolint.writelines('<a name="top"></a>\n')
+            htmlOutSolint.writelines('<h2>'+target+' Plots</h2>\n')
+            htmlOutSolint.writelines('<h2>Targets:</h2>\n')
+            keylist=sclib[target][band][vislist[0]].keys()
+            solints_string=''
+            for j in range(final_solint_index+index_addition):
+               solints_string+='<a href="'+target+'_'+band+'_'+solints[band][j]+'.html">'+solints[band][j]+'  </a><br>\n'
+            htmlOutSolint.writelines('<br>Solints: '+solints_string)
+
+            htmlOutSolint.writelines('<h3>Solint: '+solints[band][i]+'</h3>\n')       
+            keylist_top=sclib[target][band].keys()
+            htmlOutSolint.writelines('<a href="index.html#'+target+'_'+band+'">Back to Main Target/Band</a><br>\n')
+
+
+            #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
+            passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass']
+            '''
+            if (i > final_solint_index) or ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
+               htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
+            elif 'Stop_Reason' in keylist_top:
+               if (i == final_solint_index) and ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
+                    htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n') 
+            else:
+               htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
+            '''
+            if passed:
+               htmlOutSolint.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
+            else:
+               htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
+            htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
+            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
+            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0')
+            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
+                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+            htmlOutSolint.writelines('Post SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_pre'])+' Jy/beam<br>\n')
+            htmlOutSolint.writelines('Post Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_post'])+'<br>\n')
+            htmlOutSolint.writelines('Pre Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
+
+
+
+            htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
+
+            for vis in vislist:
+               htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
+               ant_list=get_ant_list(vis)
+               gaintable=sclib[target][band][vis][solints[band][i]]['gaintable']
+               nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
+               frac_flagged_sols=nflagged_sols/nsols
+               plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png',vis,gaintable)
+               htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a><br>\n')
+               htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
+               htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
+               htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br>'.format(frac_flagged_sols))
+               for ant in ant_list:
+                  sani_target=sanitize_string(target)
+                  try:
+                     plotms(vis=gaintable,xaxis='time', yaxis='phase',showgui=False,\
+                         xselfscale=True,plotrange=[0,0,-180,180], antenna=ant,customflaggedsymbol=True,title=ant,\
+                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True)
+                     #htmlOut.writelines('<img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200>')
+                     htmlOutSolint.writelines('<a href="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'"><img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200></a>\n')
+                  except:
+                     continue
+            htmlOutSolint.writelines('</body>\n')
+            htmlOutSolint.writelines('</html>\n')
+            htmlOutSolint.close()
 
 
 

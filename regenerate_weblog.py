@@ -12,7 +12,6 @@ with open('solints.pickle', 'rb') as handle:
 with open('bands.pickle', 'rb') as handle:
     bands=pickle.load( handle)
 
-
 generate_weblog(selfcal_library,solints,bands)
 
 
