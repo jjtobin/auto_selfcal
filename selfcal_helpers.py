@@ -422,8 +422,13 @@ def fetch_targets(vis):
       return fields
 
 
-
-
+def checkmask(imagename):
+   maskImage=imagename.replace('image','mask').replace('.tt0','')
+   image_stats= imstat(maskImage)
+   if image_stats['max'][0] == 0:
+      return False
+   else:
+      return True
 
 def estimate_SNR(imagename,verbose=True):
     MADtoRMS =  1.4826
@@ -440,7 +445,11 @@ def estimate_SNR(imagename,verbose=True):
        maskImage='temp.mask'
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
-    if os.path.exists(maskImage):
+    if 'dirty' not in imagename:
+       goodMask=checkmask(imagename)
+    else:
+       goodMask=False
+    if os.path.exists(maskImage) and goodMask:
        ia.close()
        ia.done()
        ia.open(residualImage)
@@ -476,8 +485,11 @@ def estimate_near_field_SNR(imagename,verbose=True):
     beampa = headerlist['beampa']['value']
     image_stats= imstat(imagename = imagename)
     maskImage=imagename.replace('image','mask').replace('.tt0','')
+    goodMask=checkmask(imagename)
     if not os.path.exists(maskImage):
        return -99.0,-99.0
+    if not goodMask:
+       return -99.0,99.0
     residualImage=imagename.replace('image','residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
     os.system('cp -r '+maskImage+ ' temp.mask')
