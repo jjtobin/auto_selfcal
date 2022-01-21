@@ -315,7 +315,7 @@ for target in all_targets:
    initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0')
    initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0')
    header=imhead(imagename=sani_target+'_'+band+'_initial.image.tt0')
-   if telescope =='ALMA':
+   if telescope =='ALMA' or telescope == 'ACA':
       selfcal_library[target][band]['theoretical_sensitivity']=sensitivity
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
