@@ -468,6 +468,64 @@ def estimate_SNR(imagename,verbose=True):
 
 
 
+def estimate_near_field_SNR(imagename,verbose=True):
+    MADtoRMS =  1.4826
+    headerlist = imhead(imagename, mode = 'list')
+    beammajor = headerlist['beammajor']['value']
+    beamminor = headerlist['beamminor']['value']
+    beampa = headerlist['beampa']['value']
+    image_stats= imstat(imagename = imagename)
+    maskImage=imagename.replace('image','mask').replace('.tt0','')
+    if not os.path.exists(maskImage):
+       return -99.0,-99.0
+    residualImage=imagename.replace('image','residual')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    os.system('cp -r '+maskImage+ ' temp.mask')
+    os.system('cp -r '+residualImage+ ' temp.residual')
+    residualImage='temp.residual'
+    imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*3.0)+'arcsec',minor=str(beammajor*3.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
+    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.smooth.ceiling.mask')
+    imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+    immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
+    #immath(imagename=['temp.smooth.ceiling.mask','temp.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.border.mask')
+    immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.mask')
+    maskImage='temp.nearfield.mask'
+    ia.close()
+    ia.done()
+    ia.open(residualImage)
+    #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+    ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+    mask0Stats = ia.statistics(robust=True,axes=[0,1])
+    ia.maskhandler(op='set',name='madpbmask0')
+    rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
+    residualMean = mask0Stats['median'][0]
+    peak_intensity = image_stats['max'][0]
+    SNR = peak_intensity/rms
+    if verbose:
+           print("#%s" % imagename)
+           print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+           print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
+           print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
+           print("#Peak Near Field SNR: %.2f" % (SNR,))
+    ia.close()
+    ia.done()
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    return SNR,rms
+
+
+def get_intflux(imagename,rms):
+   headerlist = imhead(imagename, mode = 'list')
+   beammajor = headerlist['beammajor']['value']
+   beamminor = headerlist['beamminor']['value']
+   beampa = headerlist['beampa']['value']
+   cell = headerlist['cdelt2']*180.0/3.14159*3600.0
+   beamarea=3.14159*beammajor*beamminor/(4.0*np.log(2.0))
+   pix_per_beam=beamarea/(cell**2)
+   imagestats=imstat(imagename=imagename,mask=imagename.replace('image.tt0','mask'))
+   flux=imagestats['flux'][0]
+   n_beams=imagestats['npts'][0]/pix_per_beam
+   e_flux=(n_beams)**0.5*rms
+   return flux,e_flux
 
 def get_n_ants(vislist):
    #Examines number of antennas in each ms file and returns the minimum number of antennas
@@ -1365,6 +1423,107 @@ def get_flagged_solns_per_ant(gaintable,vis):
      return names, np.array(offset_x),np.array(offset_y),offsets, nflags, nunflagged,fracflagged
 
 
+
+def create_noise_histogram(imagename):
+    MADtoRMS =  1.4826
+    headerlist = imhead(imagename, mode = 'list')
+    telescope=headerlist['telescope']
+    beammajor = headerlist['beammajor']['value']
+    beamminor = headerlist['beamminor']['value']
+    beampa = headerlist['beampa']['value']
+    image_stats= imstat(imagename = imagename)
+    maskImage=imagename.replace('image','mask').replace('.tt0','')
+    residualImage=imagename.replace('image','residual')
+    os.system('rm -rf temp.mask temp.residual')
+    if os.path.exists(maskImage):
+       os.system('cp -r '+maskImage+ ' temp.mask')
+       maskImage='temp.mask'
+    os.system('cp -r '+residualImage+ ' temp.residual')
+    residualImage='temp.residual'
+    if os.path.exists(maskImage):
+       ia.close()
+       ia.done()
+       ia.open(residualImage)
+       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       mask0Stats = ia.statistics(robust=True,axes=[0,1])
+       ia.maskhandler(op='set',name='madpbmask0')
+       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
+       residualMean = mask0Stats['median'][0]
+       pix=np.squeeze(ia.getchunk())
+       mask=np.squeeze(ia.getchunk(getmask=True))
+       dimensions=mask.ndim
+       if dimensions ==4:
+          mask=mask[:,:,0,0]
+       if dimensions == 3:
+          mask=mask[:,:,0]
+       unmasked=(mask == True).nonzero()
+       pix_unmasked=pix[unmasked]
+       N,intensity=np.histogram(pix_unmasked,bins=50)
+       ia.close()
+       ia.done()
+    elif telescope == 'ALMA':
+       ia.close()
+       ia.done()
+       ia.open(residualImage)
+       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       ia.calcmask("mask("+residualImage+")",name='madpbmask0')
+       mask0Stats = ia.statistics(robust=True,axes=[0,1])
+       ia.maskhandler(op='set',name='madpbmask0')
+       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
+       residualMean = mask0Stats['median'][0]
+       pix=np.squeeze(ia.getchunk())
+       mask=np.squeeze(ia.getchunk(getmask=True))
+       mask=mask[:,:,0,0]
+       unmasked=(mask == True).nonzero()
+       pix_unmasked=pix[unmasked]
+       ia.close()
+       ia.done()
+    elif telescope=='VLA':
+       residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
+       rms = residual_stats['rms'][0]
+       ia.open(residualImage)
+       pix_unmasked=np.squeeze(ia.getchunk())
+       ia.close()
+       ia.done()
+
+    N,intensity=np.histogram(pix_unmasked,bins=100)
+    intensity=np.diff(intensity)+intensity[:-1]  
+    ia.close()
+    ia.done()
+    os.system('rm -rf temp.mask temp.residual')
+    return N,intensity,rms 
+
+
+def create_noise_histogram_plots(N_1,N_2,intensity_1,intensity_2,rms_1,rms_2,outfile,rms_theory=0.0):
+   import matplotlib
+   matplotlib.use('Agg')
+   import matplotlib.pyplot as plt 
+   bins=50.0
+   max_N_1=np.max(N_1)
+   max_N_2=np.max(N_2)
+   fig, ax = plt.subplots(1,1,figsize=(12, 12))
+   ax.set_yscale('log')
+   plt.ylim([0.0001,2.0])
+   ax.step(intensity_1,N_1/np.max(N_1),label='Initial Data')
+   ax.step(intensity_2,N_2/np.max(N_2),label='Final Data')
+   ax.plot(intensity_1,gaussian_norm(intensity_1,0,rms_1),label='Initial Gaussian')
+   ax.plot(intensity_2,gaussian_norm(intensity_2,0,rms_2),label='Final Gaussian')
+   if rms_theory !=0.0:
+      ax.plot([-1.0*rms_theory,rms_theory],[0.606,0.606],label='Theoretical Sensitivity')
+   ax.legend(fontsize=20)
+   ax.set_xlabel('Intensity (mJy/Beam)',fontsize=20)
+   ax.set_ylabel('N',fontsize=20)
+   ax.set_title('Initial vs. Final Noise (Unmasked Pixels)',fontsize=20)
+   plt.savefig(outfile,dpi=200.0)
+   plt.close()
+
+
+def gaussian_norm(x, mean, sigma):
+   gauss_dist=np.exp(-(x-mean)**2/(2*sigma**2))
+   norm_gauss_dist=gauss_dist/np.max(gauss_dist)
+   return norm_gauss_dist
+
 def generate_weblog(sclib,solints,bands):
    os.system('rm -rf weblog')
    os.system('mkdir weblog')
@@ -1403,46 +1562,63 @@ def generate_weblog(sclib,solints,bands):
          if 'Stop_Reason' not in keylist:
             htmlOut.writelines('Stop Reason: Estimated Selfcal S/N too low for solint<br><br>\n')
             if sclib[target][band]['SC_success']==False:
-               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
-               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+               render_summary_table(htmlOut,sclib,target,band)
                continue
          else:   
             htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
             print(target,band,sclib[target][band]['Stop_Reason'])
             if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint']=='None':
-               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
-               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+               render_summary_table(htmlOut,sclib,target,band)
                continue
-
-
-
          htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br><br>\n')
-         '''
-         htmlOut.writelines('Final SNR: {:0.2f}'.format(sclib[target][band]['SNR_final'])+'<br>Initial SNR: {:0.2f}'.format(sclib[target][band]['SNR_orig'])+'<br><br>\n')
-         htmlOut.writelines('Final RMS: {:0.7f}'.format(sclib[target][band]['RMS_final'])+' Jy/beam<br>Initial RMS: {:0.7f}'.format(sclib[target][band]['RMS_orig'])+' Jy/beam<br>\n')
-         htmlOut.writelines('Final Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_final'],sclib[target][band]['Beam_minor_final'],sclib[target][band]['Beam_PA_final'])+'<br>\n')
-         htmlOut.writelines('Initial Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_orig'],sclib[target][band]['Beam_minor_orig'],sclib[target][band]['Beam_PA_orig'])+'<br><br>\n')
-         '''
+         # Summary table for before/after SC
+         render_summary_table(htmlOut,sclib,target,band)
+
+         #Noise Summary plot
+         N_initial,intensity_initial,rms_inital=create_noise_histogram(sanitize_string(target)+'_'+band+'_initial.image.tt0')
+         N_final,intensity_final,rms_final=create_noise_histogram(sanitize_string(target)+'_'+band+'_final.image.tt0')
+         if 'theoretical_sensitivity' in keylist:
+            rms_theory=sclib[target][band]['theoretical_sensitivity']
+         else:
+            rms_theory=0.0
+         create_noise_histogram_plots(N_initial,N_final,intensity_initial,intensity_final,rms_inital,rms_final,\
+                                      'weblog/images/'+sanitize_string(target)+'_'+band+'_noise_plot.png',rms_theory)
+         htmlOut.writelines('<br>Initial vs. Final Noise Characterization<br>')
+         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png"><img src="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png" ALT="Noise Characteristics" WIDTH=300 HEIGHT=300></a><br>\n')
+         
+         # Solint summary table
+         render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints)
+
+         # PER SPW STATS TABLE
+         if 'per_spw_stats' in sclib[target][band].keys():
+            render_spw_stats_summary_table(htmlOut,sclib,target,band)
+
+   # Close main weblog file
+   htmlOut.writelines('</body>\n')
+   htmlOut.writelines('</html>\n')
+   htmlOut.close()
+   
+   # Pages for each solint
+   render_per_solint_QA_pages(sclib,solints,bands)
+ 
+
+def render_summary_table(htmlOut,sclib,target,band):
          plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
          image_stats=imstat(sanitize_string(target)+'_'+band+'_final.image.tt0')
          
          plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
-         os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
-         immath(imagename=[sanitize_string(target)+'_'+band+'_final.image.tt0',sanitize_string(target)+'_'+band+'_initial.image.tt0'],\
-                mode='evalexpr',expr='(IM0-IM1)/IM0',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
+         os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0 '+sanitize_string(target)+'_'+band+'_final_initial_div_final.temp.image.tt0')
+
+         ### Hacky way to suppress stuff outside mask in ratio images.
+         immath(imagename=[sanitize_string(target)+'_'+band+'_final.image.tt0',sanitize_string(target)+'_'+band+'_initial.image.tt0',sanitize_string(target)+'_'+band+'_final.mask'],\
+                mode='evalexpr',expr='((IM0-IM1)/IM0)*IM2',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.temp.image.tt0')
+         immath(imagename=[sanitize_string(target)+'_'+band+'_final_initial_div_final.temp.image.tt0'],\
+                mode='evalexpr',expr='iif(IM0==0.0,-99.0,IM0)',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
          plot_image(sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
-                       min=-1.5,max=1.0) 
+                       min=-1.0,max=1.0) 
          '''
          htmlOut.writelines('Initial, Final, and  Images with scales set by Final Image<br>\n')
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
@@ -1458,14 +1634,20 @@ def generate_weblog(sclib,solints,bands):
             line+='<th>'+data_type+'</th>\n    '
          line+='</tr>\n'
          htmlOut.writelines(line)
-         quantities=['Image','SNR','RMS','Beam']
+         quantities=['Image','intflux','SNR','SNR_NF','RMS','RMS_NF','Beam']
          for key in quantities:
             if key =='Image':
                line='<tr bgcolor="#ffffff">\n    <td>Image: </td>\n'
             if key =='SNR':
                line='<tr bgcolor="#ffffff">\n    <td>SNR: </td>\n'
+            if key =='intflux':
+               line='<tr bgcolor="#ffffff">\n    <td>Integrated Flux: </td>\n'
             if key =='RMS':
                line='<tr bgcolor="#ffffff">\n    <td>RMS: </td>\n'
+            if key =='SNR_NF':
+               line='<tr bgcolor="#ffffff">\n    <td>SNR (near-field): </td>\n'
+            if key =='RMS_NF':
+               line='<tr bgcolor="#ffffff">\n    <td>RMS (near-field): </td>\n'
             if key =='Beam':
                line='<tr bgcolor="#ffffff">\n    <td>Beam: </td>\n'
 
@@ -1478,16 +1660,28 @@ def generate_weblog(sclib,solints,bands):
                         line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                   if key =='SNR':
                      line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
+                  if key =='intflux':
+                     line+='    <td>{:0.2f} +/- {:0.2f} mJy</td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0,sclib[target][band]['e_'+key+'_'+data_type]*1000.0)
+                  if key =='SNR_NF':
+                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
                   if key =='RMS':
+                     line+='    <td>{:0.2f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
+                  if key =='RMS_NF':
                      line+='    <td>{:0.2f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
                   if key=='Beam':
                      line+='    <td>{:0.2f}"x{:0.2f}" {:0.2f} deg </td>\n'.format(sclib[target][band][key+'_major'+'_'+data_type],sclib[target][band][key+'_minor'+'_'+data_type],sclib[target][band][key+'_PA'+'_'+data_type])
                else:
                   if key =='Image':
                         line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+                  if key =='intflux':
+                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='SNR':
                      line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                  if key =='SNR_NF':
+                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='RMS':
+                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
+                  if key =='RMS_NF':
                      line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
                   if key=='Beam':
                      line+='    <td>{:0.2f}</td>\n'.format((sclib[target][band][key+'_major_final']*sclib[target][band][key+'_minor_final'])/(sclib[target][band][key+'_major_orig']*sclib[target][band][key+'_minor_orig']))
@@ -1498,8 +1692,7 @@ def generate_weblog(sclib,solints,bands):
          htmlOut.writelines('	</tr>\n')
          htmlOut.writelines('</table>\n')
 
-
-
+def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          #  SELFCAL SUMMARY TABLE   
          vislist=sclib[target][band]['vislist']
          solint_list=solints[band]
@@ -1513,18 +1706,30 @@ def generate_weblog(sclib,solints,bands):
          line+='</tr>\n'
          htmlOut.writelines(line)
          vis_keys=list(sclib[target][band][vislist[len(vislist)-1]].keys())
-         quantities=['Pass','SNR_final','SNR_Improvement','RMS_final','RMS_Improvement','Beam_Ratio','clean_threshold','Plots']
+         quantities=['Pass','intflux_final','intflux_improvement','SNR_final','SNR_Improvement','SNR_NF_final','SNR_NF_Improvement','RMS_final','RMS_Improvement','RMS_NF_final','RMS_NF_Improvement','Beam_Ratio','clean_threshold','Plots']
          for key in quantities:
             if key =='Pass':
                line='<tr bgcolor="#ffffff">\n    <td>Result: </td>\n'
+            if key =='intflux_final':
+               line='<tr bgcolor="#ffffff">\n    <td>Integrated Flux: </td>\n'
+            if key =='intflux_improvement':
+               line='<tr bgcolor="#ffffff">\n    <td>Integrated Flux Change: </td>\n'
             if key =='SNR_final':
                line='<tr bgcolor="#ffffff">\n    <td>Dynamic Range: </td>\n'
             if key =='SNR_Improvement':
                line='<tr bgcolor="#ffffff">\n    <td>DR Improvement: </td>\n'
+            if key =='SNR_NF_final':
+               line='<tr bgcolor="#ffffff">\n    <td>Dynamic Range (near-field): </td>\n'
+            if key =='SNR_NF_Improvement':
+               line='<tr bgcolor="#ffffff">\n    <td>DR Improvement (near-field): </td>\n'
             if key =='RMS_final':
                line='<tr bgcolor="#ffffff">\n    <td>RMS: </td>\n'
             if key =='RMS_Improvement':
                line='<tr bgcolor="#ffffff">\n    <td>RMS Improvement: </td>\n'
+            if key =='RMS_NF_final':
+               line='<tr bgcolor="#ffffff">\n    <td>RMS (near-field): </td>\n'
+            if key =='RMS_NF_Improvement':
+               line='<tr bgcolor="#ffffff">\n    <td>RMS Improvement (near-field): </td>\n'
             if key =='Beam_Ratio':
                line='<tr bgcolor="#ffffff">\n    <td>Ratio of Beam Area: </td>\n'
             if key =='clean_threshold':
@@ -1533,25 +1738,38 @@ def generate_weblog(sclib,solints,bands):
                line='<tr bgcolor="#ffffff">\n    <td>Plots: </td>\n'
             for solint in solint_list:
                if solint in vis_keys:
+                  vis_solint_keys=sclib[target][band][vislist[len(vislist)-1]][solint].keys()
                   if key=='Pass':
                      if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
                         line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band]['Stop_Reason'])
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
-                      
+                  if key=='intflux_final':
+                     line+='    <td>{:0.2f} +/- {:0.2f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
+                  if key=='intflux_improvement':
+                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
                   if key=='SNR_final':
                      line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
                   if key=='SNR_Improvement':
                      line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_pre'])
+                  if key=='SNR_NF_final':
+                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post'])
+                  if key=='SNR_NF_Improvement':
+                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_pre'])
 
                   if key=='RMS_final':
                      line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']*1000.0)
                   if key=='RMS_Improvement':
                      line+='    <td>{:0.2e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'])
+                  if key=='RMS_NF_final':
+                     line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post']*1000.0)
+                  if key=='RMS_NF_Improvement':
+                     line+='    <td>{:0.2e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
+
                   if key=='Beam_Ratio':
                      line+='    <td>{:0.2e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post'])/(sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']))
                   if key =='clean_threshold':
-                     if key in vis_keys:
+                     if key in vis_solint_keys:
                         line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['clean_threshold']*1000.0)
                      else:
                         line+='    <td>Not Available</td>\n'
@@ -1595,54 +1813,43 @@ def generate_weblog(sclib,solints,bands):
          htmlOut.writelines('	</tr>\n')
          htmlOut.writelines('</table>\n')
 
+def render_spw_stats_summary_table(htmlOut,sclib,target,band):
+   spwlist=list(sclib[target][band]['per_spw_stats'].keys())
+   htmlOut.writelines('<br>Per SPW stats: <br>\n')
+   htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+   htmlOut.writelines('	<tr>\n')
+   htmlOut.writelines('		<td>\n')
+   line='<table>\n  <tr bgcolor="#ffffff">\n    <th></th>\n    '
+   for spw in spwlist:
+      line+='<th>'+spw+'</th>\n    '
+   line+='</tr>\n'
+   htmlOut.writelines(line)
 
-               #ant_list=get_ant_list(vis)
-               #gaintable=sclib[target][band][vis][solints[band][i]]['gaintable']
-               ##nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
-               #frac_flagged_sols=nflagged_sols/nsols
-               #plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png',vis,gaintable)
+   quantities=['SNR_orig','SNR_final','RMS_orig','RMS_final']
+   for key in quantities:
+      line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
+      for spw in spwlist:
+         if 'SNR' in key:
+            line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
+         if 'RMS' in key:
+            line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
+      line+='</tr>\n    '
+      htmlOut.writelines(line)
+   htmlOut.writelines('</table>\n')
+   htmlOut.writelines('	</td>\n')
+   htmlOut.writelines('	</tr>\n')
+   htmlOut.writelines('</table>\n')
+   for spw in spwlist:
 
-         # PER SPW STATS TABLE
-         if 'per_spw_stats' in sclib[target][band].keys():
-            spwlist=list(sclib[target][band]['per_spw_stats'].keys())
-            htmlOut.writelines('<br>Per SPW stats: <br>\n')
-            htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
-            htmlOut.writelines('	<tr>\n')
-            htmlOut.writelines('		<td>\n')
-            line='<table>\n  <tr bgcolor="#ffffff">\n    <th></th>\n    '
-            for spw in spwlist:
-               line+='<th>'+spw+'</th>\n    '
-            line+='</tr>\n'
-            htmlOut.writelines(line)
+      if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+         htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
+      if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+         htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
+      if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+         htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
-            quantities=['SNR_orig','SNR_final','RMS_orig','RMS_final']
-            for key in quantities:
-               line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
-               for spw in spwlist:
-                  if 'SNR' in key:
-                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
-                  if 'RMS' in key:
-                     line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
-               line+='</tr>\n    '
-               htmlOut.writelines(line)
-            htmlOut.writelines('</table>\n')
-            htmlOut.writelines('	</td>\n')
-            htmlOut.writelines('	</tr>\n')
-            htmlOut.writelines('</table>\n')
-            for spw in spwlist:
-
-               if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-                  htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
-               if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-                  htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
-               if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-                  htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
-
-   htmlOut.writelines('</body>\n')
-   htmlOut.writelines('</html>\n')
-   htmlOut.close()
- 
-   ## Per Solint pages
+def render_per_solint_QA_pages(sclib,solints,bands):
+  ## Per Solint pages
    targets=list(sclib.keys())
    for target in targets:
       bands_obsd=list(sclib[target].keys())
@@ -1744,6 +1951,4 @@ def generate_weblog(sclib,solints,bands):
             htmlOutSolint.writelines('</body>\n')
             htmlOutSolint.writelines('</html>\n')
             htmlOutSolint.close()
-
-
 
