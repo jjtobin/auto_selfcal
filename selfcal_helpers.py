@@ -1578,6 +1578,7 @@ def generate_weblog(sclib,solints,bands):
          N_initial,intensity_initial,rms_inital=create_noise_histogram(sanitize_string(target)+'_'+band+'_initial.image.tt0')
          N_final,intensity_final,rms_final=create_noise_histogram(sanitize_string(target)+'_'+band+'_final.image.tt0')
          if 'theoretical_sensitivity' in keylist:
+            rms_theory=sclib[target][band]['theoretical_sensitivity']
             if rms_theory != -99.0:
                rms_theory=sclib[target][band]['theoretical_sensitivity']
             else:
