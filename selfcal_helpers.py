@@ -1422,14 +1422,16 @@ def get_flagged_solns_per_ant(gaintable,vis):
      offset_x=[(offset[i]["longitude offset"]['value']) for i in \
              range(len(names))]
      # Calculate the number of flags for each antenna.
-     gaintable='"'+gaintable+'"'
-     nflags = [tb.calc('[select from '+gaintable+' get_inwhere ANTENNA1=='+\
+     #gaintable='"'+gaintable+'"'
+     os.system('cp -r '+gaintable.replace(' ','\ ')+' tempgaintable.g')
+     gaintable='tempgaintable.g'
+     nflags = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
              str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
              range(len(names))]
      nunflagged = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
              str(i)+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
              range(len(names))]
-
+     os.system('rm -rf tempgaintable.g')
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
      # Calculate a score based on those two.
      return names, np.array(offset_x),np.array(offset_y),offsets, nflags, nunflagged,fracflagged
