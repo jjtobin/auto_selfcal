@@ -362,7 +362,7 @@ if check_all_spws:
                tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+spw+'_dirty',
                      telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
-                     savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
+                     savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=1,
                      field=target,spw=spws_per_vis,
                      uvrange=selfcal_library[target][band]['uvrange'])
             dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0')

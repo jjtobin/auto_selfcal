@@ -1422,8 +1422,8 @@ def get_flagged_solns_per_ant(gaintable,vis):
      offset_x=[(offset[i]["longitude offset"]['value']) for i in \
              range(len(names))]
      # Calculate the number of flags for each antenna.
-
-     nflags = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
+     gaintable='"'+gaintable+'"'
+     nflags = [tb.calc('[select from '+gaintable+' get_inwhere ANTENNA1=='+\
              str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
              range(len(names))]
      nunflagged = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
