@@ -161,6 +161,8 @@ def fetch_scan_times(vislist,targets,listdict):
 
 def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
    scantimesdict={}
+   scanstartsdict={}
+   scanendsdict={}
    integrationsdict={}
    integrationtimesdict={}
    integrationtime=np.array([])
@@ -169,6 +171,8 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
    spwslist=np.array([])
    for vis in vislist:
       scantimesdict[vis]={}
+      scanstartsdict[vis]={}
+      scanendsdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
       keylist=list(listdict[vis].keys())  
@@ -176,6 +180,8 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          countscans=0
          scantimes=np.array([])
          integrations=np.array([])
+         scanstarts=np.array([])
+         scanends=np.array([])
          for key in keylist:
             if ('scan' in key) and (listdict[vis][key]['0']['FieldName']==target) and np.all(listdict[vis][key]['0']['SpwIds']==band_properties[vis][band]['spwarray']):
                countscans+=1
@@ -183,6 +189,8 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
                ints_per_scan=np.round(scantime/listdict[vis][key]['0']['IntegrationTime'])
                integrationtime=np.append(integrationtime,np.array([listdict[vis][key]['0']['IntegrationTime']]))
                #print('Key:', key,scantime)
+               scanstarts=np.append(scanstarts,np.array([listdict[vis][key]['0']['BeginTime']]))
+               scanends=np.append(scanends,np.array([listdict[vis][key]['0']['EndTime']]))
                scantimes=np.append(scantimes,np.array([scantime]))
                integrations=np.append(integrations,np.array([ints_per_scan]))
                n_spws=np.append(len(listdict[vis][key]['0']['SpwIds']),n_spws)
@@ -191,6 +199,8 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
                #print(scantimes)
 
          scantimesdict[vis][target]=scantimes.copy()
+         scanstartsdict[vis][target]=scanstarts.copy()
+         scanendsdict[vis][target]=scanends.copy()
          #assume each band only has a single integration time
          integrationtimesdict[vis][target]=np.median(integrationtime)
          integrationsdict[vis][target]=integrations.copy()
@@ -201,8 +211,8 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
       spwslist=np.unique(spwslist).astype(int)
    else:
-     return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist 
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
+     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist 
+   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
 
 
 def fetch_spws(vislist,targets,listdict):
@@ -334,28 +344,74 @@ def get_solints_vla(vis,scantimesdict,integrationtime):
     
 
 #actual routine used for getting solints
-def get_solints_simple(vislist,scantimesdict,integrationtimes):
+def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integrationtimes,spwcombine=True):
    all_integrations=np.array([])
+   all_nscans_per_obs=np.array([])
+   all_time_between_scans=np.array([])
+   all_times_per_obs=np.array([])
+   allscantimes=np.array([]) # we put all scan times from all MSes into single array
+   #mix of short and long baseline data could have differing integration times and hence solints
+   #could do solints per vis file, but too complex for now at least use perhaps keep scan groups different
+   #per MOUS
+   nscans_per_obs={}
+   time_per_vis={}
+   time_between_scans={}
    for vis in vislist:
+      nscans_per_obs[vis]={}
+      time_between_scans[vis]={}
+      time_per_vis[vis]=0.0
       targets=integrationtimes[vis].keys()
+      earliest_start=1.0e10
+      latest_end=0.0
       for target in targets:
+         nscans_per_obs[vis][target]=len(scantimesdict[vis][target])
+         allscantimes=np.append(allscantimes,scantimesdict[vis][target])
+         for i in range(len(scanstartsdict[vis][target])):# way to get length of an EB with multiple targets without writing new functions; I could be more clever with np.where()
+            if scanstartsdict[vis][target][i] < earliest_start: 
+               earliest_start=scanstartsdict[vis][target][i]
+            if scanendsdict[vis][target][i] > latest_end:
+               latest_end=scanstartsdict[vis][target][i]
          if np.isfinite(integrationtimes[vis][target]):
             all_integrations=np.append(all_integrations,integrationtimes[vis][target])
+         all_nscans_per_obs=np.append(all_nscans_per_obs,nscans_per_obs[vis][target])
+         #determine time between scans
+         delta_scan=np.zeros(len(scanstartsdict[vis][target])-1)
+         sortedstarts=np.sort(scanstartsdict[vis][target]) #scan list isn't sorted, so sort these so they're in order and we can subtract them from each other
+         sortedends=np.sort(scanstartsdict[vis][target])
+         delta_scan=(sortedends[:-1]-sortedstarts[1:])*86400.0*-1.0
+         #for i in range(len(sortedstarts)-1):
+          #  delta_scan[i]=(sortedends[i]-sortedstarts[i+1])*86400.0*-1.0
+         all_time_between_scans=np.append(all_time_between_scans,delta_scan)
+      time_per_vis[vis]= (latest_end - earliest_start)*86400.0    # calculate length of EB
+      all_times_per_obs=np.append(all_times_per_obs,np.array([time_per_vis[vis]]))
    integration_time=np.max(all_integrations) # use the longest integration time from all MS files
-
-   allscantimes=np.array([])
-   for vis in vislist: # use if we put all scan times from all MSes into single array
-      targets=scantimesdict[vis].keys()
-      for target in targets:
-         allscantimes=np.append(allscantimes,scantimesdict[vis][target])
-      #mix of short and long baseline data could have differing integration times and hence solints
 
    max_scantime=np.median(allscantimes)
    median_scantime=np.max(allscantimes)
    min_scantime=np.min(allscantimes)
-   
-   solints=np.array([])
-   solint=max_scantime/2.0
+   median_scans_per_obs=np.median(all_nscans_per_obs)
+   median_time_per_obs=np.median(all_times_per_obs)
+   median_time_between_scans=np.median(all_time_between_scans)
+   print('median scan length: ',median_scantime)
+   print('median time between target scans: ',median_time_between_scans)
+   print('median scans per observation: ',median_scans_per_obs)
+   print('median length of observation: ',median_time_per_obs)
+
+   solints_gt_scan=np.array([])
+   gaincal_combine=[]
+
+   #make solints between inf_EB and inf if more than one scan per source
+   if median_scans_per_obs > 1:
+      solint=median_time_per_obs/2.05 # divides slightly unevenly if lengths of observation are exactly equal, but better than leaving a small out of data remaining
+      while solint > (median_scantime*2.0+median_time_between_scans)*1.05:      #solint should be greater than the length of time between two scans + time between to be better than inf
+         solints_gt_scan=np.append(solints_gt_scan,[solint])                       # add solint to list of solints now that it is an integer number of integrations
+         solint = solint/2.0  
+         #print('Next solint: ',solint)                                        #divide solint by 2.0 for next solint
+
+
+
+   solints_lt_scan=np.array([])
+   solint=max_scantime/2.0   
    n_scans=len(allscantimes)
    while solint > 1.90*integration_time:      #1.1*integration_time will ensure that a single int will not be returned such that solint='int' can be appended to the final list.
       ints_per_solint=solint/integration_time
@@ -370,17 +426,51 @@ def get_solints_simple(vislist,scantimesdict,integrationtimes):
       delta=test_truncated_scans(ints_per_solint, allscantimes,integration_time) 
       solint=(ints_per_solint+delta)*integration_time
       
-      solints=np.append(solints,[solint])                       # add solint to list of solints now that it is an integer number of integrations
+      solints_lt_scan=np.append(solints_lt_scan,[solint])                       # add solint to list of solints now that it is an integer number of integrations
+
       solint = solint/2.0  
       #print('Next solint: ',solint)                                        #divide solint by 2.0 for next solint
 
+
    solints_list=[]
-   for solint in solints:
+   for solint in solints_gt_scan:
       solint_string='{:0.2f}s'.format(solint)
       solints_list.append(solint_string)
-   solints_list.insert(0,'inf')
+      if spwcombine:
+         gaincal_combine.append('spw,scan')
+      else:
+         gaincal_combine.append('scan')
+
+   #insert solint = inf
+   solints_list.append('inf')
+   if spwcombine:
+      gaincal_combine.append('spw')
+   else:
+      gaincal_combine.append('')
+
+   for solint in solints_lt_scan:
+      solint_string='{:0.2f}s'.format(solint)
+      solints_list.append(solint_string)
+      if spwcombine:
+         gaincal_combine.append('spw')
+      else:
+         gaincal_combine.append('')
+
+ # insert inf_EB if more than one scan per EB; redundant with solint=inf if only a single scan per target
+   if median_scans_per_obs > 1:
+      solints_list.insert(0,'inf_EB')
+      if spwcombine:
+         gaincal_combine.insert(0,'scan,spw')
+      else:
+         gaincal_combine.insert(0,'scan')
+
+   #append solint = int to end
    solints_list.append('int')
-   return solints_list,integration_time
+   if spwcombine:
+      gaincal_combine.append('spw')
+   else:
+      gaincal_combine.append('')
+   return solints_list,integration_time,gaincal_combine
 
 
 
@@ -1969,4 +2059,77 @@ def render_per_solint_QA_pages(sclib,solints,bands):
             htmlOutSolint.writelines('</body>\n')
             htmlOutSolint.writelines('</html>\n')
             htmlOutSolint.close()
+
+def importdata(vislist,all_targets,telescope):
+   listdict=collect_listobs_per_vis(vislist)
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
+   spwslist=spwsarray.tolist()
+   spwstring=','.join(str(spw) for spw in spwslist)
+
+   if 'VLA' in telescope:
+     bands,band_properties=get_VLA_bands(vislist)
+
+   if telescope=='ALMA' or telescope =='ACA':
+     bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
+
+   scantimesdict={}
+   scanstartsdict={}
+   scanendsdict={}
+   integrationsdict={}
+   integrationtimesdict={}
+   bands_to_remove=[]
+
+   for band in bands:
+        print(band)
+        scantimesdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
+
+        scantimesdict[band]=scantimesdict_temp.copy()
+        scanstartsdict[band]=scanstartsdict_temp.copy()
+        scanendsdict[band]=scanendsdict_temp.copy()
+        integrationsdict[band]=integrationsdict_temp.copy()
+        integrationtimesdict[band]=integrationtimesdict_temp.copy()
+        if n_spws_temp == -99:
+           for vis in vislist:
+              band_properties[vis].pop(band)
+              band_properties[vis]['bands'].remove(band)
+              print('Removing '+band+' bands from list due to no observations')
+
+   if len(bands_to_remove) > 0:
+      for delband in bands_to_remove:
+         bands.remove(delband)
+
+   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray
+
+def flag_spectral_lines(vislist,all_targets,spwsarray):
+   print("# cont.dat file found, flagging lines identified by the pipeline.")
+   for vis in vislist:
+      if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
+         flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
+      else:
+         flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
+      for target in all_targets:
+         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray)
+         flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
+
+def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
+   for vis in vislist:
+       os.system('rm -rf '+vis.replace('.ms','.selfcal.ms')+'*')
+       spwstring=''
+       chan_widths=[]
+       if spectral_average:
+          for band in bands:
+             desiredWidth=get_desired_width(band_properties[vis][band]['meanfreq'])
+             print(band,desiredWidth)
+             band_properties[vis][band]['chan_widths']=get_spw_chanavg(vis,get_spw_chanwidths(vis,band_properties[vis][band]['spwarray']),desiredWidth=desiredWidth)
+             print(band_properties[vis][band]['chan_widths'])
+             chan_widths=chan_widths+band_properties[vis][band]['chan_widths'].astype('int').tolist()
+             if spwstring =='':
+                spwstring=band_properties[vis][band]['spwstring']+''
+             else:
+                spwstring=spwstring+','+band_properties[vis][band]['spwstring']
+          split(vis=vis,width=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
+       else:
+          split(vis=vis,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
+
 

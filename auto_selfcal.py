@@ -53,81 +53,27 @@ rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
 check_all_spws=True   # generate per-spw images to check phase transfer did not go poorly for narrow windows
+
+
 if 'VLA' in telescope:
    check_all_spws=False
 ##
 ## Import inital MS files to get relevant meta data
 ##
-listdict=collect_listobs_per_vis(vislist)
-
-scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
-spwslist=spwsarray.tolist()
-spwstring=','.join(str(spw) for spw in spwslist)
-
-if 'VLA' in telescope:
-  bands,band_properties=get_VLA_bands(vislist)
-
-if telescope=='ALMA' or telescope =='ACA':
-  bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
-
-
-scantimesdict={}
-integrationsdict={}
-integrationtimesdict={}
-bands_to_remove=[]
-for band in bands:
-     print(band)
-     scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
-     scantimesdict[band]=scantimesdict_temp.copy()
-     integrationsdict[band]=integrationsdict_temp.copy()
-     integrationtimesdict[band]=integrationtimesdict_temp.copy()
-     if n_spws_temp == -99:
-        for vis in vislist:
-           band_properties[vis].pop(band)
-           band_properties[vis]['bands'].remove(band)
-           bands_to_remove.append(band)
-           print('Removing '+band+' bands from list due to no observations')
-
-if len(bands_to_remove) > 0:
-   for delband in bands_to_remove:
-      bands.remove(delband)
+listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
+integrationtimesdict,spwslist,spwstring,spwsarray=importdata(vislist,all_targets,telescope)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
 ##
 if os.path.exists("cont.dat"):
-   print("# cont.dat file found, flagging lines identified by the pipeline.")
-   for vis in vislist:
-      if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
-         flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
-      else:
-         flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
-      for target in all_targets:
-         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray)
-         flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
+   flag_spectral_lines(vislist,all_targets)
+
 
 ##
 ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
 ##
-for vis in vislist:
-    os.system('rm -rf '+vis.replace('.ms','.selfcal.ms')+'*')
-    spwstring=''
-    chan_widths=[]
-    if spectral_average:
-       for band in bands:
-          desiredWidth=get_desired_width(band_properties[vis][band]['meanfreq'])
-          print(band,desiredWidth)
-          band_properties[vis][band]['chan_widths']=get_spw_chanavg(vis,get_spw_chanwidths(vis,band_properties[vis][band]['spwarray']),desiredWidth=desiredWidth)
-          print(band_properties[vis][band]['chan_widths'])
-          chan_widths=chan_widths+band_properties[vis][band]['chan_widths'].astype('int').tolist()
-          if spwstring =='':
-             spwstring=band_properties[vis][band]['spwstring']+''
-          else:
-             spwstring=spwstring+','+band_properties[vis][band]['spwstring']
-       split(vis=vis,width=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
-    else:
-       split(vis=vis,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
+split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
 
 ##
 ## put flagging back at original state for originally input ms for when they are used next time
@@ -141,37 +87,8 @@ for vis in vislist:
 ## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
 ##
 vislist=glob.glob('*selfcal.ms')
-listdict=collect_listobs_per_vis(vislist)
-scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
-spwslist=spwsarray.tolist()
-spwstring=','.join(str(spw) for spw in spwslist)
-
-if 'VLA' in telescope:
-  bands,band_properties=get_VLA_bands(vislist)
-
-if telescope=='ALMA' or telescope =='ACA':
-  bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
-
-scantimesdict={}
-integrationsdict={}
-integrationtimesdict={}
-for band in bands:
-     print(band)
-     scantimesdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-     integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
-
-     scantimesdict[band]=scantimesdict_temp.copy()
-     integrationsdict[band]=integrationsdict_temp.copy()
-     integrationtimesdict[band]=integrationtimesdict_temp.copy()
-     if n_spws_temp == -99:
-        for vis in vislist:
-           band_properties[vis].pop(band)
-           band_properties[vis]['bands'].remove(band)
-           print('Removing '+band+' bands from list due to no observations')
-
-if len(bands_to_remove) > 0:
-   for delband in bands_to_remove:
-      bands.remove(delband)
+listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
+integrationtimesdict,spwslist,spwstring,spwsarray=importdata(vislist,all_targets,telescope)
 
 ##
 ## set image parameters based on the visibility data properties and frequency
@@ -223,11 +140,8 @@ solints={}
 gaincal_combine={}
 applycal_mode={}
 for band in bands:
-   solints[band],integration_time=get_solints_simple(vislist,scantimesdict[band],integrationtimesdict[band])
+   solints[band],integration_time,gaincal_combine[band]=get_solints_simple(vislist,scantimesdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band])
    print(band,solints[band])
-   gaincal_combine[band]=['spw']*len(solints[band])
-   solints[band].insert(0,'inf_EB')
-   gaincal_combine[band].insert(0,'spw,scan')
    applycal_mode[band]=[apply_cal_mode_default]*len(solints[band])
 
 
