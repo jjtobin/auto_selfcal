@@ -67,7 +67,7 @@ integrationtimesdict,spwslist,spwstring,spwsarray=importdata(vislist,all_targets
 ## flag spectral lines in MS(es) if there is a cont.dat file present
 ##
 if os.path.exists("cont.dat"):
-   flag_spectral_lines(vislist,all_targets)
+   flag_spectral_lines(vislist,all_targets,spwsarray)
 
 
 ##
