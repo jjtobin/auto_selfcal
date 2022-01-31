@@ -400,14 +400,21 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
    solints_gt_scan=np.array([])
    gaincal_combine=[]
 
-   #make solints between inf_EB and inf if more than one scan per source
-   if median_scans_per_obs > 1:
-      solint=median_time_per_obs/2.05 # divides slightly unevenly if lengths of observation are exactly equal, but better than leaving a small out of data remaining
+   #make solints between inf_EB and inf if more than one scan per source and scans are short
+   if median_scans_per_obs > 1 and median_scantime < 150.0:
+      # add one solint that is meant to combine 2 short scans, otherwise go to inf_EB
+      solint=(median_scantime*2.0+median_time_between_scans)*1.1
+      solints_gt_scan=np.append(solints_gt_scan,[solint])
+
+      #code below would make solints between inf_EB and inf by combining scans
+      #sometimes worked ok, but many times selfcal would quit before solint=inf
+      '''
+      solint=median_time_per_obs/4.05 # divides slightly unevenly if lengths of observation are exactly equal, but better than leaving a small out of data remaining
       while solint > (median_scantime*2.0+median_time_between_scans)*1.05:      #solint should be greater than the length of time between two scans + time between to be better than inf
          solints_gt_scan=np.append(solints_gt_scan,[solint])                       # add solint to list of solints now that it is an integer number of integrations
          solint = solint/2.0  
          #print('Next solint: ',solint)                                        #divide solint by 2.0 for next solint
-
+      '''
 
 
    solints_lt_scan=np.array([])
@@ -433,13 +440,14 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
 
 
    solints_list=[]
-   for solint in solints_gt_scan:
-      solint_string='{:0.2f}s'.format(solint)
-      solints_list.append(solint_string)
-      if spwcombine:
-         gaincal_combine.append('spw,scan')
-      else:
-         gaincal_combine.append('scan')
+   if len(solints_gt_scan) > 0:
+      for solint in solints_gt_scan:
+         solint_string='{:0.2f}s'.format(solint)
+         solints_list.append(solint_string)
+         if spwcombine:
+            gaincal_combine.append('spw,scan')
+         else:
+            gaincal_combine.append('scan')
 
    #insert solint = inf
    solints_list.append('inf')
