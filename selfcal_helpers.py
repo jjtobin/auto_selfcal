@@ -1200,11 +1200,13 @@ def get_max_uvdist(vislist,bands,band_properties):
          baselines=get_baseline_dist(vis)
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
-      meanlam=3.0e8/band_properties[vis][band]['meanfreq']
-      max_uv_dist=max_baseline/meanlam/1000.0
-      band_properties[vis][band]['maxuv']=max_uv_dist
+      for vis in vislist:
+         meanlam=3.0e8/band_properties[vis][band]['meanfreq']
+         max_uv_dist=max_baseline/meanlam/1000.0
+         band_properties[vis][band]['maxuv']=max_uv_dist
 
 def get_uv_range(band,band_properties,vislist):
+   print(band_properties)
    if (band == 'EVLA_C') or (band == 'EVLA_X') or (band == 'EVLA_S') or (band == 'EVLA_L'):
       n_vis=len(vislist)
       mean_max_uv=0.0
