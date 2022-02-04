@@ -1213,7 +1213,6 @@ def get_max_uvdist(vislist,bands,band_properties):
 
 
 def get_uv_range(band,band_properties,vislist):
-   print(band_properties)
    if (band == 'EVLA_C') or (band == 'EVLA_X') or (band == 'EVLA_S') or (band == 'EVLA_L'):
       n_vis=len(vislist)
       mean_max_uv=0.0
