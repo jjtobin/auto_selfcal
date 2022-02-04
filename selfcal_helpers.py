@@ -1071,7 +1071,7 @@ def get_VLA_bands(vislist):
                 meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
                 if (meanfreq==8.332e9) or (meanfreq==8.460e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
-            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove)
+            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
             spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
             observed_bands[vis][band]['spwstring']=spwstring+''
@@ -1200,11 +1200,18 @@ def get_max_uvdist(vislist,bands,band_properties):
          baselines=get_baseline_dist(vis)
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
-      meanlam=3.0e8/band_properties[vis][band]['meanfreq']
-      max_uv_dist=max_baseline/meanlam/1000.0
-      band_properties[vis][band]['maxuv']=max_uv_dist
+      baseline_75=numpy.percentile(all_baselines,75.0)
+      baseline_median=numpy.percentile(all_baselines,50.0)
+      for vis in vislist:
+         meanlam=3.0e8/band_properties[vis][band]['meanfreq']
+         max_uv_dist=max_baseline/meanlam/1000.0
+         band_properties[vis][band]['maxuv']=max_uv_dist
+         band_properties[vis][band]['75thpct_uv']=baseline_75
+         band_properties[vis][band]['median_uv']=baseline_median
+
 
 def get_uv_range(band,band_properties,vislist):
+   print(band_properties)
    if (band == 'EVLA_C') or (band == 'EVLA_X') or (band == 'EVLA_S') or (band == 'EVLA_L'):
       n_vis=len(vislist)
       mean_max_uv=0.0
