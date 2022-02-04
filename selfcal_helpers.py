@@ -1071,7 +1071,7 @@ def get_VLA_bands(vislist):
                 meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
                 if (meanfreq==8.332e9) or (meanfreq==8.460e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
-            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove)
+            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
             spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
             observed_bands[vis][band]['spwstring']=spwstring+''
