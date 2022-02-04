@@ -619,7 +619,7 @@ def estimate_near_field_SNR(imagename,verbose=True):
            print("#Peak Near Field SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    #os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
     return SNR,rms
 
 
@@ -950,7 +950,7 @@ def get_image_parameters(vislist,telescope,band,band_properties):
       adviseparams= im.advise() 
       cells[i]=adviseparams[2]['value']/2.0
       im.close()
-   cell=np.mean(cells)
+   cell=np.min(cells)
    cellsize='{:0.3f}arcsec'.format(cell)
    nterms=1
    if band_properties[vislist[0]][band]['fracbw'] > 0.1:
@@ -2057,9 +2057,12 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                for ant in ant_list:
                   sani_target=sanitize_string(target)
                   try:
-                     plotms(vis=gaintable,xaxis='time', yaxis='phase',showgui=False,\
-                         xselfscale=True,plotrange=[0,0,-180,180], antenna=ant,customflaggedsymbol=True,title=ant,\
-                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True)
+                     plotms(gridrows=2,plotindex=0,rowindex=0,vis=gaintable,xaxis='time', yaxis='phase',showgui=False,\
+                         xselfscale=True,plotrange=[0,0,-180,180], antenna=ant,customflaggedsymbol=True,title=ant+' phase',\
+                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=True)
+                     plotms(gridrows=2,rowindex=1,plotindex=1,vis=gaintable,xaxis='time', yaxis='SNR',showgui=False,\
+                         xselfscale=True, antenna=ant,customflaggedsymbol=True,title=ant+' SNR',\
+                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=False)
                      #htmlOut.writelines('<img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200>')
                      htmlOutSolint.writelines('<a href="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'"><img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200></a>\n')
                   except:

@@ -54,7 +54,7 @@ rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
 check_all_spws=True   # generate per-spw images to check phase transfer did not go poorly for narrow windows
-
+apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 
 if 'VLA' in telescope:
    check_all_spws=False
@@ -87,6 +87,11 @@ for vis in vislist:
 ##
 ## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
 ##
+spwslist_orig=spwslist.copy()
+vislist_orig=vislist.copy()
+spwstring_orig=spwstring+''
+spwsarray_orig =spwsarray.copy()
+
 vislist=glob.glob('*selfcal.ms')
 listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
 integrationtimesdict,spwslist,spwstring,spwsarray=importdata(vislist,all_targets,telescope)
@@ -602,6 +607,9 @@ for target in all_targets:
       selfcal_library[target][band]['intflux_final'],selfcal_library[target][band]['e_intflux_final']=-99.0,-99.0
 
 
+
+
+
 ##
 ## Make a final image per spw images to assess overall improvement
 ##
@@ -671,6 +679,33 @@ for target in all_targets:
    #   print('Selfcal failed on '+target+'. No solutions applied.')
 
 
+applyCalOut=open('applycal_to_orig_MSes.py','w')
+#apply selfcal solutions back to original ms files
+if apply_to_target_ms:
+   for vis in vislist_orig:
+      clearcal(vis=vis)
+for target in all_targets:
+   for band in selfcal_library[target].keys():
+      if selfcal_library[target][band]['SC_success']:
+         for vis in vislist: 
+            solint=selfcal_library[target][band]['final_solint']
+            iteration=selfcal_library[target][band][vis][solint]['iteration']    
+            spwmap=[selfcal_library[target][band][vis]['spwmap'][0]]*(np.max(spwsarray_orig)+1)
+            #map_new_spw_to_orig=spwslist.index(selfcal_library[target][band][vis]['spwmap'][0])
+            #spwmap=[spwslist_orig[map_new_spw_to_orig]]*len(selfcal_library[target][band][vis]['spwmap'])
+            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable="'+selfcal_library[target][band][vis][solint]['gaintable']+'",interp="'+applycal_interp[band]+'", calwt=True,spwmap=['+str(spwmap)+'], applymode="'+selfcal_library[target][band][vis][solint]['applycal_mode']+'",field="'+target+'",spw="'+spwstring_orig+'")\n'
+            applyCalOut.writelines(line)
+            if apply_to_target_ms:
+               if os.path.exists(vis+".flagversions/flags.starting_flags"):
+                  flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+               else:
+                  flagmanager(vis=vis,mode='save',versionname='before_final_applycal')
+               applycal(vis=vis.replace('.selfcal',''),\
+                     gaintable=selfcal_library[target][band][vis][solint]['gaintable'],\
+                    interp=applycal_interp[band], calwt=True,spwmap=[selfcal_library[target][band][vis]['spwmap']],\
+                    applymode=selfcal_library[target][band][vis][solint]['applycal_mode'],field=target,spw=spwstring_orig)
+
+applyCalOut.close()
 #
 # Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration
 #
