@@ -210,7 +210,7 @@ for target in all_targets:
    #make images using the appropriate tclean heuristics for each telescope
    if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
       tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_dirty',
-                     telescope=telescope,nsigma=4.0, scales=[0],
+                     band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
@@ -228,7 +228,7 @@ for target in all_targets:
       else:
          sensitivity=0.0
       tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_initial',
-                     telescope=telescope,nsigma=4.0, scales=[0],
+                     band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold=str(sensitivity*4.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
@@ -280,7 +280,7 @@ if check_all_spws:
             if not os.path.exists(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0'):
                spws_per_vis=[spw]*len(vislist)
                tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+spw+'_dirty',
-                     telescope=telescope,nsigma=4.0, scales=[0],
+                     band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=1,
                      field=target,spw=spws_per_vis,
@@ -300,7 +300,7 @@ if check_all_spws:
                spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
 
                tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_'+spw+'_initial',\
-                          telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
+                          band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
                           nterms=1,field=target,datacolumn='corrected',\
                           spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'])
@@ -402,7 +402,7 @@ for target in all_targets:
          ## during selfcal by resetting 'RMS_curr' after the post-applycal evaluation
          ##
          tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                     telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
+                     band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
@@ -465,7 +465,7 @@ for target in all_targets:
          elif nterms[band]==2:
             startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
          tclean_wrapper(vis=vislist, imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                  telescope=telescope,scales=[0], nsigma=0.0,\
+                  band_properties,band,telescope=telescope,scales=[0], nsigma=0.0,\
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
                   niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
          print('Post selfcal assessemnt: '+target)
@@ -587,7 +587,7 @@ for target in all_targets:
    else:
       sensitivity=0.0
    tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_final',\
-               telescope=telescope,nsigma=3.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
+               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
@@ -637,7 +637,7 @@ if check_all_spws:
                   sensitivity=0.0
                spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
                tclean_wrapper(vis=vislist,imagename=sani_target+'_'+band+'_'+spw+'_final',\
-                          telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
+                          band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
                           nterms=1,field=target,datacolumn='corrected',\
                           spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'])

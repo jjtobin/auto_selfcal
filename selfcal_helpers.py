@@ -2,7 +2,7 @@ import numpy as np
 import numpy 
 import math
 from PIL import Image
-def tclean_wrapper(vis, imagename, scales,telescope='undefined', smallscalebias = 0.6, mask = '', nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000, cycleniter = 300, uvtaper = [], savemodel = 'none', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,lownoisethreshold=1.5,parallel=False,nterms=1,
+def tclean_wrapper(vis, imagename, scales,band_properties,band,telescope='undefined', smallscalebias = 0.6, mask = '', nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000, cycleniter = 300, uvtaper = [], savemodel = 'none', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,lownoisethreshold=1.5,parallel=False,nterms=1,
 cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw=''):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
@@ -21,6 +21,8 @@ cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',startmodel='',pblimit=
        lownoisethreshold=1.5
        cycleniter=-1
        cyclefactor=1.0
+       if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:
+          sidelobethreshold=2.0
 
     if telescope=='ACA':
        sidelobethreshold=1.25
