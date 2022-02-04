@@ -1200,10 +1200,15 @@ def get_max_uvdist(vislist,bands,band_properties):
          baselines=get_baseline_dist(vis)
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
+      baseline_75=numpy.percentile(all_baselines,75.0)
+      baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
          meanlam=3.0e8/band_properties[vis][band]['meanfreq']
          max_uv_dist=max_baseline/meanlam/1000.0
          band_properties[vis][band]['maxuv']=max_uv_dist
+         band_properties[vis][band]['75thpct_uv']=baseline_75
+         band_properties[vis][band]['median_uv']=baseline_median
+
 
 def get_uv_range(band,band_properties,vislist):
    print(band_properties)
