@@ -187,6 +187,7 @@ for target in all_targets:
       selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
    selfcal_library[target][band]['uvrange']=get_uv_range(band,band_properties,vislist)
+   selfcal_library[target][band]['75thpct_uv']=band_properties[vislist[0]][band]['75thpct_uv']
    print(selfcal_library[target][band]['uvrange'])
 
 ##
