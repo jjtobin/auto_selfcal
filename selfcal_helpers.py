@@ -1647,6 +1647,7 @@ def gaussian_norm(x, mean, sigma):
    return norm_gauss_dist
 
 def generate_weblog(sclib,solints,bands):
+   from datetime import datetime
    os.system('rm -rf weblog')
    os.system('mkdir weblog')
    os.system('mkdir weblog/images')
@@ -1658,6 +1659,7 @@ def generate_weblog(sclib,solints,bands):
    htmlOut.writelines('<body>\n')
    htmlOut.writelines('<a name="top"></a>\n')
    htmlOut.writelines('<h1>SelfCal Weblog</h1>\n')
+   htmlOut.writelines('<h4>Date Executed:'+datetime.today().strftime('%Y-%m-%d')+'</h4>\n')
    htmlOut.writelines('<h2>Targets:</h2>\n')
    targets=list(sclib.keys())
    for target in targets:
