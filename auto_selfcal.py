@@ -132,7 +132,10 @@ selfcal_library={}
 for target in all_targets:
    selfcal_library[target]={}
    for band in bands:
-      selfcal_library[target][band]={}
+      if target in scantimesdict[band][vislist[0]].keys():
+         selfcal_library[target][band]={}
+      else:
+         continue
       for vis in vislist:
          selfcal_library[target][band][vis]={}
 ##
@@ -158,7 +161,7 @@ for band in bands:
 ## Also gets relevant times on source to estimate SNR per EB/scan
 ##
 for target in all_targets:
- for band in bands:
+ for band in selfcal_library[target].keys():
    print(target, band)
    selfcal_library[target][band]['SC_success']=False
    selfcal_library[target][band]['final_solint']='None'
