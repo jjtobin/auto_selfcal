@@ -381,9 +381,10 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
          delta_scan=np.zeros(len(scanstartsdict[vis][target])-1)
          sortedstarts=np.sort(scanstartsdict[vis][target]) #scan list isn't sorted, so sort these so they're in order and we can subtract them from each other
          sortedends=np.sort(scanstartsdict[vis][target])
-         delta_scan=(sortedends[:-1]-sortedstarts[1:])*86400.0*-1.0
-         #for i in range(len(sortedstarts)-1):
-          #  delta_scan[i]=(sortedends[i]-sortedstarts[i+1])*86400.0*-1.0
+         #delta_scan=(sortedends[:-1]-sortedstarts[1:])*86400.0*-1.0
+         delta_scan=np.zeros(len(sortedends)-1)
+         for i in range(len(sortedstarts)-1):
+            delta_scan[i]=(sortedends[i]-sortedstarts[i+1])*86400.0*-1.0
          all_time_between_scans=np.append(all_time_between_scans,delta_scan)
       time_per_vis[vis]= (latest_end - earliest_start)*86400.0    # calculate length of EB
       all_times_per_obs=np.append(all_times_per_obs,np.array([time_per_vis[vis]]))
@@ -2114,11 +2115,19 @@ def importdata(vislist,all_targets,telescope):
               band_properties[vis].pop(band)
               band_properties[vis]['bands'].remove(band)
               print('Removing '+band+' bands from list due to no observations')
-
+        for vis in vislist:
+           for target in all_targets:
+              check_target=len(integrationsdict[band][vis][target])
+              if check_target == 0:
+                 integrationsdict[band][vis].pop(target)
+                 integrationtimesdict[band][vis].pop(target)
+                 scantimesdict[band][vis].pop(target)
+                 scanstartsdict[band][vis].pop(target)
+                 scanendsdict[band][vis].pop(target)           
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:
          bands.remove(delband)
-
+   
    return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray
 
 def flag_spectral_lines(vislist,all_targets,spwsarray):
