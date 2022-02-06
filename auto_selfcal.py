@@ -197,7 +197,7 @@ for target in all_targets:
 ## 
 ## 
 for target in all_targets:
-   for band in bands:
+ for band in selfcal_library[target].keys():
       if selfcal_library[target][band]['Total_TOS'] == 0.0:
          selfcal_library[target].pop(band)
 
