@@ -1478,16 +1478,30 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
 def plot_image(filename,outname,min=None,max=None):
    header=imhead(filename)
    size=np.max(header['shape'])
-   if min == None:
-      imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
-          zoom={'blc': [int(size/4),int(size/4)],\
-                'trc': [int(size-size/4),int(size-size/4)]},\
-          out={'file': outname, 'orient': 'landscape'})
+   if os.path.exists(filename.replace('image.tt0','mask')): #if mask exists draw it as a contour, else don't use contours
+      if min == None:
+         imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
+               contour={'file': filename.replace('image.tt0','mask'), 'levels': [1] },\
+             zoom={'blc': [int(size/4),int(size/4)],\
+                   'trc': [int(size-size/4),int(size-size/4)]},\
+             out={'file': outname, 'orient': 'landscape'})
+      else:
+         imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
+               contour={'file': filename.replace('image.tt0','mask'), 'levels': [1] },\
+             zoom={'blc': [int(size/4),int(size/4)],\
+                   'trc': [int(size-size/4),int(size-size/4)]},\
+             out={'file': outname, 'orient': 'landscape'})
    else:
-      imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
-          zoom={'blc': [int(size/4),int(size/4)],\
-                'trc': [int(size-size/4),int(size-size/4)]},\
-          out={'file': outname, 'orient': 'landscape'})
+      if min == None:
+         imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
+             zoom={'blc': [int(size/4),int(size/4)],\
+                   'trc': [int(size-size/4),int(size-size/4)]},\
+             out={'file': outname, 'orient': 'landscape'})
+      else:
+         imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
+             zoom={'blc': [int(size/4),int(size/4)],\
+                   'trc': [int(size-size/4),int(size-size/4)]},\
+             out={'file': outname, 'orient': 'landscape'})
    #make image square since imview makes it a strange dimension
    im = Image.open(outname)
    width, height = im.size
