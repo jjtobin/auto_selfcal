@@ -186,7 +186,7 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          scanstarts=np.array([])
          scanends=np.array([])
          for key in keylist:
-            if ('scan' in key) and (listdict[vis][key]['0']['FieldName']==target) and np.all(listdict[vis][key]['0']['SpwIds']==band_properties[vis][band]['spwarray']):
+            if ('scan' in key) and (listdict[vis][key]['0']['FieldName']==target) and np.all(np.in1d(np.array(listdict[vis][key]['0']['SpwIds']),band_properties[vis][band]['spwarray'])):
                countscans+=1
                scantime=(listdict[vis][key]['0']['EndTime']- listdict[vis][key]['0']['BeginTime'])*86400.0
                ints_per_scan=np.round(scantime/listdict[vis][key]['0']['IntegrationTime'])
@@ -623,7 +623,7 @@ def estimate_near_field_SNR(imagename,verbose=True):
            print("#Peak Near Field SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
-    #os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
     return SNR,rms
 
 

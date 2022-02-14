@@ -6,7 +6,7 @@
 #    in the per vis level instead of per solint
 # clean final image with appropriate RMS noise level derived empirically, like self-cal loops, rather than theoretical
 # possibly add heuristic to switch from nterms=1 to nterms=2 in high DR cases
-# add ability to write out apply cal commands or apply selfcal solutions back to original ms without spectral lines flagged
+
 import numpy as np
 from scipy import stats
 import glob
