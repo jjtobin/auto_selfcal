@@ -419,7 +419,8 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
    if median_scans_per_obs > 1 and median_scantime < 150.0:
       # add one solint that is meant to combine 2 short scans, otherwise go to inf_EB
       solint=(median_scantime*2.0+median_time_between_scans)*1.1
-      solints_gt_scan=np.append(solints_gt_scan,[solint])
+      if solint < 300.0:  # only allow solutions that are less than 5 minutes in duration
+         solints_gt_scan=np.append(solints_gt_scan,[solint])
 
       #code below would make solints between inf_EB and inf by combining scans
       #sometimes worked ok, but many times selfcal would quit before solint=inf
