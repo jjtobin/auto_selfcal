@@ -760,10 +760,11 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
          solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
-def get_sensitivity(vislist,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
+def get_sensitivity(vislist,selfcal_library,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
    sensitivities=np.zeros(len(vislist))
+   TOS=np.zeros(len(vislist))
    counter=0
-   scalefactor=2.5
+   scalefactor=1.0
    for vis in vislist:
       im.open(vis)
       im.selectvis(field='',spw=spwstring)
@@ -791,11 +792,16 @@ def get_sensitivity(vislist,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='
           print('# Data in this spw/MS may be flagged')
           print('#')
           continue
+      #print(sens)
       #print(vis,'Briggs Sensitivity = ', sens[1])
       #print(vis,'Relative to Natural Weighting = ', sens[2])  
       sensitivities[counter]=sens[1]*scalefactor
+      TOS[counter]=selfcal_library[vis]['TOS']
       counter+=1
-   estsens=np.sum(sensitivities)/float(counter)/(float(counter))**0.5
+   #estsens=np.sum(sensitivities)/float(counter)/(float(counter))**0.5
+   #print(estsens)
+   estsens=np.sum(sensitivities*TOS)/np.sum(TOS)
+   print('Estimated Sensitivity: ',estsens)
    return estsens
 
 def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
@@ -942,17 +948,23 @@ def flagchannels_from_contdotdat(vis,target,spwsarray):
 
 def get_spw_chanwidths(vis,spwarray):
    widtharray=np.zeros(len(spwarray))
+   bwarray=np.zeros(len(spwarray))
+   nchanarray=np.zeros(len(spwarray))
    for i in range(len(spwarray)):
       tb.open(vis+'/SPECTRAL_WINDOW')
       widtharray[i]=np.abs(np.unique(tb.getcol('CHAN_WIDTH', startrow = spwarray[i], nrow = 1)))
+      bwarray[i]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spwarray[i], nrow = 1)))
+      nchanarray[i]=np.abs(np.unique(tb.getcol('NUM_CHAN', startrow = spwarray[i], nrow = 1)))
       tb.close()
 
-   return widtharray
+   return widtharray,bwarray,nchanarray
 
-def get_spw_chanavg(vis,widtharray,desiredWidth=15.625e6):
+def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
    avgarray=np.zeros(len(widtharray))
    for i in range(len(widtharray)):
-      avgarray[i]=desiredWidth/widtharray[i]
+      nchan=bwarray[i]/desiredWidth
+      nchan=np.round(nchan)
+      avgarray[i]=chanarray[i]/nchan   
       if avgarray[i] < 1.0:
          avgarray[i]=1.0
    return avgarray
@@ -2178,7 +2190,8 @@ def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
           for band in bands:
              desiredWidth=get_desired_width(band_properties[vis][band]['meanfreq'])
              print(band,desiredWidth)
-             band_properties[vis][band]['chan_widths']=get_spw_chanavg(vis,get_spw_chanwidths(vis,band_properties[vis][band]['spwarray']),desiredWidth=desiredWidth)
+             widtharray,bwarray,nchanarray=get_spw_chanwidths(vis,band_properties[vis][band]['spwarray'])
+             band_properties[vis][band]['chan_widths']=get_spw_chanavg(vis,widtharray,bwarray,nchanarray,desiredWidth=desiredWidth)
              print(band_properties[vis][band]['chan_widths'])
              chan_widths=chan_widths+band_properties[vis][band]['chan_widths'].astype('int').tolist()
              if spwstring =='':
