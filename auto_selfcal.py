@@ -1,15 +1,14 @@
 #future improvements
-
 # heuristics for switching between calonly and calflag
 # heuristics to switch from combine=spw to combine=''
 # switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
 #    in the per vis level instead of per solint
-# clean final image with appropriate RMS noise level derived empirically, like self-cal loops, rather than theoretical
 # possibly add heuristic to switch from nterms=1 to nterms=2 in high DR cases
 
 import numpy as np
 from scipy import stats
 import glob
+import sys
 execfile('selfcal_helpers.py',globals())
 
 
@@ -24,6 +23,10 @@ execfile('selfcal_helpers.py',globals())
 ## Get list of MS files in directory
 ##
 vislist=glob.glob('*_target.ms')
+if len(vislist) == 0:
+   vislist=glob.glob('*_cont.ms')   # adaptation for PL2022 output
+   if len(vislist)==0:
+      sys.exit('No Measurement sets found in current working directory, exiting')
 
 ##
 ## save starting flags or restore to the starting flags
