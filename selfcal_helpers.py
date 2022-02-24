@@ -358,7 +358,7 @@ def get_solints_vla(vis,scantimesdict,integrationtime):
     
 
 #actual routine used for getting solints
-def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integrationtimes,spwcombine=True):
+def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integrationtimes,inf_EB_gaincal_combine,spwcombine=True):
    all_integrations=np.array([])
    all_nscans_per_obs=np.array([])
    all_time_between_scans=np.array([])
@@ -465,12 +465,19 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
          else:
             gaincal_combine.append('scan')
 
+
+
+ # insert inf_EB
+   solints_list.insert(0,'inf_EB')
+   gaincal_combine.insert(0,inf_EB_gaincal_combine)
+
    #insert solint = inf
-   solints_list.append('inf')
-   if spwcombine:
-      gaincal_combine.append('spw')
-   else:
-      gaincal_combine.append('')
+   if median_scans_per_obs > 1:                    # if only a single scan per target, redundant with inf_EB and do not include
+      solints_list.append('inf')
+      if spwcombine:
+         gaincal_combine.append('spw')
+      else:
+         gaincal_combine.append('')
 
    for solint in solints_lt_scan:
       solint_string='{:0.2f}s'.format(solint)
@@ -480,13 +487,7 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
       else:
          gaincal_combine.append('')
 
- # insert inf_EB if more than one scan per EB; redundant with solint=inf if only a single scan per target
-   if median_scans_per_obs > 1:
-      solints_list.insert(0,'inf_EB')
-      if spwcombine:
-         gaincal_combine.insert(0,'scan,spw')
-      else:
-         gaincal_combine.insert(0,'scan')
+
 
    #append solint = int to end
    solints_list.append('int')
@@ -2187,6 +2188,7 @@ def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
        spwstring=''
        chan_widths=[]
        if spectral_average:
+          initweights(vis=vis,wtmode='weight',dowtsp=True) # initialize channelized weights
           for band in bands:
              desiredWidth=get_desired_width(band_properties[vis][band]['meanfreq'])
              print(band,desiredWidth)
@@ -2198,8 +2200,9 @@ def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
                 spwstring=band_properties[vis][band]['spwstring']+''
              else:
                 spwstring=spwstring+','+band_properties[vis][band]['spwstring']
-          split(vis=vis,width=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
+          mstransform(vis=vis,chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          initweights(vis=vis,wtmode='delwtsp') # remove channelized weights
        else:
-          split(vis=vis,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data')
+          mstransform(vis=vis,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
 
 
