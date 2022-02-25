@@ -735,9 +735,9 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
          if solint == 'inf_EB':
             SNR_self_EB=np.zeros(len(vislist))
             for i in range(len(vislist)):
-               SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
-               selfcal_library[target][band]['per_EB_SNR']=np.mean(SNR_self_EB)
-               solint_snr[target][band][solint]=np.mean(SNR_self_EB)
+               SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
+            selfcal_library[target][band]['per_EB_SNR']=np.mean(SNR_self_EB)
+            solint_snr[target][band][solint]=np.mean(SNR_self_EB)
          elif solint =='inf':
                selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
                solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
