@@ -33,7 +33,7 @@ if len(vislist) == 0:
 ##
 for vis in vislist:
    if os.path.exists(vis+".flagversions/flags.starting_flags"):
-       flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+      flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
    else:
       flagmanager(vis=vis,mode='save',versionname='starting_flags')
 
@@ -48,6 +48,7 @@ all_targets=fetch_targets(vislist[0])
 spectral_average=True
 use_inf_EB_preapply=True
 inf_EB_gaincal_combine='scan'
+inf_EB_gaintype='G'
 parallel=True
 gaincal_minsnr=2.0
 minsnr_to_proceed=3.0
@@ -68,7 +69,7 @@ if 'VLA' in telescope:
 ## Import inital MS files to get relevant meta data
 ##
 listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
@@ -100,7 +101,18 @@ spwsarray_orig =spwsarray.copy()
 
 vislist=glob.glob('*selfcal.ms')
 listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
+
+##
+## Save/restore starting flags
+##
+
+for vis in vislist:
+   if os.path.exists(vis+'.flagversions/flags.selfcal_starting_flags'):
+      flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
+   else:
+      flagmanager(vis=vis,mode='save',versionname='selfcal_starting_flags')
+
 
 ##
 ## set image parameters based on the visibility data properties and frequency
@@ -175,13 +187,16 @@ for target in all_targets:
    selfcal_library[target][band]['spws']=[]
    selfcal_library[target][band]['spws_per_vis']=[]
    selfcal_library[target][band]['vislist']=vislist.copy()
+   if mosaic_field[band][target]['mosaic']:
+      selfcal_library[target][band]['obstype']='mosaic'
+   else:
+      selfcal_library[target][band]['obstype']='single-point'
    allscantimes=np.array([])
    for vis in vislist:
       selfcal_library[target][band][vis]['gaintable']=[]
       selfcal_library[target][band][vis]['TOS']=np.sum(scantimesdict[band][vis][target])
       selfcal_library[target][band][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target])
       allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
-      selfcal_library[target][band][vis]['flags']=[]
       selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
       n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
       spwslist=spwsarray.tolist()
@@ -223,7 +238,7 @@ for target in all_targets:
                      band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
    dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_dirty.image.tt0')
    dr_mod=1.0
    if telescope =='ALMA' or telescope =='ACA':
@@ -242,7 +257,7 @@ for target in all_targets:
                      band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold=str(sensitivity*4.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
    initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0')
    initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0')
    header=imhead(imagename=sani_target+'_'+band+'_initial.image.tt0')
@@ -277,6 +292,19 @@ for target in all_targets:
 for target in all_targets:
    for band in selfcal_library[target].keys():
       selfcal_library[target][band]['per_spw_stats']={}
+      vislist=selfcal_library[target][band]['vislist'].copy()
+      spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
+      spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][vis]['spwsarray'],target)
+      selfcal_library[target][band]['total_bandwidth']=0.0
+      selfcal_library[target][band]['total_effective_bandwidth']=0.0
+      for spw in spwlist:
+         keylist=selfcal_library[target][band]['per_spw_stats'].keys()
+         if spw not in keylist:
+            selfcal_library[target][band]['per_spw_stats'][spw]={}
+         selfcal_library[target][band]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
+         selfcal_library[target][band]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
+         selfcal_library[target][band]['total_bandwidth']+=spw_bandwidths[spw]
+         selfcal_library[target][band]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
 
 if check_all_spws:
    for target in all_targets:
@@ -295,7 +323,7 @@ if check_all_spws:
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=1,
                      field=target,spw=spws_per_vis,
-                     uvrange=selfcal_library[target][band]['uvrange'])
+                     uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
             dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0')
             if not os.path.exists(sani_target+'_'+band+'_'+spw+'_initial.image.tt0'):
                if telescope=='ALMA' or telescope =='ACA':
@@ -314,7 +342,7 @@ if check_all_spws:
                           band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
                           nterms=1,field=target,datacolumn='corrected',\
-                          spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'])
+                          spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
 
             per_spw_SNR,per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
             initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
@@ -335,7 +363,7 @@ if check_all_spws:
 ##
 ## estimate per scan/EB S/N using time on source and median scan times
 ##
-solint_snr=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time)
+solint_snr,solint_snr_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine)
 for target in all_targets:
  for band in solint_snr[target].keys():
    print('Estimated SNR per solint:')
@@ -416,18 +444,28 @@ for target in all_targets:
                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
          print('Pre selfcal assessemnt: '+target)
          SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
          SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
          header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
 
          if iteration == 0:
-            gaintables={}
-            spwmaps={}
+            gaincal_preapply_gaintable={}
+            gaincal_spwmap={}
+            applycal_gaintable={}
+            applycal_spwmap={}
+            applycal_interpolate={}
          for vis in vislist:
-            gaintables[vis]=[]
-            spwmaps[vis]=[]
+            ##
+            ## Restore original flagging state each time before applying a new gaintable
+            ##
+            flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
+            applycal_gaintable[vis]=[]
+            applycal_spwmap[vis]=[]
+            applycal_interpolate[vis]=[]
+            gaincal_spwmap[vis]=[]
+            gaincal_preapply_gaintable[vis]=[]
             ##
             ## Solve gain solutions per MS, target, solint, and band
             ##
@@ -435,51 +473,43 @@ for target in all_targets:
             #Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
             if use_inf_EB_preapply:
                if solint == 'inf_EB':
-                  gaincal_spwmap=''
-                  gaincal_gaintable=''
-                  gaincal_gaintype='G'
+                  gaincal_spwmap[vis]=[]
+                  gaincal_preapply_gaintable[vis]=[]
+                  gaincal_gaintype=inf_EB_gaintype
                   if 'spw' in inf_EB_gaincal_combine:
-                     applycal_spwmap=[selfcal_library[target][band][vis]['spwmap']]
+                     applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                   else:
-                     applycal_spwmap=[]
-                  applycal_interpolate=applycal_interp[band]
-                  applycal_gaintable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g'
+                     applycal_spwmap[vis]=[]
+                  applycal_interpolate[vis]=[applycal_interp[band]]
+                  applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
                else:
-                  gaincal_spwmap=''
-                  gaincal_gaintable=[target+'_'+vis+'_'+band+'_inf_EB_0.g']
+                  gaincal_spwmap[vis]=[]
+                  gaincal_preapply_gaintable[vis]=[target+'_'+vis+'_'+band+'_inf_EB_0.g']
                   gaincal_gaintype='T'
-                  applycal_spwmap=[[],selfcal_library[target][band][vis]['spwmap']]
-                  applycal_interpolate=[applycal_interp[band],applycal_interp[band]]
-                  applycal_gaintable=[target+'_'+vis+'_'+band+'_inf_EB_0.g',target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
+                  applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
+                  applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
+                  applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_inf_EB_0.g',target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
             else:
-               gaincal_spwmap=''
-               gaincal_gaintable=''
+               gaincal_spwmap[vis]=[]
+               gaincal_preapply_gaintable[vis]=[]
                gaincal_gaintype='T'
-               applycal_spwmap=[selfcal_library[target][band][vis]['spwmap']]
-               applycal_interpolate=applycal_interp[band]
-               applycal_gaintable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g'
+               applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+               applycal_interpolate[vis]=[applycal_interp[band]]
+               applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
 
             gaincal(vis=vis,\
                     caltable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
                     gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                     solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
-                    field=target,gaintable=gaincal_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library[target][band]['uvrange']) 
+                    field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange']) 
                     # for simplicity don't do incremental solutions,gaintable=gaintables[vis],spwmap=spwmaps[vis])
          for vis in vislist:
-            if os.path.exists(vis+".flagversions/flags.selfcal_"+target+'_'+band+'_'+solint):
-               flagmanager(vis=vis,mode='delete',versionname='selfcal_'+target+'_'+band+'_'+solint)
-            ##
-            ## Restore original flagging state each time before applying a new gaintable
-            ##
-            if os.path.exists(vis+".flagversions/flags.selfcal_"+target+'_'+band+'_inf_EB'):
-               flagmanager(vis=vis,mode='restore',versionname='selfcal_'+target+'_'+band+'_inf_EB')
-            flagmanager(vis=vis,mode='save',versionname='selfcal_'+target+'_'+band+'_'+solint)
             ##
             ## Apply gain solutions per MS, target, solint, and band
             ##
             applycal(vis=vis,\
-                     gaintable=applycal_gaintable,\
-                     interp=applycal_interpolate, calwt=True,spwmap=applycal_spwmap,\
+                     gaintable=applycal_gaintable[vis],\
+                     interp=applycal_interpolate[vis], calwt=True,spwmap=applycal_spwmap[vis],\
                      applymode=applycal_mode[band][iteration],field=target,spw=selfcal_library[target][band][vis]['spws'])
          for vis in vislist:
             ##
@@ -493,11 +523,11 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['Beam_major_pre']=header['restoringbeam']['major']['value']
             selfcal_library[target][band][vis][solint]['Beam_minor_pre']=header['restoringbeam']['minor']['value']
             selfcal_library[target][band][vis][solint]['Beam_PA_pre']=header['restoringbeam']['positionangle']['value'] 
-            selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable
+            selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
             selfcal_library[target][band][vis][solint]['iteration']=iteration+0
-            selfcal_library[target][band][vis][solint]['flags']='selfcal_'+target+'_'+band+'_'+solint
-            selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap
+            selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
             selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+            selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
             selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
             selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
             selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
@@ -511,7 +541,8 @@ for target in all_targets:
          tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                   band_properties,band,telescope=telescope,scales=[0], nsigma=0.0,\
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
-                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
+                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],
+                  uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
          print('Post selfcal assessemnt: '+target)
          #copy mask for use in post-selfcal SNR measurement
          os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
@@ -550,11 +581,11 @@ for target in all_targets:
             selfcal_library[target][band]['SC_success']=True
             selfcal_library[target][band]['Stop_Reason']='None'
             for vis in vislist:
-               selfcal_library[target][band][vis]['gaintable']=selfcal_library[target][band][vis][solint]['gaintable']
-               selfcal_library[target][band][vis]['spwmap']=selfcal_library[target][band][vis][solint]['spwmap'].copy()
-               selfcal_library[target][band][vis]['flags']=selfcal_library[target][band][vis][solint]['flags']
-               selfcal_library[target][band][vis]['applycal_mode']=selfcal_library[target][band][vis][solint]['applycal_mode']
-               selfcal_library[target][band][vis]['gaincal_combine']=selfcal_library[target][band][vis][solint]['applycal_mode']
+               selfcal_library[target][band][vis]['gaintable_final']=selfcal_library[target][band][vis][solint]['gaintable']
+               selfcal_library[target][band][vis]['spwmap_final']=selfcal_library[target][band][vis][solint]['spwmap'].copy()
+               selfcal_library[target][band][vis]['applycal_mode_final']=selfcal_library[target][band][vis][solint]['applycal_mode']
+               selfcal_library[target][band][vis]['applycal_interpolate_final']=selfcal_library[target][band][vis][solint]['applycal_interpolate']
+               selfcal_library[target][band][vis]['gaincal_combine_final']=selfcal_library[target][band][vis][solint]['applycal_mode']
                selfcal_library[target][band][vis][solint]['Pass']=True
 
             selfcal_library[target][band]['final_solint']=solint
@@ -588,17 +619,18 @@ for target in all_targets:
             if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round
                print('****************Reapplying previous solint solutions*************')
                for vis in vislist:
-                  print('****************Applying '+selfcal_library[target][band][vis]['gaintable']+' to '+target+' '+band+'*************')
-                  flagmanager(vis=vis,mode='restore',versionname=selfcal_library[target][band][vis]['flags'])
+                  print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+' '+band+'*************')
+                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
                   applycal(vis=vis,\
-                          gaintable=selfcal_library[target][band][vis]['gaintable'],\
-                          interp=applycal_interp[band],\
-                          calwt=True,spwmap=[selfcal_library[target][band][vis]['spwmap']],\
-                          applymode=applycal_mode[band][selfcal_library[target][band]['iteration']],field=target,spw=selfcal_library[target][band][vis]['spws'])    
+                          gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
+                          interp=selfcal_library[target][band][vis]['applycal_interpolate_final'],\
+                          calwt=True,spwmap=selfcal_library[target][band][vis]['spwmap_final'],\
+                          applymode=selfcal_library[target][band][vis]['applycal_mode_final'],\
+                          field=target,spw=selfcal_library[target][band][vis]['spws'])    
             else:            
                print('****************Removing all calibrations for '+target+' '+band+'**************')
                for vis in vislist:
-                  flagmanager(vis=vis,mode='restore',versionname=selfcal_library[target][band][vis][solints[band][0]]['flags'])
+                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
                   clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
                   selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                   selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
@@ -633,7 +665,7 @@ for target in all_targets:
    tclean_wrapper(vislist,sani_target+'_'+band+'_final',\
                band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-               nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'])
+               nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
    final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_final.image.tt0')
    selfcal_library[target][band]['SNR_final']=final_SNR
@@ -644,11 +676,20 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_major_final']=header['restoringbeam']['major']['value']
    selfcal_library[target][band]['Beam_minor_final']=header['restoringbeam']['minor']['value']
    selfcal_library[target][band]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
+   #recalc inital stats using final mask
+   final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
+   final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
+   selfcal_library[target][band]['SNR_orig']=final_SNR
+   selfcal_library[target][band]['RMS_orig']=final_RMS
+   selfcal_library[target][band]['SNR_NF_orig']=final_NF_SNR
+   selfcal_library[target][band]['RMS_NF_orig']=final_NF_RMS
    goodMask=checkmask(imagename=sani_target+'_'+band+'_final.image.tt0')
    if goodMask:
       selfcal_library[target][band]['intflux_final'],selfcal_library[target][band]['e_intflux_final']=get_intflux(sani_target+'_'+band+'_final.image.tt0',final_RMS)
+      selfcal_library[target][band]['intflux_orig'],selfcal_library[target][band]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_initial.image.tt0',selfcal_library[target][band]['RMS_orig'],maskname=sani_target+'_'+band+'_final.mask')
    else:
       selfcal_library[target][band]['intflux_final'],selfcal_library[target][band]['e_intflux_final']=-99.0,-99.0
+
 
 
 
@@ -684,13 +725,23 @@ if check_all_spws:
                           band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
                           nterms=1,field=target,datacolumn='corrected',\
-                          spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'])
+                          spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
             final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
             final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_final']=final_per_spw_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_final']=final_per_spw_RMS
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_final']=final_per_spw_NF_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_final']=final_per_spw_NF_RMS
+            #reccalc initial stats with final mask
+            final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+spw+'_final.mask')
+            final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+spw+'_final.mask')
+            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig']=final_per_spw_SNR
+            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']=final_per_spw_RMS
+            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_orig']=final_per_spw_NF_SNR
+            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_orig']=final_per_spw_NF_RMS
+
+
+
             goodMask=checkmask(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
             if goodMask:
                selfcal_library[target][band]['per_spw_stats'][spw]['intflux_final'],selfcal_library[target][band]['per_spw_stats'][spw]['e_intflux_final']=get_intflux(sani_target+'_'+band+'_'+spw+'_final.image.tt0',final_per_spw_RMS)
@@ -734,32 +785,21 @@ for target in all_targets:
          for vis in vislist: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            if use_inf_EB_preapply:
-               spwmap_inf_EB=[]
-               for i in range(len(spwsarray)):
-                  if i==0: 
-                     spwmap_inf_EB+=[spwsarray[i]]*np.min(spwsarray_orig)
-                  else:
-                     diffspw=spwsarray_orig[1]-spwsarray_orig[0]
-                     spwmap_inf_EB+=[spwsarray[i]]*diffspw
-               spwmap=[spwmap_inf_EB,[selfcal_library[target][band][vis]['spwmap'][0]]*(np.max(spwsarray_orig)+1)]
-            else:
-               spwmap=[selfcal_library[target][band][vis]['spwmap'][0]]*(np.max(spwsarray_orig)+1)
-            #map_new_spw_to_orig=spwslist.index(selfcal_library[target][band][vis]['spwmap'][0])
-            #spwmap=[spwslist_orig[map_new_spw_to_orig]]*len(selfcal_library[target][band][vis]['spwmap'])
-            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable="'+selfcal_library[target][band][vis][solint]['gaintable']+'",interp="'+applycal_interp[band]+'", calwt=True,spwmap=['+str(spwmap)+'], applymode="'+selfcal_library[target][band][vis][solint]['applycal_mode']+'",field="'+target+'",spw="'+spwstring_orig+'")\n'
+            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=True,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_orig+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
-               if os.path.exists(vis+".flagversions/flags.starting_flags"):
-                  flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+               if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
+                  flagmanager(vis=vis.replace('.selfcal',''), mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
                else:
-                  flagmanager(vis=vis,mode='save',versionname='before_final_applycal')
+                  flagmanager(vis=vis.replace('.selfcal',''),mode='save',versionname='before_final_applycal')
                applycal(vis=vis.replace('.selfcal',''),\
-                     gaintable=selfcal_library[target][band][vis][solint]['gaintable'],\
-                    interp=applycal_interp[band], calwt=True,spwmap=[selfcal_library[target][band][vis]['spwmap']],\
-                    applymode=selfcal_library[target][band][vis][solint]['applycal_mode'],field=target,spw=spwstring_orig)
+                    gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
+                    interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=True,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
+                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_orig)
 
 applyCalOut.close()
+
+
 #
 # Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration
 #
