@@ -2088,11 +2088,12 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    for key in quantities:
       line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
       for spw in spwlist:
-         if 'SNR' in key:
+         spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
+         if 'SNR' in key and key in spwkeys:
             line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
-         if 'RMS' in key:
+         if 'RMS' in key and key in spwkeys:
             line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
-         if 'bandwidth' in key:
+         if 'bandwidth' in key and key in spwkeys:
             line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
       line+='</tr>\n    '
       htmlOut.writelines(line)
@@ -2101,13 +2102,14 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    htmlOut.writelines('	</tr>\n')
    htmlOut.writelines('</table>\n')
    for spw in spwlist:
-
-      if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-         htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
-      if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-         htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
-      if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-         htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
+      spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
+      if 'delta_SNR' in spwkeys or 'delta_RMS' in spwkeys or 'delta_beamarea' in spwkeys:
+         if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+            htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
+         if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+            htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
+         if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+            htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
 def render_per_solint_QA_pages(sclib,solints,bands):
   ## Per Solint pages
