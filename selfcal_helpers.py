@@ -2266,8 +2266,9 @@ def importdata(vislist,all_targets,telescope):
                  integrationtimesdict[band][vis].pop(target)
                  scantimesdict[band][vis].pop(target)
                  scanstartsdict[band][vis].pop(target)
-                 scanendsdict[band][vis].pop(target)           
-                 mosaic_field_dict.pop(target)           
+                 scanendsdict[band][vis].pop(target) 
+                           
+                 mosaic_field_dict[band].pop(target)           
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:
          bands.remove(delband)
