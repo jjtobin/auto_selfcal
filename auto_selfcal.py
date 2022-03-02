@@ -259,7 +259,10 @@ for target in all_targets:
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
    initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0')
-   initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0')
+   if telescope!='ACA':
+      initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0')
+   else:
+      initial_NF_SNR,initial_NF_RMS=initial_SNR,initial_RMS
    header=imhead(imagename=sani_target+'_'+band+'_initial.image.tt0')
    if telescope =='ALMA' or telescope == 'ACA':
       selfcal_library[target][band]['theoretical_sensitivity']=sensitivity_nomod
@@ -345,7 +348,10 @@ if check_all_spws:
                           spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
 
             per_spw_SNR,per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
-            initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
+            if telescope!='ACA':
+               initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
+            else:
+               initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=per_spw_SNR,per_spw_RMS
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig']=per_spw_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']=per_spw_RMS
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_orig']=initial_per_spw_NF_SNR
@@ -447,7 +453,11 @@ for target in all_targets:
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
          print('Pre selfcal assessemnt: '+target)
          SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
-         SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
+         if telescope !='ACA':
+            SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
+         else:
+            SNR_NF,RMS_NF=SNR,RMS
+
          header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
 
          if iteration == 0:
@@ -547,7 +557,10 @@ for target in all_targets:
          #copy mask for use in post-selfcal SNR measurement
          os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
          post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+         if telescope !='ACA':
+            post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+         else:
+            post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
          for vis in vislist:
             selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
@@ -667,7 +680,10 @@ for target in all_targets:
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
-   final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_final.image.tt0')
+   if telescope !='ACA':
+      final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_final.image.tt0')
+   else:
+      final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
    selfcal_library[target][band]['SNR_final']=final_SNR
    selfcal_library[target][band]['RMS_final']=final_RMS
    selfcal_library[target][band]['SNR_NF_final']=final_NF_SNR
@@ -678,7 +694,10 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
    #recalc inital stats using final mask
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
-   final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
+   if telescope!='ACA':
+      final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
+   else:
+      final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
    selfcal_library[target][band]['SNR_orig']=final_SNR
    selfcal_library[target][band]['RMS_orig']=final_RMS
    selfcal_library[target][band]['SNR_NF_orig']=final_NF_SNR
@@ -727,14 +746,21 @@ if check_all_spws:
                           nterms=1,field=target,datacolumn='corrected',\
                           spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
             final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
-            final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
+            if telescope !='ACA':
+               final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
+            else:
+               final_per_spw_NF_SNR,final_per_spw_NF_RMS=final_per_spw_SNR,final_per_spw_RMS
+
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_final']=final_per_spw_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_final']=final_per_spw_RMS
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_final']=final_per_spw_NF_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_final']=final_per_spw_NF_RMS
             #reccalc initial stats with final mask
             final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+spw+'_final.mask')
-            final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+spw+'_final.mask')
+            if telescope !='ACA':
+               final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+spw+'_final.mask')
+            else:
+               final_per_spw_NF_SNR,final_per_spw_NF_RMS=final_per_spw_SNR,final_per_spw_RMS
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig']=final_per_spw_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']=final_per_spw_RMS
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_orig']=final_per_spw_NF_SNR
