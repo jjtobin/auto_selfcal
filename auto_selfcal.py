@@ -369,13 +369,17 @@ if check_all_spws:
 ##
 ## estimate per scan/EB S/N using time on source and median scan times
 ##
-solint_snr,solint_snr_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine)
+solint_snr,solint_snr_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype)
 for target in all_targets:
  for band in solint_snr[target].keys():
    print('Estimated SNR per solint:')
    print(target,band)
    for solint in solints[band]:
-     print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
+     if solint == 'inf_EB':
+        for spw in solint_snr_per_spw[target][band][solint].keys():
+           print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+     else:
+        print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
 
 ##
 ## Set clean selfcal thresholds
@@ -463,6 +467,7 @@ for target in all_targets:
          if iteration == 0:
             gaincal_preapply_gaintable={}
             gaincal_spwmap={}
+            gaincal_interpolate={}
             applycal_gaintable={}
             applycal_spwmap={}
             applycal_interpolate={}
@@ -475,6 +480,7 @@ for target in all_targets:
             applycal_spwmap[vis]=[]
             applycal_interpolate[vis]=[]
             gaincal_spwmap[vis]=[]
+            gaincal_interpolate[vis]=[]
             gaincal_preapply_gaintable[vis]=[]
             ##
             ## Solve gain solutions per MS, target, solint, and band
@@ -485,9 +491,11 @@ for target in all_targets:
                if solint == 'inf_EB':
                   gaincal_spwmap[vis]=[]
                   gaincal_preapply_gaintable[vis]=[]
+                  gaincal_interpolate[vis]=[]
                   gaincal_gaintype=inf_EB_gaintype
                   if 'spw' in inf_EB_gaincal_combine:
                      applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+                     gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                   else:
                      applycal_spwmap[vis]=[]
                   applycal_interpolate[vis]=[applycal_interp[band]]
@@ -495,13 +503,20 @@ for target in all_targets:
                else:
                   gaincal_spwmap[vis]=[]
                   gaincal_preapply_gaintable[vis]=[target+'_'+vis+'_'+band+'_inf_EB_0.g']
+                  gaincal_interpolate[vis]=[applycal_interp[band]]
                   gaincal_gaintype='T'
-                  applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
+                  if 'spw' in inf_EB_gaincal_combine:
+                     applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                     gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+                  else:
+                     applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
+                     gaincal_spwmap[vis]=[]
                   applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
                   applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_inf_EB_0.g',target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
             else:
                gaincal_spwmap[vis]=[]
                gaincal_preapply_gaintable[vis]=[]
+               gaincal_interpolate[vis]=[]
                gaincal_gaintype='T'
                applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                applycal_interpolate[vis]=[applycal_interp[band]]
@@ -509,7 +524,8 @@ for target in all_targets:
 
             gaincal(vis=vis,\
                     caltable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
-                    gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
+                    gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
+                    refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                     solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
                     field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange']) 
                     # for simplicity don't do incremental solutions,gaintable=gaintables[vis],spwmap=spwmaps[vis])

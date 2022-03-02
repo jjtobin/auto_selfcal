@@ -767,9 +767,13 @@ def rank_refants(vis):
      return ','.join(numpy.array(names)[numpy.argsort(score)])
 
 
-def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine):
+def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype):
    solint_snr={}
    solint_snr_per_spw={}
+   if inf_EB_gaintype=='G':
+      polscale=2.0
+   else:
+      polscale=1.0
    for target in all_targets:
     solint_snr[target]={}
     solint_snr_per_spw[target]={}
@@ -788,7 +792,7 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
                SNR_self_EB_spw[vislist[i]]={}
                for spw in selfcal_library[target][band][vislist[i]]['spwsarray']:
-                  SNR_self_EB_spw[vislist[i]][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+                  SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
             for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(vislist)):
@@ -2088,11 +2092,12 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    for key in quantities:
       line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
       for spw in spwlist:
-         if 'SNR' in key:
+         spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
+         if 'SNR' in key and key in spwkeys:
             line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
-         if 'RMS' in key:
+         if 'RMS' in key and key in spwkeys:
             line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
-         if 'bandwidth' in key:
+         if 'bandwidth' in key and key in spwkeys:
             line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
       line+='</tr>\n    '
       htmlOut.writelines(line)
@@ -2101,13 +2106,14 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    htmlOut.writelines('	</tr>\n')
    htmlOut.writelines('</table>\n')
    for spw in spwlist:
-
-      if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-         htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
-      if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-         htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
-      if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-         htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
+      spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
+      if 'delta_SNR' in spwkeys or 'delta_RMS' in spwkeys or 'delta_beamarea' in spwkeys:
+         if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+            htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
+         if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+            htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
+         if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+            htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
 def render_per_solint_QA_pages(sclib,solints,bands):
   ## Per Solint pages
