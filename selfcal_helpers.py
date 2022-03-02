@@ -767,9 +767,13 @@ def rank_refants(vis):
      return ','.join(numpy.array(names)[numpy.argsort(score)])
 
 
-def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine):
+def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype):
    solint_snr={}
    solint_snr_per_spw={}
+   if inf_EB_gaintype=='G':
+      polscale=2.0
+   else:
+      polscale=1.0
    for target in all_targets:
     solint_snr[target]={}
     solint_snr_per_spw[target]={}
@@ -788,7 +792,7 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
                SNR_self_EB_spw[vislist[i]]={}
                for spw in selfcal_library[target][band][vislist[i]]['spwsarray']:
-                  SNR_self_EB_spw[vislist[i]][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+                  SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
             for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(vislist)):

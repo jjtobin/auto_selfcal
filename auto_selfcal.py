@@ -363,13 +363,17 @@ if check_all_spws:
 ##
 ## estimate per scan/EB S/N using time on source and median scan times
 ##
-solint_snr,solint_snr_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine)
+solint_snr,solint_snr_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype)
 for target in all_targets:
  for band in solint_snr[target].keys():
    print('Estimated SNR per solint:')
    print(target,band)
    for solint in solints[band]:
-     print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
+     if solint == 'inf_EB':
+        for spw in solint_snr_per_spw[target][band][solint].keys():
+           print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+     else:
+        print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
 
 ##
 ## Set clean selfcal thresholds
