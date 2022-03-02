@@ -2149,6 +2149,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
             htmlOutSolint.writelines('<body>\n')
             htmlOutSolint.writelines('<a name="top"></a>\n')
             htmlOutSolint.writelines('<h2>'+target+' Plots</h2>\n')
+            htmlOutSolint.writelines('<h2>'+band+'</h2>\n')
             htmlOutSolint.writelines('<h2>Targets:</h2>\n')
             keylist=sclib[target][band][vislist[0]].keys()
             solints_string=''
@@ -2191,9 +2192,10 @@ def render_per_solint_QA_pages(sclib,solints,bands):
             htmlOutSolint.writelines('Pre Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
 
 
-
-            htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
-
+            if solints[band][i] =='inf_EB':
+               htmlOutSolint.writelines('<h3>Phase vs. Frequency Plots:</h3>\n')
+            else:
+               htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
             for vis in vislist:
                htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
                ant_list=get_ant_list(vis)
@@ -2207,11 +2209,15 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br>'.format(frac_flagged_sols))
                for ant in ant_list:
                   sani_target=sanitize_string(target)
+                  if solints[band][i] =='inf_EB':
+                     xaxis='frequency'
+                  else:
+                     xaxis='time'
                   try:
-                     plotms(gridrows=2,plotindex=0,rowindex=0,vis=gaintable,xaxis='time', yaxis='phase',showgui=False,\
+                     plotms(gridrows=2,plotindex=0,rowindex=0,vis=gaintable,xaxis=xaxis, yaxis='phase',showgui=False,\
                          xselfscale=True,plotrange=[0,0,-180,180], antenna=ant,customflaggedsymbol=True,title=ant+' phase',\
                          plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=True)
-                     plotms(gridrows=2,rowindex=1,plotindex=1,vis=gaintable,xaxis='time', yaxis='SNR',showgui=False,\
+                     plotms(gridrows=2,rowindex=1,plotindex=1,vis=gaintable,xaxis=xaxis, yaxis='SNR',showgui=False,\
                          xselfscale=True, antenna=ant,customflaggedsymbol=True,title=ant+' SNR',\
                          plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=False)
                      #htmlOut.writelines('<img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200>')
