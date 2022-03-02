@@ -49,6 +49,7 @@ spectral_average=True
 use_inf_EB_preapply=True
 inf_EB_gaincal_combine='scan'
 inf_EB_gaintype='G'
+inf_EB_override=False
 parallel=True
 gaincal_minsnr=2.0
 minsnr_to_proceed=3.0
@@ -64,7 +65,7 @@ apply_to_target_ms=False # apply final selfcal solutions back to the input _targ
 
 if 'VLA' in telescope:
    check_all_spws=False
-   inf_EB_gaincal_combine='spw,scan'
+   #inf_EB_gaincal_combine='spw,scan'
 ##
 ## Import inital MS files to get relevant meta data
 ##
@@ -379,8 +380,8 @@ for target in all_targets:
  inf_EB_gaincal_combine_dict[target]={} #'scan'
  inf_EB_gaintype_dict[target]={} #'G'
  for band in solint_snr[target].keys():
-   inf_EB_gaincal_combine_dict[target][band]='scan' #'scan'
-   inf_EB_gaintype_dict[target][band]='G' #G
+   inf_EB_gaincal_combine_dict[target][band]=inf_EB_gaincal_combine #'scan'
+   inf_EB_gaintype_dict[target][band]=inf_EB_gaintype #G
    print('Estimated SNR per solint:')
    print(target,band)
    for solint in solints[band]:
@@ -390,10 +391,10 @@ for target in all_targets:
            print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
            if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
               minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
-        if minsolint_spw < 3.5 and minsolint_spw > 2.5:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
+        if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
            print('Switching Gaintype to T for: '+target)
            inf_EB_gaintype_dict[target][band]='T'
-        elif minsolint_spw < 2.5:
+        elif minsolint_spw < 2.5 and inf_EB_override==False:
            print('Switching Gaincal combine to spw,scan for: '+target)
            inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
      else:
