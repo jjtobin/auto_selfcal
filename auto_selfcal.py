@@ -497,7 +497,7 @@ for target in all_targets:
             if os.path.exists(vis+".flagversions/flags.selfcal_starting_flags_"+sani_target):
                flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags_'+sani_target, comment = 'Flag states at start of reduction')
             else:
-               flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
+               flagmanager(vis=vis,mode='save',versionname='selfcal_starting_flags_'+sani_target)
             applycal_gaintable[vis]=[]
             applycal_spwmap[vis]=[]
             applycal_interpolate[vis]=[]
