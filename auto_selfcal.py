@@ -494,7 +494,10 @@ for target in all_targets:
             ##
             ## Restore original flagging state each time before applying a new gaintable
             ##
-            flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
+            if os.path.exists(vis+".flagversions/flags.selfcal_starting_flags_"+sani_target):
+               flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags_'+sani_target, comment = 'Flag states at start of reduction')
+            else:
+               flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
             applycal_gaintable[vis]=[]
             applycal_spwmap[vis]=[]
             applycal_interpolate[vis]=[]
@@ -669,7 +672,7 @@ for target in all_targets:
                print('****************Reapplying previous solint solutions*************')
                for vis in vislist:
                   print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+' '+band+'*************')
-                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
+                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
                   applycal(vis=vis,\
                           gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                           interp=selfcal_library[target][band][vis]['applycal_interpolate_final'],\
@@ -679,7 +682,7 @@ for target in all_targets:
             else:            
                print('****************Removing all calibrations for '+target+' '+band+'**************')
                for vis in vislist:
-                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
+                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
                   clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
                   selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                   selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
