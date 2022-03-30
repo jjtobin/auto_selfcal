@@ -11,7 +11,7 @@ Mosaics have only had limited testing, but some limited functionality might work
 Brief instructions:
 1. Create an empty directory
 2. Copy into this directory the *_target.ms files that have identical setups (targets and spectral windows) to be self-calibrated (must contain only the targets desired for self-calibration)
-4. Copy auto_selfcal.py and selfcal_helpers.py into this directory
+4. Copy auto_selfcal.py and selfcal_helpers.py into this directory (and regenerate_weblog.py if needed)
 5. Run script with mpicasa -n X casa -c auto_selfcal.py; X is the number of mpi threads to use
 
 If serial operation is desired (without mpicasa), edit the auto_selfcal.py script to specify 'parallel=False' and run with casa -c auto_selfcal.py
