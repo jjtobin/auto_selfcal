@@ -640,16 +640,19 @@ def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
        maskImage=imagename.replace('image','mask').replace('.tt0','')
     else:
        maskImage=maskname
-    goodMask=checkmask(imagename)
     if not os.path.exists(maskImage):
-       return -99.0,-99.0
+       return np.float64(-99.0),np.float64(-99.0)
+    goodMask=checkmask(maskImage)
     if not goodMask:
-       return -99.0,99.0
+       return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
     os.system('cp -r '+maskImage+ ' temp.mask')
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
+    maskStats=imstat(imagename='temp.mask')
+    if maskStats['max'][0]:
+       return np.float64(-99.0),np.float64(-99.0)
     imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*3.0)+'arcsec',minor=str(beammajor*3.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
     immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.smooth.ceiling.mask')
     imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
@@ -2177,6 +2180,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                htmlOutSolint.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
             else:
                htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
+
             htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
             plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
                       'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
@@ -2206,7 +2210,18 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a><br>\n')
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
-               htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br>'.format(frac_flagged_sols))
+               htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
+               if solints[band][i] =='inf_EB':
+                  if 'fallback' in sclib[target][band][vis][solints[band][i]].keys():
+                     if sclib[target][band][vis][solints[band][i]]['fallback'] == '':
+                        fallback_mode='None'
+                     if sclib[target][band][vis][solints[band][i]]['fallback'] == 'combinespw':
+                        fallback_mode='Combine SPW'
+                     if sclib[target][band][vis][solints[band][i]]['fallback'] == 'spwmap':
+                        fallback_mode='SPWMAP'
+                     htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
+               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][solints[band][i]]['spwmap']))+']</h4>\n')
+
                for ant in ant_list:
                   sani_target=sanitize_string(target)
                   if solints[band][i] =='inf_EB':
@@ -2342,4 +2357,94 @@ def get_phasecenter(vis,field):
    dec_phasecenter=np.median(dec_phasecenter_arr)
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
+
+def get_flagged_solns_per_spw(spwlist,gaintable):
+     # Get the antenna names and offsets.
+     msmd = casatools.msmetadata()
+     tb = casatools.table()
+
+     # Calculate the number of flags for each spw.
+     #gaintable='"'+gaintable+'"'
+     os.system('cp -r '+gaintable.replace(' ','\ ')+' tempgaintable.g')
+     gaintable='tempgaintable.g'
+     nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+             spwlist[i]+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
+             range(len(spwlist))]
+     nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+             spwlist[i]+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
+             range(len(spwlist))]
+     os.system('rm -rf tempgaintable.g')
+     fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
+     # Calculate a score based on those two.
+     return nflags, nunflagged,fracflagged
+
+
+def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable):
+
+   max_flagged_ants=3.0
+   fallback=''
+   map_index=-1
+   min_spwmap_bw=0.0
+   spwmap=[False]*len(spwlist)
+   nflags,nunflagged,fracflagged=get_flagged_solns_per_spw(spwlist,gaintable)
+   nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw(spwlist[0],spw_combine_test_gaintable)
+   eff_bws=np.zeros(len(spwlist))
+   total_bws=np.zeros(len(spwlist))
+   for i in range(len(spwlist)):
+      eff_bws[i]=selfcal_library[target][band]['per_spw_stats'][spwlist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[target][band]['per_spw_stats'][spwlist[i]]['bandwidth']
+   minimum_flagged_ants_per_spw=np.min(nflags)/2.0
+   minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
+                                                           # the impression of a lot of flagging
+   maximum_flagged_ants_per_spw=np.max(nflags)/2.0
+   delta_nflags=np.array(nflags)/2.0-minimum_flagged_ants_spwcomb #minimum_flagged_ants_per_spw
+
+   # if there are more than 3 flagged antennas for all spws (minimum_flagged_ants_spwcomb, fallback to doing spw combine for inf_EB fitting
+   # use the spw combine number of flagged ants to set the minimum otherwise could misinterpret fully flagged antennas for flagged solutions
+   # captures case where no one spws has sufficient S/N, only together do they have enough
+   if (minimum_flagged_ants_per_spw-minimum_flagged_ants_spwcomb) > max_flagged_ants:
+      fallback='combinespw'
+   
+   #if certain spws have more than 3 flagged solutions that the least flagged spws, set those to spwmap
+   for i in range(len(spwlist)):
+      if np.min(delta_nflags[i]) > max_flagged_ants:
+         fallback='spwmap'
+         spwmap[i]=True
+         if total_bws[i] > min_spwmap_bw:
+            min_spwmap_bw=total_bws[i]
+   #also spwmap spws with similar bandwidths to the others that are getting mapped, avoid low S/N solutions
+   if fallback=='spwmap':
+      for i in range(len(spwlist)):
+         if total_bws[i] <= min_spwmap_bw:
+            spwmap[i]=True
+      if all(spwmap):
+         fallback='combinespw'
+   #want the widest bandwidth window that also has the minimum flags to use for spw mapping
+   applycal_spwmap=[]
+   if fallback=='spwmap':
+      minflagged_index=(np.array(nflags)/2.0 == minimum_flagged_ants_per_spw).nonzero()
+      max_bw_index = (eff_bws == np.max(eff_bws[minflagged_index[0]])).nonzero()
+      max_bw_min_flags_index=np.intersect1d( minflagged_index[0],max_bw_index[0])
+      #if len(max_bw_min_flags_index) > 1:
+      #don't need the conditional since this works with array lengths of 1
+      map_index=max_bw_min_flags_index[np.argmax(eff_bws[max_bw_min_flags_index])]   
+      #else:
+      #   map_index=max_bw_min_flags_index[0]
+      
+      #make spwmap list that first maps everything to itself, need max spw to make that list
+      maxspw=np.max(selfcal_library[target][band][vis]['spwsarray']+1)
+      applycal_spwmap_int_list=list(np.arange(maxspw))
+      for i in range(len(applycal_spwmap_int_list)):
+         applycal_spwmap.append(applycal_spwmap_int_list[i])
+
+      #replace the elements that require spwmapping (spwmap[i] == True
+      for i in range(len(spwmap)):
+         print(i,spwlist[i],spwmap[i])
+         if spwmap[i]:
+            applycal_spwmap[int(spwlist[i])]=int(spwlist[map_index])
+   
+   return fallback,map_index,spwmap,applycal_spwmap
+
+
+
 

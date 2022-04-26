@@ -377,33 +377,41 @@ if check_all_spws:
 ##
 inf_EB_gaincal_combine_dict={} #'scan'
 inf_EB_gaintype_dict={} #'G'
-
+inf_EB_fallback_mode_dict={} #'scan'
 
 solint_snr,solint_snr_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype)
 minsolint_spw=100.0
 for target in all_targets:
  inf_EB_gaincal_combine_dict[target]={} #'scan'
+ inf_EB_fallback_mode_dict[target]={} #'scan'
  inf_EB_gaintype_dict[target]={} #'G'
  for band in solint_snr[target].keys():
-   inf_EB_gaincal_combine_dict[target][band]=inf_EB_gaincal_combine #'scan'
-   inf_EB_gaintype_dict[target][band]=inf_EB_gaintype #G
-   print('Estimated SNR per solint:')
-   print(target,band)
-   for solint in solints[band]:
-     if solint == 'inf_EB':
-        print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
-        for spw in solint_snr_per_spw[target][band][solint].keys():
-           print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
-           if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
-              minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
-        if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
-           print('Switching Gaintype to T for: '+target)
-           inf_EB_gaintype_dict[target][band]='T'
-        elif minsolint_spw < 2.5 and inf_EB_override==False:
-           print('Switching Gaincal combine to spw,scan for: '+target)
-           inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
-     else:
-        print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
+   inf_EB_gaincal_combine_dict[target][band]={}
+   inf_EB_gaintype_dict[target][band]={}
+   inf_EB_fallback_mode_dict[target][band]={}
+   for vis in vislist:
+    inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
+    inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
+    inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
+    print('Estimated SNR per solint:')
+    print(target,band)
+    for solint in solints[band]:
+      if solint == 'inf_EB':
+         print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
+         ''' 
+         for spw in solint_snr_per_spw[target][band][solint].keys():
+            print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+            if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
+               minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
+         if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
+            print('Switching Gaintype to T for: '+target)
+            inf_EB_gaintype_dict[target][band]='T'
+         elif minsolint_spw < 2.5 and inf_EB_override==False:
+            print('Switching Gaincal combine to spw,scan for: '+target)
+            inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
+         '''
+      else:
+         print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
 
 ##
 ## Set clean selfcal thresholds
@@ -494,6 +502,7 @@ for target in all_targets:
             gaincal_interpolate={}
             applycal_gaintable={}
             applycal_spwmap={}
+            fallback={}
             applycal_interpolate={}
          for vis in vislist:
             ##
@@ -513,15 +522,19 @@ for target in all_targets:
             ## Solve gain solutions per MS, target, solint, and band
             ##
             os.system('rm -rf '+target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
-            #Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
+            ##
+            ## Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
+            ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
+            ## At some point remove the conditional for use_inf_EB_preapply, since there isn't a reason not to do it
+            ##
             if use_inf_EB_preapply:
                if solint == 'inf_EB':
                   gaincal_spwmap[vis]=[]
                   gaincal_preapply_gaintable[vis]=[]
                   gaincal_interpolate[vis]=[]
-                  gaincal_gaintype=inf_EB_gaintype_dict[target][band]
-                  gaincal_combine[band][iteration]=inf_EB_gaincal_combine_dict[target][band]
-                  if 'spw' in inf_EB_gaincal_combine_dict[target][band]:
+                  gaincal_gaintype=inf_EB_gaintype_dict[target][band][vis]
+                  gaincal_combine[band][iteration]=inf_EB_gaincal_combine_dict[target][band][vis]
+                  if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
                      applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                      gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                   else:
@@ -533,9 +546,12 @@ for target in all_targets:
                   gaincal_preapply_gaintable[vis]=[target+'_'+vis+'_'+band+'_inf_EB_0.g']
                   gaincal_interpolate[vis]=[applycal_interp[band]]
                   gaincal_gaintype='T'
-                  if 'spw' in inf_EB_gaincal_combine_dict[target][band]:
+                  if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
                      applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
                      gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+                  elif inf_EB_fallback_mode_dict[target][band][vis]=='spwmap':
+                     applycal_spwmap[vis]=[selfcal_library[target][band][vis]['inf_EB']['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                     gaincal_spwmap[vis]=selfcal_library[target][band][vis]['inf_EB']['spwmap']
                   else:
                      applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
                      gaincal_spwmap[vis]=[]
@@ -549,14 +565,45 @@ for target in all_targets:
                applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                applycal_interpolate[vis]=[applycal_interp[band]]
                applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
+            fallback[vis]=''
 
             gaincal(vis=vis,\
-                    caltable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
-                    gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
-                    refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                    solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
-                    field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange']) 
-                    # for simplicity don't do incremental solutions,gaintable=gaintables[vis],spwmap=spwmaps[vis])
+                 caltable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
+                 gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
+                 refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
+                 solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
+                 field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'])
+            ##
+            ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
+            ## the number of flagged antennas when combine='spw' then determine if it needs spwmapping or to use the gaintable with spwcombine.
+            ##
+            if solint =='inf_EB' and fallback[vis]=='':
+               os.system('rm -rf test_inf_EB.g')
+               gaincal(vis=vis,\
+                 caltable='test_inf_EB.g',\
+                 gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
+                 refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
+                 solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine='spw,scan',
+                 field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
+               fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',vis,target,'test_inf_EB.g')
+
+               inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
+               print('inf_EB',fallback[vis],applycal_spwmap_inf_EB)
+               if fallback[vis] != '':
+                  if fallback[vis] =='combinespw':
+                     gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+                     gaincal_combine[band][iteration]='scan,spw'
+                     inf_EB_gaincal_combine_dict[target][band][vis]='scan,spw'
+                     applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+                     os.system('rm -rf '+target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
+                     os.system('mv test_inf_EB.g '+target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
+                  if fallback[vis] =='spwmap':
+                     gaincal_spwmap[vis]=applycal_spwmap_inf_EB
+                     inf_EB_gaincal_combine_dict[target][band][vis]='scan'
+                     gaincal_combine[band][iteration]='scan'
+                     applycal_spwmap[vis]=applycal_spwmap_inf_EB
+               os.system('rm -rf test_inf_EB.g')               
+
          for vis in vislist:
             ##
             ## Apply gain solutions per MS, target, solint, and band
@@ -585,7 +632,7 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
             selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
             selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
-         ##
+            selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
          ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
          ##
          if nterms[band]==1:
