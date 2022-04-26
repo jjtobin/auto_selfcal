@@ -641,9 +641,11 @@ def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
     else:
        maskImage=maskname
     if not os.path.exists(maskImage):
+       print('Does not exist')
        return np.float64(-99.0),np.float64(-99.0)
     goodMask=checkmask(maskImage)
     if not goodMask:
+       print('checkmask')
        return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
@@ -651,8 +653,6 @@ def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
     maskStats=imstat(imagename='temp.mask')
-    if maskStats['max'][0]:
-       return np.float64(-99.0),np.float64(-99.0)
     imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*3.0)+'arcsec',minor=str(beammajor*3.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
     immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.smooth.ceiling.mask')
     imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
