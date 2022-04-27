@@ -391,6 +391,8 @@ for target in all_targets:
    inf_EB_fallback_mode_dict[target][band]={}
    for vis in vislist:
     inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
+    if selfcal_library[target][band]['obstype']=='mosaic':
+       inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
     inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
     inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
     print('Estimated SNR per solint:')
@@ -579,11 +581,14 @@ for target in all_targets:
             ##
             if solint =='inf_EB' and fallback[vis]=='':
                os.system('rm -rf test_inf_EB.g')
+               test_gaincal_combine='scan,spw'
+               if selfcal_library[target][band]['obstype']=='mosaic':
+                  test_gaincal_combine+=',field'   
                gaincal(vis=vis,\
                  caltable='test_inf_EB.g',\
                  gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                  refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                 solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine='spw,scan',
+                 solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
                  field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
                fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',vis,target,'test_inf_EB.g')
 

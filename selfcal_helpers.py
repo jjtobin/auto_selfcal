@@ -2380,8 +2380,10 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
 
 
 def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable):
-
-   max_flagged_ants=3.0
+   # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
+   max_flagged_ants_combspw=2.0
+   # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
+   max_flagged_ants_spwmap=1.0
    fallback=''
    map_index=-1
    min_spwmap_bw=0.0
@@ -2402,12 +2404,12 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    # if there are more than 3 flagged antennas for all spws (minimum_flagged_ants_spwcomb, fallback to doing spw combine for inf_EB fitting
    # use the spw combine number of flagged ants to set the minimum otherwise could misinterpret fully flagged antennas for flagged solutions
    # captures case where no one spws has sufficient S/N, only together do they have enough
-   if (minimum_flagged_ants_per_spw-minimum_flagged_ants_spwcomb) > max_flagged_ants:
+   if (minimum_flagged_ants_per_spw-minimum_flagged_ants_spwcomb) > max_flagged_ants_combspw:
       fallback='combinespw'
    
-   #if certain spws have more than 3 flagged solutions that the least flagged spws, set those to spwmap
+   #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    for i in range(len(spwlist)):
-      if np.min(delta_nflags[i]) > max_flagged_ants:
+      if np.min(delta_nflags[i]) > max_flagged_ants_spwmap:
          fallback='spwmap'
          spwmap[i]=True
          if total_bws[i] > min_spwmap_bw:
