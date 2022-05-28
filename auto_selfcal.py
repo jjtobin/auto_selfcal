@@ -590,6 +590,7 @@ for target in all_targets:
                  refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                  solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
                  field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
+               spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
                fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',vis,target,'test_inf_EB.g')
 
                inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
