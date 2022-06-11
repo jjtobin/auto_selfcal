@@ -478,7 +478,7 @@ for target in all_targets:
             print('Starting with solint: '+solint)
          else:
             print('Continuing with solint: '+solint)
-         os.system('rm -rf '+target+'_'+band+'_'+solint+'_'+str(iteration)+'*')
+         os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'*')
          ##
          ## make images using the appropriate tclean heuristics for each telescope
          ## set threshold based on RMS of initial image and lower if value becomes lower
@@ -523,7 +523,7 @@ for target in all_targets:
             ##
             ## Solve gain solutions per MS, target, solint, and band
             ##
-            os.system('rm -rf '+target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
+            os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
             ##
             ## Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
             ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
@@ -542,10 +542,10 @@ for target in all_targets:
                   else:
                      applycal_spwmap[vis]=[]
                   applycal_interpolate[vis]=[applycal_interp[band]]
-                  applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
+                  applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
                else:
                   gaincal_spwmap[vis]=[]
-                  gaincal_preapply_gaintable[vis]=[target+'_'+vis+'_'+band+'_inf_EB_0.g']
+                  gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g']
                   gaincal_interpolate[vis]=[applycal_interp[band]]
                   gaincal_gaintype='T'
                   if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
@@ -558,7 +558,7 @@ for target in all_targets:
                      applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
                      gaincal_spwmap[vis]=[]
                   applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
-                  applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_inf_EB_0.g',target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
+                  applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g',sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
             else:
                gaincal_spwmap[vis]=[]
                gaincal_preapply_gaintable[vis]=[]
@@ -566,11 +566,11 @@ for target in all_targets:
                gaincal_gaintype='T'
                applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                applycal_interpolate[vis]=[applycal_interp[band]]
-               applycal_gaintable[vis]=[target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
+               applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
             fallback[vis]=''
 
             gaincal(vis=vis,\
-                 caltable=target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
+                 caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
                  gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                  refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                  solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
@@ -591,7 +591,8 @@ for target in all_targets:
                  refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                  solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
                  field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
-               fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',vis,target,'test_inf_EB.g')
+               spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
+               fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',vis,target,'test_inf_EB.g')
 
                inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
                print('inf_EB',fallback[vis],applycal_spwmap_inf_EB)
@@ -601,8 +602,8 @@ for target in all_targets:
                      gaincal_combine[band][iteration]='scan,spw'
                      inf_EB_gaincal_combine_dict[target][band][vis]='scan,spw'
                      applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
-                     os.system('rm -rf '+target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
-                     os.system('mv test_inf_EB.g '+target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
+                     os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
+                     os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
                   if fallback[vis] =='spwmap':
                      gaincal_spwmap[vis]=applycal_spwmap_inf_EB
                      inf_EB_gaincal_combine_dict[target][band][vis]='scan'
