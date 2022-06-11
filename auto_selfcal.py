@@ -46,7 +46,6 @@ all_targets=fetch_targets(vislist[0])
 ## Global environment variables for control of selfcal
 ##
 spectral_average=True
-use_inf_EB_preapply=True
 inf_EB_gaincal_combine='scan'
 inf_EB_gaintype='G'
 inf_EB_override=False
@@ -529,44 +528,36 @@ for target in all_targets:
             ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
             ## At some point remove the conditional for use_inf_EB_preapply, since there isn't a reason not to do it
             ##
-            if use_inf_EB_preapply:
-               if solint == 'inf_EB':
-                  gaincal_spwmap[vis]=[]
-                  gaincal_preapply_gaintable[vis]=[]
-                  gaincal_interpolate[vis]=[]
-                  gaincal_gaintype=inf_EB_gaintype_dict[target][band][vis]
-                  gaincal_combine[band][iteration]=inf_EB_gaincal_combine_dict[target][band][vis]
-                  if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
-                     applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
-                     gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
-                  else:
-                     applycal_spwmap[vis]=[]
-                  applycal_interpolate[vis]=[applycal_interp[band]]
-                  applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
-               else:
-                  gaincal_spwmap[vis]=[]
-                  gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g']
-                  gaincal_interpolate[vis]=[applycal_interp[band]]
-                  gaincal_gaintype='T'
-                  if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
-                     applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
-                     gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
-                  elif inf_EB_fallback_mode_dict[target][band][vis]=='spwmap':
-                     applycal_spwmap[vis]=[selfcal_library[target][band][vis]['inf_EB']['spwmap'],selfcal_library[target][band][vis]['spwmap']]
-                     gaincal_spwmap[vis]=selfcal_library[target][band][vis]['inf_EB']['spwmap']
-                  else:
-                     applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
-                     gaincal_spwmap[vis]=[]
-                  applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
-                  applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g',sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
-            else:
+
+            if solint == 'inf_EB':
                gaincal_spwmap[vis]=[]
                gaincal_preapply_gaintable[vis]=[]
                gaincal_interpolate[vis]=[]
-               gaincal_gaintype='T'
-               applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+               gaincal_gaintype=inf_EB_gaintype_dict[target][band][vis]
+               gaincal_combine[band][iteration]=inf_EB_gaincal_combine_dict[target][band][vis]
+               if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
+                  applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+                  gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+               else:
+                  applycal_spwmap[vis]=[]
                applycal_interpolate[vis]=[applycal_interp[band]]
                applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
+            else:
+               gaincal_spwmap[vis]=[]
+               gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g']
+               gaincal_interpolate[vis]=[applycal_interp[band]]
+               gaincal_gaintype='T'
+               if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
+                  applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                  gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
+               elif inf_EB_fallback_mode_dict[target][band][vis]=='spwmap':
+                  applycal_spwmap[vis]=[selfcal_library[target][band][vis]['inf_EB']['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                  gaincal_spwmap[vis]=selfcal_library[target][band][vis]['inf_EB']['spwmap']
+               else:
+                  applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
+                  gaincal_spwmap[vis]=[]
+               applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
+               applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g',sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
             fallback[vis]=''
 
             gaincal(vis=vis,\
