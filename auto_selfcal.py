@@ -574,7 +574,8 @@ for target in all_targets:
                  gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                  refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                  solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
-                 field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'])
+                 field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
+                 interp=gaincal_interpolate[vis])
             ##
             ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
             ## the number of flagged antennas when combine='spw' then determine if it needs spwmapping or to use the gaintable with spwcombine.

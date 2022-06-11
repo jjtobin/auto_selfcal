@@ -560,13 +560,29 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
       #print(delta_ints_per_solint[min_index])
    return delta_ints_per_solint[min_index]
    
-def fetch_targets(vis):
+def fetch_targets_old(vis):
       fields=[]
       listdict=listobs(vis)
       listobskeylist=listdict.keys()
       for listobskey in listobskeylist:
          if 'field_' in listobskey:
             fields.append(listdict[listobskey]['name'])
+      fields=list(set(fields)) # convert to set to only get unique items
+      return fields
+
+
+
+def fetch_targets(vis):
+      fields=[]
+      tb.open(vis+'/FIELD')
+      names=list(tb.getcol('NAME'))
+      tb.close()
+      listdict=listobs(vis)
+      listobskeylist=listdict.keys()
+      for listobskey in listobskeylist:
+         if 'field_' in listobskey:
+            fieldnum=int(listobskey.split('_')[1])
+            fields.append(names[fieldnum])
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
