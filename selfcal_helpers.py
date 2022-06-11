@@ -570,8 +570,6 @@ def fetch_targets_old(vis):
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
-
-
 def fetch_targets(vis):
       fields=[]
       tb.open(vis+'/FIELD')
@@ -585,7 +583,6 @@ def fetch_targets(vis):
             fields.append(names[fieldnum])
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
-
 
 def checkmask(imagename):
    maskImage=imagename.replace('image','mask').replace('.tt0','')
