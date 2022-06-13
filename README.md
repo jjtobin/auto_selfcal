@@ -1,7 +1,7 @@
 # auto_selfcal
 The goal of this code is to be able to run on an a set of ALMA or VLA *_target.ms (or other MS files with the targets split out and having the same setup in each MS) files for single-pointing data and perform self-calibration using the continuum. If a cont.dat file is present, the code will flag the non-continuum regions and perform self-calibration on the continuum only.
 
-To run this code with a concatenated calibrated_final.ms that one might receive from the NA ARC, one must split out the groups of SPWs associated with the individual observations, selecting on SPW, such that one has a set of MSes with SPWS that are all the same. For example, if an MS has spws 0,1,2,3,10,11,12,13, and 0,1,2,3 are from the first observation and 10,11,12,13 are from the second observation, they should be split out as follows:
+To run this code with a concatenated calibrated_final.ms that one might receive from the NA ARC, one must split out the groups of SPWs associated with the individual observations, selecting on SPW, such that one has a set of MSes with SPWs that are all the same. For example, if an MS has SPWs 0,1,2,3,10,11,12,13, and 0,1,2,3 are from the first observation and 10,11,12,13 are from the second observation, they should be split out as follows:
 split(vis='my_concat.ms',spw'0,1,2,3',outputvis='my_ms_0_target.ms')
 split(vis='my_concat.ms',spw'10,11,12,13',outputvis='my_ms_1_target.ms')
 
@@ -12,7 +12,7 @@ Standard ALMA and single-band VLA data are supported as are multiple targets.
 Multi-band VLA is supported.
 ALMA spectral scans may work, but have not been thoroughly tested.
 Mosaics have only had limited testing, but some limited functionality might work, specifically small mosaics where there is emission of the same source(s) within each pointing.
-Imaging will use nterms=2 for most VLA data and nterms =2 for most ALMA data. However, on a per-target basis, nterms=2 imaging will be used if S/N > 500, otherwise the full improvement possible from self-calibration may not be realized.
+Imaging will use nterms=2 for most VLA data and nterms=1 for most ALMA data. However, on a per-target basis, nterms=2 imaging will be used if S/N > 500, otherwise the full improvement possible from self-calibration may not be realized.
 Amplitude self-calibration will be attempted after phase-only self-calibration. If amplitude self-cal is not desired, set the variable 'do_amp_selfcal' to False in the auto_selfcal.py script.
 
 Brief instructions:
