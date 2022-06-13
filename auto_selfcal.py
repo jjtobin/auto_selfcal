@@ -3,7 +3,6 @@
 # heuristics to switch from combine=spw to combine=''
 # switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
 #    in the per vis level instead of per solint
-# possibly add heuristic to switch from nterms=1 to nterms=2 in high DR cases
 
 import numpy as np
 from scipy import stats
