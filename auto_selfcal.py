@@ -10,8 +10,8 @@ from scipy import stats
 import glob
 import sys
 execfile('selfcal_helpers.py',globals())
-
-
+from casampi.MPIEnvironment import MPIEnvironment 
+parallel=MPIEnvironment.is_mpi_enabled
 ###################################################################################################
 ######################## All code until line ~170 is just jumping through hoops ###################
 ######################## to get at metadata pipeline should have in the context ###################
@@ -49,7 +49,6 @@ spectral_average=True
 inf_EB_gaincal_combine='scan'
 inf_EB_gaintype='G'
 inf_EB_override=False
-parallel=True
 gaincal_minsnr=2.0
 minsnr_to_proceed=3.0
 delta_beam_thresh=0.05
@@ -59,7 +58,7 @@ apply_cal_mode_default='calflag'
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
-check_all_spws=True   # generate per-spw images to check phase transfer did not go poorly for narrow windows
+check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 
 if 'VLA' in telescope:
@@ -186,6 +185,7 @@ for target in all_targets:
    selfcal_library[target][band]['Total_TOS']=0.0
    selfcal_library[target][band]['spws']=[]
    selfcal_library[target][band]['spws_per_vis']=[]
+   selfcal_library[target][band]['nterms']=nterms[band]
    selfcal_library[target][band]['vislist']=vislist.copy()
    if mosaic_field[band][target]['mosaic']:
       selfcal_library[target][band]['obstype']='mosaic'
@@ -269,6 +269,8 @@ for target in all_targets:
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
    selfcal_library[target][band]['SNR_orig']=initial_SNR
+   if selfcal_library[target][band]['SNR_orig'] > 500.0:
+      selfcal_library[target][band]['nterms']=2
    selfcal_library[target][band]['RMS_orig']=initial_RMS
    selfcal_library[target][band]['SNR_NF_orig']=initial_NF_SNR
    selfcal_library[target][band]['RMS_NF_orig']=initial_NF_RMS
@@ -486,7 +488,8 @@ for target in all_targets:
          tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
-                     savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],
+                     savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
+                     nterms=selfcal_library[target][band]['nterms'],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
          print('Pre selfcal assessemnt: '+target)
          SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
@@ -633,19 +636,21 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
          ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
          ##
-         if nterms[band]==1:
+         if selfcal_library[target][band]['nterms']==1:
             startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0']
-         elif nterms[band]==2:
+         elif selfcal_library[target][band]['nterms']==2:
             startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
          tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                   band_properties,band,telescope=telescope,scales=[0], nsigma=0.0,\
-                  savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=nterms[band],\
+                  savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=selfcal_library[target][band]['nterms'],\
                   niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],
                   uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
          print('Post selfcal assessemnt: '+target)
          #copy mask for use in post-selfcal SNR measurement
          os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
          post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+         if post_SNR > 500.0: # if S/N > 500, change nterms to 2 for best performance
+            selfcal_library[target][band]['nterms']=2
          if telescope !='ACA':
             post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          else:
@@ -767,7 +772,7 @@ for target in all_targets:
    tclean_wrapper(vislist,sani_target+'_'+band+'_final',\
                band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-               nterms=nterms[band],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+               nterms=selfcal_library[target][band]['nterms'],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
    if telescope !='ACA':
       final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_final.image.tt0')
@@ -914,6 +919,20 @@ for target in all_targets:
 
 applyCalOut.close()
 
+if os.path.exists("cont.dat"):
+   uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
+   line='import os\n'
+   uvcontsubOut.writelines(line)
+   for target in all_targets:
+      sani_target=sanitize_string(target)
+      for band in selfcal_library[target].keys():
+         for vis in vislist:      
+            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray)[:-2]
+            line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+spwstring_orig+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
+            uvcontsubOut.writelines(line)
+            line='os.system("mv '+vis.replace('.selfcal','')+'.contsub '+sani_target+'_'+vis+'.contsub")\n'
+            uvcontsubOut.writelines(line)
+   uvcontsubOut.close()
 
 #
 # Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration
