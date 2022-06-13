@@ -1,6 +1,11 @@
 # auto_selfcal
 The goal of this code is to be able to run on an a set of ALMA or VLA *_target.ms (or other MS files with the targets split out and having the same setup in each MS) files for single-pointing data and perform self-calibration using the continuum. If a cont.dat file is present, the code will flag the non-continuum regions and perform self-calibration on the continuum only.
 
+To run this code with a concatenated calibrated_final.ms that one might receive from the NA ARC, one must split out the groups of SPWs associated with the individual observations, selecting on SPW, such that one has a set of MSes with SPWS that are all the same. For example, if an MS has spws 0,1,2,3,10,11,12,13, and 0,1,2,3 are from the first observation and 10,11,12,13 are from the second observation, they should be split out as follows:
+split(vis='my_concat.ms',spw'0,1,2,3',outputvis='my_ms_0_target.ms')
+split(vis='my_concat.ms',spw'10,11,12,13',outputvis='my_ms_1_target.ms')
+
+
 This code can only be executed within the CASA 6.4+ environment, and is tested on CASA 6.4.0, 6.4.1, 6.4.2, 6.4.3, 6.4.4, and 6.5.0. CASA versions earlier that 6.4.0 are likely to encounter problems due to a gaincal bug that was fixed in CASA 6.4.0.
 
 Standard ALMA and single-band VLA data are supported as are multiple targets.
