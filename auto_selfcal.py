@@ -3,6 +3,7 @@
 # heuristics to switch from combine=spw to combine=''
 # switch heirarchy of selfcal_library such that solint is at a higher level than vis. makes storage of some parameters awkward since they live
 #    in the per vis level instead of per solint
+# possibly add heuristic to switch from nterms=1 to nterms=2 in high DR cases
 
 import numpy as np
 from scipy import stats
@@ -11,6 +12,7 @@ import sys
 execfile('selfcal_helpers.py',globals())
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
+
 ###################################################################################################
 ######################## All code until line ~170 is just jumping through hoops ###################
 ######################## to get at metadata pipeline should have in the context ###################
@@ -45,6 +47,7 @@ all_targets=fetch_targets(vislist[0])
 ## Global environment variables for control of selfcal
 ##
 spectral_average=True
+do_amp_selfcal=True
 inf_EB_gaincal_combine='scan'
 inf_EB_gaintype='G'
 inf_EB_override=False
@@ -163,9 +166,10 @@ for target in all_targets:
 ##
 solints={}
 gaincal_combine={}
+solmode={}
 applycal_mode={}
 for band in bands:
-   solints[band],integration_time,gaincal_combine[band]=get_solints_simple(vislist,scantimesdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine)
+   solints[band],integration_time,gaincal_combine[band],solmode[band]=get_solints_simple(vislist,scantimesdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal)
    print(band,solints[band])
    applycal_mode[band]=[apply_cal_mode_default]*len(solints[band])
 
@@ -432,14 +436,16 @@ for target in all_targets:
    elif (dividing_factor ==-99.0):
       dividing_factor=15.0
    nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
-
+   
+   n_ap_solints=sum(1 for solint in solints[band] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
    if rel_thresh_scaling == 'loge':
-      selfcal_library[target][band]['nsigma']=np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band])))
+      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
    elif rel_thresh_scaling == 'linear':
-      selfcal_library[target][band]['nsigma']=np.linspace(nsigma_init,3.0,len(solints[band]))
+      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(solints[band])-n_ap_solints),np.array([3.0]*n_ap_solints))
    else: #implicitly making log10 the default
-      selfcal_library[target][band]['nsigma']=10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band]))
-
+      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
+   if n_ap_solints > 0:
+      selfcal_library[target][band]['nsigma']
    if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band],selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
@@ -462,14 +468,24 @@ with open('selfcal_library.pickle', 'wb') as handle:
 ##
 ## Begin Self-cal loops
 ##
+iterjump=-1   # useful if we want to jump iterations
 for target in all_targets:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
    print('Starting selfcal procedure on: '+target+' '+band)
    for iteration in range(len(solints[band])):
+      if (iterjump !=-1) and (iteration < iterjump): # allow jumping to amplitude selfcal and not need to use a while loop
+         continue
+      elif iteration == iterjump:
+         iterjump=-1
       if solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed:
          print('*********** estimated SNR for solint='+solints[band][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
+         if iteration > 1 and solmode[band][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
+            iterjump=solmode[band].index('ap') 
+            print('****************Attempting amplitude selfcal*************')
+            continue
+
          selfcal_library[target][band]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+solints[band][iteration]
          break
       else:
@@ -524,7 +540,7 @@ for target in all_targets:
             ##
             ## Solve gain solutions per MS, target, solint, and band
             ##
-            os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
+            os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
             ##
             ## Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
             ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
@@ -543,10 +559,10 @@ for target in all_targets:
                else:
                   applycal_spwmap[vis]=[]
                applycal_interpolate[vis]=[applycal_interp[band]]
-               applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
-            else:
+               applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g']
+            elif solmode[band][iteration]=='p':
                gaincal_spwmap[vis]=[]
-               gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g']
+               gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0_p.g']
                gaincal_interpolate[vis]=[applycal_interp[band]]
                gaincal_gaintype='T'
                if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
@@ -559,14 +575,33 @@ for target in all_targets:
                   applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
                   gaincal_spwmap[vis]=[]
                applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
-               applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0.g',sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g']
+               applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0'+'_p.g',sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_p.g']
+            elif solmode[band][iteration]=='ap':
+               gaincal_spwmap[vis]=[]
+               gaincal_preapply_gaintable[vis]=selfcal_library[target][band][vis][selfcal_library[target][band]['final_phase_solint']]['gaintable']
+               gaincal_interpolate[vis]=[applycal_interp[band]]*len(gaincal_preapply_gaintable[vis])
+               gaincal_gaintype='T'
+               if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
+                  applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                  gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+               elif inf_EB_fallback_mode_dict[target][band][vis]=='spwmap':
+                  applycal_spwmap[vis]=[selfcal_library[target][band][vis]['inf_EB']['spwmap'],selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                  gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['inf_EB']['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+               else:
+                  applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                  gaincal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
+               applycal_interpolate[vis]=[applycal_interp[band]]*len(gaincal_preapply_gaintable[vis])+['linearPD']
+               applycal_gaintable[vis]=selfcal_library[target][band][vis][selfcal_library[target][band]['final_phase_solint']]['gaintable']+[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_ap.g']
             fallback[vis]=''
-
+            if solmode[band][iteration] == 'ap':
+               solnorm=True
+            else:
+               solnorm=False
             gaincal(vis=vis,\
-                 caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',\
+                 caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                  gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
-                 refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                 solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
+                 refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm,
+                 solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
                  field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                  interp=gaincal_interpolate[vis])
             ##
@@ -582,10 +617,10 @@ for target in all_targets:
                  caltable='test_inf_EB.g',\
                  gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                  refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                 solint=solint.replace('_EB',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
+                 solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
                  field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
                spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
-               fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g',vis,target,'test_inf_EB.g')
+               fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g')
 
                inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
                print('inf_EB',fallback[vis],applycal_spwmap_inf_EB)
@@ -595,8 +630,8 @@ for target in all_targets:
                      gaincal_combine[band][iteration]='scan,spw'
                      inf_EB_gaincal_combine_dict[target][band][vis]='scan,spw'
                      applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
-                     os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
-                     os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'.g')
+                     os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+                     os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
                   if fallback[vis] =='spwmap':
                      gaincal_spwmap[vis]=applycal_spwmap_inf_EB
                      inf_EB_gaincal_combine_dict[target][band][vis]='scan'
@@ -633,6 +668,7 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
             selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
             selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
+            selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
          ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
          ##
          if selfcal_library[target][band]['nterms']==1:
@@ -691,10 +727,12 @@ for target in all_targets:
                selfcal_library[target][band][vis]['spwmap_final']=selfcal_library[target][band][vis][solint]['spwmap'].copy()
                selfcal_library[target][band][vis]['applycal_mode_final']=selfcal_library[target][band][vis][solint]['applycal_mode']
                selfcal_library[target][band][vis]['applycal_interpolate_final']=selfcal_library[target][band][vis][solint]['applycal_interpolate']
-               selfcal_library[target][band][vis]['gaincal_combine_final']=selfcal_library[target][band][vis][solint]['applycal_mode']
+               selfcal_library[target][band][vis]['gaincal_combine_final']=selfcal_library[target][band][vis][solint]['gaincal_combine']
                selfcal_library[target][band][vis][solint]['Pass']=True
-
+            if solmode[band][iteration]=='p':            
+               selfcal_library[target][band]['final_phase_solint']=solint
             selfcal_library[target][band]['final_solint']=solint
+            selfcal_library[target][band]['final_solint_mode']=solmode[band][iteration]
             selfcal_library[target][band]['iteration']=iteration
             if (iteration < len(solints[band])-1) and (selfcal_library[target][band][vis][solint]['SNR_post'] > selfcal_library[target][band]['SNR_orig']): #(iteration == 0) and 
                print('Updating solint = '+solints[band][iteration+1]+' SNR')
@@ -708,7 +746,9 @@ for target in all_targets:
                print('****************Selfcal passed for Minimum solint*************')
          ## 
          ## if S/N worsens, and/or beam area increases reject current solutions and reapply previous (or revert to origional data)
-         ##  
+         ##
+ 
+
          else: 
             for vis in vislist:
                selfcal_library[target][band][vis][solint]['Pass']=False
@@ -740,8 +780,14 @@ for target in all_targets:
                   clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
                   selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                   selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
-            print('****************Aborting further self-calibration attempts for '+target+' '+band+'**************')
-            break # breakout of loops of successive solints since solutions are getting worse
+            
+            if iteration > 1 and solmode[band][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
+               iterjump=solmode[band].index('ap') 
+               print('****************Selfcal halted for phase, attempting amplitude*************')
+               continue
+            else:
+               print('****************Aborting further self-calibration attempts for '+target+' '+band+'**************')
+               break # breakout of loops of successive solints since solutions are getting worse
 
 
 ##
@@ -918,6 +964,7 @@ for target in all_targets:
 
 applyCalOut.close()
 
+
 if os.path.exists("cont.dat"):
    uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
    line='import os\n'
@@ -932,6 +979,8 @@ if os.path.exists("cont.dat"):
             line='os.system("mv '+vis.replace('.selfcal','')+'.contsub '+sani_target+'_'+vis+'.contsub")\n'
             uvcontsubOut.writelines(line)
    uvcontsubOut.close()
+
+
 
 #
 # Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration

@@ -385,7 +385,7 @@ def get_solints_vla(vis,scantimesdict,integrationtime):
 
 #actual routine used for getting solints
 def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integrationtimes,\
-                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,n_solints=4.0):
+                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,n_solints=4.0,do_amp_selfcal=False):
    all_integrations=np.array([])
    all_nscans_per_obs=np.array([])
    all_time_between_scans=np.array([])
@@ -528,7 +528,28 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
       gaincal_combine.append('spw')
    else:
       gaincal_combine.append('')
-   return solints_list,integration_time,gaincal_combine
+   solmode_list=['p']*len(solints_list)
+   if do_amp_selfcal:
+      if median_time_between_scans >150.0 or np.isnan(median_time_between_scans):
+         amp_solints_list=['inf_ap']
+         if spwcombine:
+            amp_gaincal_combine=['spw']
+         else:
+            amp_gaincal_combine=['']
+      else:
+         amp_solints_list=['300s_ap','inf_ap']
+         if spwcombine:
+            amp_gaincal_combine=['scan,spw','spw']
+         else:
+            amp_gaincal_combine=['scan','']
+      solints_list=solints_list+amp_solints_list
+      gaincal_combine=gaincal_combine+amp_gaincal_combine
+      solmode_list=solmode_list+['ap']*len(amp_solints_list)
+
+      
+         
+
+   return solints_list,integration_time,gaincal_combine,solmode_list
 
 
 
@@ -817,7 +838,7 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                solint_snr_per_spw[target][band][solint][str(spw)]=mean_SNR
             solint_snr[target][band][solint]=np.mean(SNR_self_EB)
             selfcal_library[target][band]['per_EB_SNR']=np.mean(SNR_self_EB)
-         elif solint =='inf':
+         elif solint =='inf' or solint == 'inf_ap':
                selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
                solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
                for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
@@ -827,7 +848,7 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
                   solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
          else:
-               solint_float=float(solint.replace('s',''))
+               solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
                for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
                   solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
@@ -835,13 +856,13 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
 
 def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
    for target in all_targets:
-      if solint_next == 'inf':
+      if solint_next == 'inf' or solint_next == 'inf_ap':
          selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
          solint_snr[target][band][solint_next]=selfcal_library[target][band]['per_scan_SNR']
       elif solint_next == 'int':
          solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
       else:
-         solint_float=float(solint_next.replace('s',''))
+         solint_float=float(solint_next.replace('s','').replace('_ap',''))
          solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
@@ -2144,7 +2165,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
          vislist=sclib[target][band]['vislist']
          index_addition=1
-         if sclib[target][band]['final_solint'] != 'int' and sclib[target][band]['final_solint'] != 'None':
+         if sclib[target][band]['final_solint'] != 'inf_ap' and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
 
          final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
@@ -2154,7 +2175,9 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
 
          
-         for i in range(final_solint_index+index_addition):
+         #for i in range(final_solint_index+index_addition):
+         for i in range(len(solints[band])):
+
             if solints[band][i] not in keylist:
                continue
             htmlOutSolint=open('weblog/'+target+'_'+band+'_'+solints[band][i]+'.html','w')
@@ -2170,6 +2193,8 @@ def render_per_solint_QA_pages(sclib,solints,bands):
             keylist=sclib[target][band][vislist[0]].keys()
             solints_string=''
             for j in range(final_solint_index+index_addition):
+               if solints[band][j] not in keylist:
+                  continue
                solints_string+='<a href="'+target+'_'+band+'_'+solints[band][j]+'.html">'+solints[band][j]+'  </a><br>\n'
             htmlOutSolint.writelines('<br>Solints: '+solints_string)
 
@@ -2217,6 +2242,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
                ant_list=get_ant_list(vis)
                gaintable=sclib[target][band][vis][solints[band][i]]['gaintable'][len(sclib[target][band][vis][solints[band][i]]['gaintable'])-1]
+               print('******************'+gaintable+'***************')
                nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                frac_flagged_sols=nflagged_sols/nsols
                plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png',vis,gaintable)
@@ -2241,9 +2267,15 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                      xaxis='frequency'
                   else:
                      xaxis='time'
+                  if 'ap' in solints[band][i]:
+                     yaxis='amp'
+                     plotrange=[0,0,0,2.0]
+                  else:
+                     yaxis='phase'
+                     plotrange=[0,0,-180,180]
                   try:
-                     plotms(gridrows=2,plotindex=0,rowindex=0,vis=gaintable,xaxis=xaxis, yaxis='phase',showgui=False,\
-                         xselfscale=True,plotrange=[0,0,-180,180], antenna=ant,customflaggedsymbol=True,title=ant+' phase',\
+                     plotms(gridrows=2,plotindex=0,rowindex=0,vis=gaintable,xaxis=xaxis, yaxis=yaxis,showgui=False,\
+                         xselfscale=True,plotrange=plotrange, antenna=ant,customflaggedsymbol=True,title=ant+' phase',\
                          plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=True)
                      plotms(gridrows=2,rowindex=1,plotindex=1,vis=gaintable,xaxis=xaxis, yaxis='SNR',showgui=False,\
                          xselfscale=True, antenna=ant,customflaggedsymbol=True,title=ant+' SNR',\
