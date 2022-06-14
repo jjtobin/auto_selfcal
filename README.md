@@ -31,3 +31,8 @@ The script will output a file 'uvcontsub_orig_MSes.py' if a cont.dat file exists
 
 When finished summaries are generated for each target in weblog/index.html. Weblog generation may fail depending on what settings are cached for the viewer. If this is a problem you can remove all your cached casaviewer settings by running 'rm -rf ~/.casa/viewer'. Then you can run casa -c regenerate_weblog.py, the regenerate_weblog.py script is included in the repository and only generates a new weblog from the already stored images and metadata pickle files.
 
+Acknowledgements:
+
+Certain functions to convert from LSRK to channel, S/N estimates, and tclean wrapper have their origins from the ALMA DSHARP large program reduction scripts.
+
+The functions to parse the cont.dat file and convert to channel ranges (used the routine from above) was adapted from a function written by Patrick Sheehan for the ALMA eDisk large program
