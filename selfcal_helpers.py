@@ -58,6 +58,12 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        cycleniter=-1
        cyclefactor=3.0
        pbmask=0.0
+    wprojplanes=1
+    if band=='EVLA_L' or band =='EVLA_S':
+       gridder='wproject'
+       wprojplanes=-1
+    if (band=='EVLA_L' or band =='EVLA_S') and obstype=='mosaic':
+       print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
     if obstype=='mosaic':
        gridder='mosaic'
     else:
@@ -251,7 +257,7 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
       spwslist=np.unique(spwslist).astype(int)
    else:
-     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist 
+     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
    return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
 
 
@@ -2324,6 +2330,7 @@ def importdata(vislist,all_targets,telescope):
               band_properties[vis].pop(band)
               band_properties[vis]['bands'].remove(band)
               print('Removing '+band+' bands from list due to no observations')
+           bands_to_remove.append(band)
         for vis in vislist:
            for target in all_targets:
               check_target=len(integrationsdict[band][vis][target])
