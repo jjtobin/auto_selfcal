@@ -67,7 +67,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if obstype=='mosaic':
        gridder='mosaic'
     else:
-       gridder='standard'
+       if gridder !='wproject':
+          gridder='standard' 
 
     if gridder=='mosaic' and startmodel!='':
        parallel=False
@@ -105,7 +106,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
            parallel=parallel,
            phasecenter=phasecenter,
            startmodel=startmodel,
-           datacolumn=datacolumn,spw=spw)
+           datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes)
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel=='modelcolumn':
           print("")
@@ -141,7 +142,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  uvrange=uvrange,
                  threshold=threshold,
                  parallel=False,
-                 phasecenter=phasecenter,spw=spw)
+                 phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
     
 
 
@@ -1037,8 +1038,9 @@ def flagchannels_from_contdotdat(vis,target,spwsarray):
         chans = np.array([])
         for k in range(contdotdat[spw].shape[0]):
             print(spw, contdotdat[spw][k])
-
-            chans = np.concatenate((LSRKfreq_to_chan(vis, target, spw, contdotdat[spw][k],spwsarray),chans))
+            for m in range(contdotdat[spw][k].shape[0]):
+               chans = np.concatenate((LSRKfreq_to_chan(vis, target, spw, contdotdat[spw][k],spwsarray),chans))
+            print(chans)
 
             """
             if flagchannels_string == '':
