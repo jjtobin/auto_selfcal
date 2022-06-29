@@ -1038,9 +1038,8 @@ def flagchannels_from_contdotdat(vis,target,spwsarray):
         chans = np.array([])
         for k in range(contdotdat[spw].shape[0]):
             print(spw, contdotdat[spw][k])
-            for m in range(contdotdat[spw][k].shape[0]):
-               chans = np.concatenate((LSRKfreq_to_chan(vis, target, spw, contdotdat[spw][k],spwsarray),chans))
-            print(chans)
+
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, spw, contdotdat[spw][k],spwsarray),chans))
 
             """
             if flagchannels_string == '':
