@@ -23,7 +23,7 @@ parallel = MPIEnvironment.is_mpi_enabled
 ##
 # Get list of MS files in directory
 ##
-vislist = glob.glob('*_target.ms')
+vislist = glob.glob('*_targets.ms')
 if len(vislist) == 0:
     vislist = glob.glob('*_cont.ms')   # adaptation for PL2022 output
     if len(vislist) == 0:
