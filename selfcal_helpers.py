@@ -1,7 +1,21 @@
+import os
 import numpy as np
-import numpy
-import math
+
+import casatools
+
+from casatasks import *
+from casatools import image, imager
+from casatools import msmetadata as msmdtool
+from casatools import table as tbtool
+from casaviewer import imview
+from casaplotms import plotms
+
 from PIL import Image
+
+tb = tbtool()
+msmd = msmdtool()
+ia = image()
+im = imager()
 
 
 def tclean_wrapper(
@@ -792,14 +806,14 @@ def rank_refants(vis):
 
     # Calculate the mean longitude and latitude.
 
-    mean_longitude = numpy.mean([offset[i]["longitude offset"]
+    mean_longitude = np.mean([offset[i]["longitude offset"]
                                  ['value'] for i in range(len(names))])
-    mean_latitude = numpy.mean([offset[i]["latitude offset"]
+    mean_latitude = np.mean([offset[i]["latitude offset"]
                                 ['value'] for i in range(len(names))])
 
     # Calculate the offsets from the center.
 
-    offsets = [numpy.sqrt((offset[i]["longitude offset"]['value'] -
+    offsets = [np.sqrt((offset[i]["longitude offset"]['value'] -
                            mean_longitude)**2 + (offset[i]["latitude offset"]
                                                  ['value'] - mean_latitude)**2) for i in
                range(len(names))]
@@ -818,12 +832,12 @@ def rank_refants(vis):
     # Print out the antenna scores.
 
     print("Refant list for "+vis)
-    # for i in numpy.argsort(score):
+    # for i in np.argsort(score):
     #    print(names[i], score[i])
-    print(','.join(numpy.array(names)[numpy.argsort(score)]))
+    print(','.join(np.array(names)[np.argsort(score)]))
     # Return the antenna names sorted by score.
 
-    return ','.join(numpy.array(names)[numpy.argsort(score)])
+    return ','.join(np.array(names)[np.argsort(score)])
 
 
 def get_SNR_self(
@@ -1418,7 +1432,7 @@ def get_baseline_dist(vis):
     baselines = np.array([])
     for i in range(len(offset)):
         for j in range(i+1, len(offset)):
-            baseline = numpy.sqrt(
+            baseline = np.sqrt(
                 (offset[i]["longitude offset"]['value'] - offset[j]["longitude offset"]['value']) ** 2 +
                 (offset[i]["latitude offset"]['value'] - offset[j]["latitude offset"]['value']) ** 2)
 
@@ -1433,8 +1447,8 @@ def get_max_uvdist(vislist, bands, band_properties):
             baselines = get_baseline_dist(vis)
             all_baselines = np.append(all_baselines, baselines)
         max_baseline = np.max(all_baselines)
-        baseline_75 = numpy.percentile(all_baselines, 75.0)
-        baseline_median = numpy.percentile(all_baselines, 50.0)
+        baseline_75 = np.percentile(all_baselines, 75.0)
+        baseline_median = np.percentile(all_baselines, 50.0)
         for vis in vislist:
             meanlam = 3.0e8/band_properties[vis][band]['meanfreq']
             max_uv_dist = max_baseline/meanlam/1000.0
@@ -1833,14 +1847,14 @@ def get_flagged_solns_per_ant(gaintable, vis):
 
     # Calculate the mean longitude and latitude.
 
-    mean_longitude = numpy.mean([offset[i]["longitude offset"]
+    mean_longitude = np.mean([offset[i]["longitude offset"]
                                  ['value'] for i in range(len(names))])
-    mean_latitude = numpy.mean([offset[i]["latitude offset"]
+    mean_latitude = np.mean([offset[i]["latitude offset"]
                                 ['value'] for i in range(len(names))])
 
     # Calculate the offsets from the center.
 
-    offsets = [numpy.sqrt((offset[i]["longitude offset"]['value'] -
+    offsets = [np.sqrt((offset[i]["longitude offset"]['value'] -
                            mean_longitude)**2 + (offset[i]["latitude offset"]
                                                  ['value'] - mean_latitude)**2) for i in
                range(len(names))]
