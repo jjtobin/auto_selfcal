@@ -670,7 +670,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True):
 
 
 
-def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
+def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
@@ -695,9 +695,12 @@ def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
     residualImage='temp.residual'
     maskStats=imstat(imagename='temp.mask')
     imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*3.0)+'arcsec',minor=str(beammajor*3.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
-    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.smooth.ceiling.mask')
-    imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
-    immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
+    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
+    if las is not None:
+        imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(las/2.355)+'arcsec',minor=str(las/2.355)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+    else:
+        imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+    immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
     #immath(imagename=['temp.smooth.ceiling.mask','temp.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.border.mask')
     immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.mask')
     maskImage='temp.nearfield.mask'
@@ -720,6 +723,7 @@ def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
            print("#Peak Near Field SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
+    os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
     return SNR,rms
 
@@ -1367,14 +1371,18 @@ def get_max_uvdist(vislist,bands,band_properties):
          baselines=get_baseline_dist(vis)
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
+      min_baseline=np.min(all_baselines)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
          meanlam=3.0e8/band_properties[vis][band]['meanfreq']
          max_uv_dist=max_baseline/meanlam/1000.0
+         min_uv_dist=min_baseline/meanlam/1000.0
          band_properties[vis][band]['maxuv']=max_uv_dist
+         band_properties[vis][band]['minuv']=max_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
+         band_properties[vis][band]['LAS']=0.6 / (1000*min_uv_dist) * 180./np.pi * 3600.
 
 
 def get_uv_range(band,band_properties,vislist):
