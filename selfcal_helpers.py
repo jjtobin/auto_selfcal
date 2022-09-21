@@ -2502,4 +2502,28 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
+def unflag_long_baseline_antennas(vis, caltable, flagged_fraction=0.25):
+    tb.open(caltable, nomodify=False)
+    antennas = tb.getcol("ANTENNA1")
+    flags = tb.getcol("FLAG")
+    cals = tb.getcol("CPARAM")
+ 
+    # Get the percentage of flagged solutions for each antenna.
+    unique_antennas = np.unique(antennas)
+    nants = unique_antennas.size
+    ordered_flags = flags.reshape(flags.shape[0:2] + (flags.shape[2]//nants, nants))
+    percentage_flagged = (ordered_flags.sum(axis=2) / ordered_flags.shape[2]).mean(axis=0).mean(axis=0)
+ 
+    bad_antennas = unique_antennas[percentage_flagged >= flagged_fraction]
 
+    # For the antennas we just identified, we just pass them through without doing anything. I.e. we set flags to False and the caltable value to 1.0+0j.
+    for a in bad_antennas:
+        indices = np.where(antennas == a)
+        flags[:,:,indices] = False
+        cals[:,:,indices] = 1.0+0j
+
+    tb.putcol("FLAG", flags)
+    tb.putcol("CPARAM", cals)
+    tb.flush()
+
+    tb.close()

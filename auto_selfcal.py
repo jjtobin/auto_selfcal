@@ -612,27 +612,8 @@ for target in all_targets:
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
                 # Should we also restrict to just long baseline antennas?
                 if applymode == "calonly":
-                    tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', nomodify=False)
-                    flags = tb.getcol("FLAG")
-                    antennas = tb.getcol("ANTENNA1")
-                    cals = tb.getcol("CPARAM")
-
-                    nants = np.unique(antennas).size
-                    ordered_flags = flags.reshape(flags.shape[0:2] + (flags.shape[2]//nants, nants))
-                    percentage_flagged = (ordered_flags.sum(axis=2) / ordered_flags.shape[2]).mean(axis=0).mean(axis=0)
-
-                    bad_antennas = np.where(percentage_flagged >= 0.25)[0]
-
-                    for a in bad_antennas:
-                        indices = np.where(antennas == a)
-                        flags[:,:,indices] = False
-                        cals[:,:,indices] = 1.0+0j
-
-                    tb.putcol("FLAG", flags)
-                    tb.putcol("CPARAM", cals)
-                    tb.flush()
-
-                    tb.close()
+                    unflag_long_baseline_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][iteration]+'.g', flagged_fraction=0.25)
 
 
                 ##
@@ -809,7 +790,7 @@ for target in all_targets:
          ## 
          ## if S/N worsens, and/or beam area increases reject current solutions and reapply previous (or revert to origional data)
          ##
-     
+
 
          if selfcal_library[target][band][vislist[0]][solint]['Pass'] == True:
              continue
