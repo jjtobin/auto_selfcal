@@ -39,14 +39,15 @@ def get_selfcal_logger(loggername='auto_selfcal', loglevel='DEBUG', logfile=None
     if use_pipeline:
         logger = infrastructure.get_logger(loggername)
         return logger
+    else:
+        casalog.showconsole(onconsole=True)
+        if logfile is None:
+            logfile = casalog.logfile()
 
     format = '%(asctime)s %(levelname)s    %(module)s.%(funcName)s     %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
     fmt = logging.Formatter(format, datefmt)
     fmt.converter = time.gmtime
-
-    if logfile is None:
-        logfile = casalog.logfile()
 
     logger = logging.getLogger(loggername)
     logger.handlers = []
