@@ -34,210 +34,7 @@ LOG = get_selfcal_logger(__name__)
 
 def selfcal_workflow():
 
-    LOG.info('Start the auto_selfcal workflow...')
-    ##
-    # Get list of MS files in directory
-    ##
-    vislist = glob.glob('*_targets.ms')
-    if len(vislist) == 0:
-        vislist = glob.glob('*_cont.ms')   # adaptation for PL2022 output
-        if len(vislist) == 0:
-            sys.exit('No Measurement sets found in current working directory, exiting')
-
-    ##
-    # save starting flags or restore to the starting flags
-    ##
-    for vis in vislist:
-        if os.path.exists(vis+".flagversions/flags.starting_flags"):
-            flagmanager(vis=vis, mode='restore', versionname='starting_flags',
-                        comment='Flag states at start of reduction')
-        else:
-            flagmanager(vis=vis, mode='save', versionname='starting_flags')
-
-    ##
-    # Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
-    ##
-    all_targets = fetch_targets(vislist[0])
-
-    ##
-    # Global environment variables for control of selfcal
-    ##
-    spectral_average = True
-    do_amp_selfcal = True
-    inf_EB_gaincal_combine = 'scan'
-    inf_EB_gaintype = 'G'
-    inf_EB_override = False
-    gaincal_minsnr = 2.0
-    minsnr_to_proceed = 3.0
-    delta_beam_thresh = 0.05
-    n_ants = get_n_ants(vislist)
-    telescope = get_telescope(vislist[0])
-    apply_cal_mode_default = 'calflag'
-    rel_thresh_scaling = 'log10'  # can set to linear, log10, or loge (natural log)
-    dividing_factor = -99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
-    # default is 40 for <8ghz and 15.0 for all other frequencies
-    check_all_spws = False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
-    apply_to_target_ms = False  # apply final selfcal solutions back to the input _target.ms files
-
-    if 'VLA' in telescope:
-        check_all_spws = False
-        # inf_EB_gaincal_combine='spw,scan'
-    ##
-    # Import inital MS files to get relevant meta data
-    ##
-    listdict, bands, band_properties, scantimesdict, scanstartsdict, scanendsdict, integrationsdict,\
-        integrationtimesdict, spwslist, spwstring, spwsarray, mosaic_field = importdata(vislist, all_targets, telescope)
-
-    ##
-    # flag spectral lines in MS(es) if there is a cont.dat file present
-    ##
-    if os.path.exists("cont.dat"):
-        flag_spectral_lines(vislist, all_targets, spwsarray)
-
-    ##
-    # spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
-    ##
-    split_to_selfcal_ms(vislist, band_properties, bands, spectral_average)
-
-    ##
-    # put flagging back at original state for originally input ms for when they are used next time
-    ##
-    for vis in vislist:
-        if os.path.exists(vis+".flagversions/flags.before_line_flags"):
-            flagmanager(vis=vis, mode='restore', versionname='before_line_flags')
-
-    ##
-    # Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
-    ##
-    spwslist_orig = spwslist.copy()
-    vislist_orig = vislist.copy()
-    spwstring_orig = spwstring+''
-    spwsarray_orig = spwsarray.copy()
-
-    vislist = glob.glob('*selfcal.ms')
-    listdict, bands, band_properties, scantimesdict, scanstartsdict, scanendsdict, integrationsdict,\
-        integrationtimesdict, spwslist, spwstring, spwsarray, mosaic_field = importdata(vislist, all_targets, telescope)
-
-    ##
-    # Save/restore starting flags
-    ##
-
-    for vis in vislist:
-        if os.path.exists(vis+'.flagversions/flags.selfcal_starting_flags'):
-            flagmanager(vis=vis, mode='restore', versionname='selfcal_starting_flags')
-        else:
-            flagmanager(vis=vis, mode='save', versionname='selfcal_starting_flags')
-
-    ##
-    # set image parameters based on the visibility data properties and frequency
-    ##
-    cellsize = {}
-    imsize = {}
-    nterms = {}
-    applycal_interp = {}
-
-    for band in bands:
-        cellsize[band], imsize[band], nterms[band] = get_image_parameters(vislist, telescope, band, band_properties)
-        if band_properties[vislist[0]][band]['meanfreq'] > 12.0e9:
-            applycal_interp[band] = 'linearPD'
-        else:
-            applycal_interp[band] = 'linear'
-
-    ###################################################################################################
-    ################################# End Metadata gathering for Selfcal ##############################
-    ###################################################################################################
-
-    ###################################################################################################
-    ############################# Start Actual important stuff for selfcal ############################
-    ###################################################################################################
-
-    ##
-    # begin setting up a selfcal_library with all relevant metadata to keep track of during selfcal
-    ##
-    selfcal_library = {}
-
-    for target in all_targets:
-        selfcal_library[target] = {}
-        for band in bands:
-            if target in scantimesdict[band][vislist[0]].keys():
-                selfcal_library[target][band] = {}
-            else:
-                continue
-            for vis in vislist:
-                selfcal_library[target][band][vis] = {}
-    ##
-    # finds solints, starting with inf, ending with int, and tries to align
-    # solints with number of integrations
-    # solints reduce by factor of 2 in each self-cal interation
-    # e.g., inf, max_scan_time/2.0, prev_solint/2.0, ..., int
-    # starting solints will have solint the length of the entire EB to correct bulk offsets
-    ##
-    solints = {}
-    gaincal_combine = {}
-    solmode = {}
-    applycal_mode = {}
-    for band in bands:
-        solints[band], integration_time, gaincal_combine[band], solmode[band] = get_solints_simple(
-            vislist, scantimesdict[band],
-            scanstartsdict[band],
-            scanendsdict[band],
-            integrationtimesdict[band],
-            inf_EB_gaincal_combine, do_amp_selfcal=do_amp_selfcal)
-        LOG.info(f'{band} {solints[band]}')
-        applycal_mode[band] = [apply_cal_mode_default]*len(solints[band])
-
-    ##
-    # puts stuff in right place from other MS metadata to perform proper data selections
-    # in tclean, gaincal, and applycal
-    # Also gets relevant times on source to estimate SNR per EB/scan
-    ##
-    for target in all_targets:
-        for band in selfcal_library[target].keys():
-            LOG.info(f'{target} {band}')
-            selfcal_library[target][band]['SC_success'] = False
-            selfcal_library[target][band]['final_solint'] = 'None'
-            selfcal_library[target][band]['Total_TOS'] = 0.0
-            selfcal_library[target][band]['spws'] = []
-            selfcal_library[target][band]['spws_per_vis'] = []
-            selfcal_library[target][band]['nterms'] = nterms[band]
-            selfcal_library[target][band]['vislist'] = vislist.copy()
-            if mosaic_field[band][target]['mosaic']:
-                selfcal_library[target][band]['obstype'] = 'mosaic'
-            else:
-                selfcal_library[target][band]['obstype'] = 'single-point'
-            allscantimes = np.array([])
-            for vis in vislist:
-                selfcal_library[target][band][vis]['gaintable'] = []
-                selfcal_library[target][band][vis]['TOS'] = np.sum(scantimesdict[band][vis][target])
-                selfcal_library[target][band][vis]['Median_scan_time'] = np.median(scantimesdict[band][vis][target])
-                allscantimes = np.append(allscantimes, scantimesdict[band][vis][target])
-                selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
-                n_spws, minspw, spwsarray = fetch_spws([vis], [target], listdict)
-                spwslist = spwsarray.tolist()
-                spwstring = ','.join(str(spw) for spw in spwslist)
-                selfcal_library[target][band][vis]['spws'] = band_properties[vis][band]['spwstring']
-                selfcal_library[target][band][vis]['spwsarray'] = band_properties[vis][band]['spwarray']
-                selfcal_library[target][band][vis]['spwlist'] = band_properties[vis][band]['spwarray'].tolist()
-                selfcal_library[target][band][vis]['n_spws'] = len(selfcal_library[target][band][vis]['spwsarray'])
-                selfcal_library[target][band][vis]['minspw'] = int(
-                    np.min(selfcal_library[target][band][vis]['spwsarray']))
-                selfcal_library[target][band][vis]['spwmap'] = [selfcal_library[target][band][
-                    vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
-                selfcal_library[target][band]['Total_TOS'] = selfcal_library[target][band][vis]['TOS'] + \
-                    selfcal_library[target][band]['Total_TOS']
-                selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
-            selfcal_library[target][band]['Median_scan_time'] = np.median(allscantimes)
-            selfcal_library[target][band]['uvrange'] = get_uv_range(band, band_properties, vislist)
-            selfcal_library[target][band]['75thpct_uv'] = band_properties[vislist[0]][band]['75thpct_uv']
-            LOG.info(selfcal_library[target][band]['uvrange'])
-
-    ##
-    ##
-    ##
-    for target in all_targets:
-        for band in selfcal_library[target].keys():
-            if selfcal_library[target][band]['Total_TOS'] == 0.0:
-                selfcal_library[target].pop(band)
+    vislist, vis, all_targets, do_amp_selfcal, inf_EB_gaincal_combine, inf_EB_gaintype, gaincal_minsnr, minsnr_to_proceed, delta_beam_thresh, n_ants, telescope, rel_thresh_scaling, dividing_factor, check_all_spws, apply_to_target_ms, bands, band_properties, spwsarray, vislist_orig, spwstring_orig, cellsize, imsize, nterms, applycal_interp, selfcal_library, solints, gaincal_combine, solmode, applycal_mode, integration_time = prep_selfcal()
 
     ##
     # create initial images for each target to evaluate SNR and beam
@@ -1198,6 +995,215 @@ def selfcal_workflow():
         pickle.dump(bands, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     generate_weblog(selfcal_library, solints, bands)
+
+
+def prep_selfcal():
+
+    LOG.info('Start the auto_selfcal workflow...')
+    ##
+    # Get list of MS files in directory
+    ##
+    vislist = glob.glob('*_targets.ms')
+    if len(vislist) == 0:
+        vislist = glob.glob('*_cont.ms')   # adaptation for PL2022 output
+        if len(vislist) == 0:
+            sys.exit('No Measurement sets found in current working directory, exiting')
+
+    ##
+    # save starting flags or restore to the starting flags
+    ##
+    for vis in vislist:
+        if os.path.exists(vis+".flagversions/flags.starting_flags"):
+            flagmanager(vis=vis, mode='restore', versionname='starting_flags',
+                        comment='Flag states at start of reduction')
+        else:
+            flagmanager(vis=vis, mode='save', versionname='starting_flags')
+
+    ##
+    # Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
+    ##
+    all_targets = fetch_targets(vislist[0])
+
+    ##
+    # Global environment variables for control of selfcal
+    ##
+    spectral_average = True
+    do_amp_selfcal = True
+    inf_EB_gaincal_combine = 'scan'
+    inf_EB_gaintype = 'G'
+    inf_EB_override = False
+    gaincal_minsnr = 2.0
+    minsnr_to_proceed = 3.0
+    delta_beam_thresh = 0.05
+    n_ants = get_n_ants(vislist)
+    telescope = get_telescope(vislist[0])
+    apply_cal_mode_default = 'calflag'
+    rel_thresh_scaling = 'log10'  # can set to linear, log10, or loge (natural log)
+    dividing_factor = -99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
+    # default is 40 for <8ghz and 15.0 for all other frequencies
+    check_all_spws = False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
+    apply_to_target_ms = False  # apply final selfcal solutions back to the input _target.ms files
+
+    if 'VLA' in telescope:
+        check_all_spws = False
+        # inf_EB_gaincal_combine='spw,scan'
+    ##
+    # Import inital MS files to get relevant meta data
+    ##
+    listdict, bands, band_properties, scantimesdict, scanstartsdict, scanendsdict, integrationsdict,\
+        integrationtimesdict, spwslist, spwstring, spwsarray, mosaic_field = importdata(vislist, all_targets, telescope)
+
+    ##
+    # flag spectral lines in MS(es) if there is a cont.dat file present
+    ##
+    if os.path.exists("cont.dat"):
+        flag_spectral_lines(vislist, all_targets, spwsarray)
+
+    ##
+    # spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
+    ##
+    split_to_selfcal_ms(vislist, band_properties, bands, spectral_average)
+
+    ##
+    # put flagging back at original state for originally input ms for when they are used next time
+    ##
+    for vis in vislist:
+        if os.path.exists(vis+".flagversions/flags.before_line_flags"):
+            flagmanager(vis=vis, mode='restore', versionname='before_line_flags')
+
+    ##
+    # Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
+    ##
+    spwslist_orig = spwslist.copy()
+    vislist_orig = vislist.copy()
+    spwstring_orig = spwstring+''
+    spwsarray_orig = spwsarray.copy()
+
+    vislist = glob.glob('*selfcal.ms')
+    listdict, bands, band_properties, scantimesdict, scanstartsdict, scanendsdict, integrationsdict,\
+        integrationtimesdict, spwslist, spwstring, spwsarray, mosaic_field = importdata(vislist, all_targets, telescope)
+
+    ##
+    # Save/restore starting flags
+    ##
+
+    for vis in vislist:
+        if os.path.exists(vis+'.flagversions/flags.selfcal_starting_flags'):
+            flagmanager(vis=vis, mode='restore', versionname='selfcal_starting_flags')
+        else:
+            flagmanager(vis=vis, mode='save', versionname='selfcal_starting_flags')
+
+    ##
+    # set image parameters based on the visibility data properties and frequency
+    ##
+    cellsize = {}
+    imsize = {}
+    nterms = {}
+    applycal_interp = {}
+
+    for band in bands:
+        cellsize[band], imsize[band], nterms[band] = get_image_parameters(vislist, telescope, band, band_properties)
+        if band_properties[vislist[0]][band]['meanfreq'] > 12.0e9:
+            applycal_interp[band] = 'linearPD'
+        else:
+            applycal_interp[band] = 'linear'
+
+    ###################################################################################################
+    ################################# End Metadata gathering for Selfcal ##############################
+    ###################################################################################################
+
+    ###################################################################################################
+    ############################# Start Actual important stuff for selfcal ############################
+    ###################################################################################################
+
+    ##
+    # begin setting up a selfcal_library with all relevant metadata to keep track of during selfcal
+    ##
+    selfcal_library = {}
+
+    for target in all_targets:
+        selfcal_library[target] = {}
+        for band in bands:
+            if target in scantimesdict[band][vislist[0]].keys():
+                selfcal_library[target][band] = {}
+            else:
+                continue
+            for vis in vislist:
+                selfcal_library[target][band][vis] = {}
+    ##
+    # finds solints, starting with inf, ending with int, and tries to align
+    # solints with number of integrations
+    # solints reduce by factor of 2 in each self-cal interation
+    # e.g., inf, max_scan_time/2.0, prev_solint/2.0, ..., int
+    # starting solints will have solint the length of the entire EB to correct bulk offsets
+    ##
+    solints = {}
+    gaincal_combine = {}
+    solmode = {}
+    applycal_mode = {}
+    for band in bands:
+        solints[band], integration_time, gaincal_combine[band], solmode[band] = get_solints_simple(
+            vislist, scantimesdict[band],
+            scanstartsdict[band],
+            scanendsdict[band],
+            integrationtimesdict[band],
+            inf_EB_gaincal_combine, do_amp_selfcal=do_amp_selfcal)
+        LOG.info(f'{band} {solints[band]}')
+        applycal_mode[band] = [apply_cal_mode_default]*len(solints[band])
+
+    ##
+    # puts stuff in right place from other MS metadata to perform proper data selections
+    # in tclean, gaincal, and applycal
+    # Also gets relevant times on source to estimate SNR per EB/scan
+    ##
+    for target in all_targets:
+        for band in selfcal_library[target].keys():
+            LOG.info(f'{target} {band}')
+            selfcal_library[target][band]['SC_success'] = False
+            selfcal_library[target][band]['final_solint'] = 'None'
+            selfcal_library[target][band]['Total_TOS'] = 0.0
+            selfcal_library[target][band]['spws'] = []
+            selfcal_library[target][band]['spws_per_vis'] = []
+            selfcal_library[target][band]['nterms'] = nterms[band]
+            selfcal_library[target][band]['vislist'] = vislist.copy()
+            if mosaic_field[band][target]['mosaic']:
+                selfcal_library[target][band]['obstype'] = 'mosaic'
+            else:
+                selfcal_library[target][band]['obstype'] = 'single-point'
+            allscantimes = np.array([])
+            for vis in vislist:
+                selfcal_library[target][band][vis]['gaintable'] = []
+                selfcal_library[target][band][vis]['TOS'] = np.sum(scantimesdict[band][vis][target])
+                selfcal_library[target][band][vis]['Median_scan_time'] = np.median(scantimesdict[band][vis][target])
+                allscantimes = np.append(allscantimes, scantimesdict[band][vis][target])
+                selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
+                n_spws, minspw, spwsarray = fetch_spws([vis], [target], listdict)
+                spwslist = spwsarray.tolist()
+                spwstring = ','.join(str(spw) for spw in spwslist)
+                selfcal_library[target][band][vis]['spws'] = band_properties[vis][band]['spwstring']
+                selfcal_library[target][band][vis]['spwsarray'] = band_properties[vis][band]['spwarray']
+                selfcal_library[target][band][vis]['spwlist'] = band_properties[vis][band]['spwarray'].tolist()
+                selfcal_library[target][band][vis]['n_spws'] = len(selfcal_library[target][band][vis]['spwsarray'])
+                selfcal_library[target][band][vis]['minspw'] = int(
+                    np.min(selfcal_library[target][band][vis]['spwsarray']))
+                selfcal_library[target][band][vis]['spwmap'] = [selfcal_library[target][band][
+                    vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
+                selfcal_library[target][band]['Total_TOS'] = selfcal_library[target][band][vis]['TOS'] + \
+                    selfcal_library[target][band]['Total_TOS']
+                selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
+            selfcal_library[target][band]['Median_scan_time'] = np.median(allscantimes)
+            selfcal_library[target][band]['uvrange'] = get_uv_range(band, band_properties, vislist)
+            selfcal_library[target][band]['75thpct_uv'] = band_properties[vislist[0]][band]['75thpct_uv']
+            LOG.info(selfcal_library[target][band]['uvrange'])
+
+    ##
+    ##
+    ##
+    for target in all_targets:
+        for band in selfcal_library[target].keys():
+            if selfcal_library[target][band]['Total_TOS'] == 0.0:
+                selfcal_library[target].pop(band)
+    return vislist, vis, all_targets, do_amp_selfcal, inf_EB_gaincal_combine, inf_EB_gaintype, gaincal_minsnr, minsnr_to_proceed, delta_beam_thresh, n_ants, telescope, rel_thresh_scaling, dividing_factor, check_all_spws, apply_to_target_ms, bands, band_properties, spwsarray, vislist_orig, spwstring_orig, cellsize, imsize, nterms, applycal_interp, selfcal_library, solints, gaincal_combine, solmode, applycal_mode, integration_time
 
 
 if __name__ == '__main__':
