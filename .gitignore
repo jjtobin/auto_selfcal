@@ -15,5 +15,6 @@ applycal_to_orig_MSes.py
 *.mask
 weblog
 .*.swp
+*.ipynb_checkpoints
 
 

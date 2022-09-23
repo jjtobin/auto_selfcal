@@ -34,6 +34,11 @@ Amplitude self-calibration will be attempted after phase-only self-calibration. 
     casa -c auto_selfcal.py
     ```
 
+    Alternatively, one could try it out using [the modular casa6 packages](https://casadocs.readthedocs.io/en/stable/notebooks/introduction.html#Modular-Packages) in a custom Conda environment (see [casa6.yaml](casa6.yaml))
+    ```bash
+    xvfb-run -d python auto_selfcal.py
+    ```
+
 The script will automatically find your `*_targets.ms` files, and determine all the parameters it needs for imaging and self-calibration of the science targets.
 
 The script will output a file `applycal_to_orig_MSes.py` to apply the self-calibration solutions back to the original MS such that the line data can also have the self-calibration solutions applied.
