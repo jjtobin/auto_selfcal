@@ -1,21 +1,68 @@
+import logging
 import os
-import numpy as np
+import time
 
 import casatools
-
+import numpy as np
+from casaplotms import plotms
 from casatasks import *
 from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
 from casaviewer import imview
-from casaplotms import plotms
-
 from PIL import Image
+
+use_pipeline = False
+try:
+    # run as a Pipeline extern module
+    import pipeline.infrastructure as infrastructure
+    use_pipeline = True
+except ImportError as error:
+    # run as a script
+    pass
 
 tb = tbtool()
 msmd = msmdtool()
 ia = image()
 im = imager()
+
+
+def get_selfcal_logger(loggername='auto_selfcal', loglevel='DEBUG', logfile=None):
+    """Get a named logger for auto_selfcal.
+    
+    When auto_selfcal runs outside of Pipeline, this function is a custom Python logger object
+    as constructed below.
+    When auto_selfcal runs as a Pipeline "extern" module, this function directly wraps around 
+    pipeline.infrastructure.get_logger
+    """
+
+    if use_pipeline:
+        logger = infrastructure.get_logger(loggername)
+        return logger
+
+    format = '%(asctime)s %(levelname)s    %(module)s.%(funcName)s     %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
+    fmt = logging.Formatter(format, datefmt)
+    fmt.converter = time.gmtime
+
+    if logfile is None:
+        logfile = casalog.logfile()
+
+    logger = logging.getLogger(loggername)
+    logger.handlers = []
+    logger.setLevel(logging.DEBUG)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(loglevel)
+    console_handler.setFormatter(fmt)
+    logger.addHandler(console_handler)
+
+    logfile_handler = logging.FileHandler(logfile, mode='a')
+    logfile_handler.setLevel(loglevel)
+    logfile_handler.setFormatter(fmt)
+    logger.addHandler(logfile_handler)
+
+    return logger
 
 
 def tclean_wrapper(
@@ -54,7 +101,7 @@ def tclean_wrapper(
         lownoisethreshold = 1.5
         cycleniter = -1
         cyclefactor = 1.0
-        print(band_properties)
+        LOG.info(band_properties)
         if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:
             sidelobethreshold = 2.0
 
@@ -80,7 +127,7 @@ def tclean_wrapper(
         gridder = 'wproject'
         wprojplanes = -1
     if (band == 'EVLA_L' or band == 'EVLA_S') and obstype == 'mosaic':
-        print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
+        LOG.info('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
     if obstype == 'mosaic':
         gridder = 'mosaic'
     else:
@@ -126,8 +173,8 @@ def tclean_wrapper(
            datacolumn=datacolumn, spw=spw, wprojplanes=wprojplanes)
     # this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel == 'modelcolumn':
-        print("")
-        print("Running tclean a second time to save the model...")
+        LOG.info("")
+        LOG.info("Running tclean a second time to save the model...")
         tclean(vis=vis,
                imagename=imagename,
                field=field,
@@ -192,22 +239,22 @@ def fetch_scan_times(vislist, targets, listdict):
                     scantime = (listdict[vis][key]['0']['EndTime'] - listdict[vis][key]['0']['BeginTime'])*86400.0
                     ints_per_scan = np.round(scantime/listdict[vis][key]['0']['IntegrationTime'])
                     integrationtime = np.append(integrationtime, np.array([listdict[vis][key]['0']['IntegrationTime']]))
-                    #print('Key:', key,scantime)
+                    # LOG.info(f'Key: {key} {scantime}')
                     scantimes = np.append(scantimes, np.array([scantime]))
                     integrations = np.append(integrations, np.array([ints_per_scan]))
                     n_spws = np.append(len(listdict[vis][key]['0']['SpwIds']), n_spws)
                     min_spws = np.append(np.min(listdict[vis][key]['0']['SpwIds']), min_spws)
                     spwslist = np.append(listdict[vis][key]['0']['SpwIds'], spwslist)
-                    # print(scantimes)
+                    # LOG.info(scantimes)
 
             scantimesdict[vis][target] = scantimes.copy()
             # assume each band only has a single integration time
             integrationtimesdict[vis][target] = np.median(integrationtime)
             integrationsdict[vis][target] = integrations.copy()
     if np.mean(n_spws) != np.max(n_spws):
-        print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+        LOG.info('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
     if np.max(min_spws) != np.min(min_spws):
-        print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+        LOG.info('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
     spwslist = np.unique(spwslist).astype(int)
     return scantimesdict, integrationsdict, integrationtimesdict, integrationtime, np.max(n_spws), np.min(min_spws), spwslist
 
@@ -245,7 +292,7 @@ def fetch_scan_times_band_aware(vislist, targets, listdict, band_properties, ban
                     scantime = (listdict[vis][key]['0']['EndTime'] - listdict[vis][key]['0']['BeginTime'])*86400.0
                     ints_per_scan = np.round(scantime/listdict[vis][key]['0']['IntegrationTime'])
                     integrationtime = np.append(integrationtime, np.array([listdict[vis][key]['0']['IntegrationTime']]))
-                    #print('Key:', key,scantime)
+                    # LOG.info('Key: {key} {scantime}')
                     scanstarts = np.append(scanstarts, np.array([listdict[vis][key]['0']['BeginTime']]))
                     scanends = np.append(scanends, np.array([listdict[vis][key]['0']['EndTime']]))
                     scantimes = np.append(scantimes, np.array([scantime]))
@@ -261,7 +308,7 @@ def fetch_scan_times_band_aware(vislist, targets, listdict, band_properties, ban
                     if len(mosaic_field[target]['field_ids']) > 1:
                         mosaic_field[target]['mosaic'] = True
 
-                    # print(scantimes)
+                    # LOG.info(scantimes)
 
             scantimesdict[vis][target] = scantimes.copy()
             scanstartsdict[vis][target] = scanstarts.copy()
@@ -271,9 +318,9 @@ def fetch_scan_times_band_aware(vislist, targets, listdict, band_properties, ban
             integrationsdict[vis][target] = integrations.copy()
     if len(n_spws) > 0:
         if np.mean(n_spws) != np.max(n_spws):
-            print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+            LOG.info('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
         if np.max(min_spws) != np.min(min_spws):
-            print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+            LOG.info('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
         spwslist = np.unique(spwslist).astype(int)
     else:
         return scantimesdict, scanstartsdict, scanendsdict, integrationsdict, integrationtimesdict, integrationtime, -99, -99, spwslist, mosaic_field
@@ -297,12 +344,12 @@ def fetch_spws(vislist, targets, listdict):
                     n_spws = np.append(len(listdict[vis][key]['0']['SpwIds']), n_spws)
                     min_spws = np.append(np.min(listdict[vis][key]['0']['SpwIds']), min_spws)
                     spwslist = np.append(listdict[vis][key]['0']['SpwIds'], spwslist)
-                    # print(scantimes)
+                    # LOG.info(scantimes)
     if len(n_spws) > 1:
         if np.mean(n_spws) != np.max(n_spws):
-            print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+            LOG.info('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
         if np.max(min_spws) != np.min(min_spws):
-            print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+            LOG.info('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
     spwslist = np.unique(spwslist).astype(int)
     if len(n_spws) == 1:
         return n_spws, min_spws, spwslist
@@ -351,7 +398,7 @@ def get_common_intervals(vis, integrationsdict, integrationtime):
     for i in range(1, int(np.max(unique_integrations))):
         for number in unique_integrations:
             multiple = number/i
-            #print(multiple,number ,i,multiple.is_integer())
+            #LOG.info(f'{multiple} {number} {i} {multiple.is_integer()}')
             if multiple.is_integer():
                 common_multiple = True
             else:
@@ -383,7 +430,7 @@ def get_solints_vla(vis, scantimesdict, integrationtime):
     while non_integer_multiple:
         integrations_per_scan = integrations_per_scan+i
         integrations_per_scan_div4 = integrations_per_scan/4.0
-        print(integrations_per_scan, integrations_per_scan_div4, i)
+        LOG.info(f'{integrations_per_scan} {integrations_per_scan_div4} {i}')
         if integrations_per_scan_div4.is_integer():
             non_integer_multiple = False
             n_ints_increment = i
@@ -391,12 +438,12 @@ def get_solints_vla(vis, scantimesdict, integrationtime):
             i += 1
 
     max_integrations_per_sol = integrations_per_scan
-    print('Max integrations per solution', max_integrations_per_sol, n_ints_increment)
+    LOG.info(f'Max integrations per solution  {max_integrations_per_sol} {n_ints_increment}')
     common_multiples = np.array([])
 
     for i in range(1, int(max_integrations_per_sol)):
         multiple = max_integrations_per_sol/i
-        #print(multiple,number ,i,multiple.is_integer())
+        # LOG.info(f'{multiple} {number} {i} {multiple.is_integer()}')
         if multiple.is_integer():
             common_multiple = True
         else:
@@ -466,10 +513,10 @@ def get_solints_simple(
     median_scans_per_obs = np.median(all_nscans_per_obs)
     median_time_per_obs = np.median(all_times_per_obs)
     median_time_between_scans = np.median(all_time_between_scans)
-    print('median scan length: ', median_scantime)
-    print('median time between target scans: ', median_time_between_scans)
-    print('median scans per observation: ', median_scans_per_obs)
-    print('median length of observation: ', median_time_per_obs)
+    LOG.info(f'median scan length: {median_scantime}')
+    LOG.info(f'median time between target scans: {median_time_between_scans}')
+    LOG.info(f'median scans per observation: {median_scans_per_obs}')
+    LOG.info(f'median length of observation: {median_time_per_obs}')
 
     solints_gt_scan = np.array([])
     gaincal_combine = []
@@ -489,9 +536,9 @@ def get_solints_simple(
    while solint > (median_scantime*2.0+median_time_between_scans)*1.05:      #solint should be greater than the length of time between two scans + time between to be better than inf
       solints_gt_scan=np.append(solints_gt_scan,[solint])                       # add solint to list of solints now that it is an integer number of integrations
       solint = solint/2.0  
-      #print('Next solint: ',solint)                                        #divide solint by 2.0 for next solint
+      # LOG.info('Next solint: {solint}')                                        #divide solint by 2.0 for next solint
    '''
-    print(max_scantime, integration_time)
+    LOG.info(f'{max_scantime} {integration_time}')
     if solint_decrement == 'fixed':
         solint_divider = np.round(np.exp(1.0/n_solints*np.log(max_scantime/integration_time)))
     # division never less than 2.0
@@ -511,7 +558,7 @@ def get_solints_simple(
             solint = solint-remainder*integration_time  # add remainder to make solint a fixed number of integrations
 
         ints_per_solint = float(int(ints_per_solint))
-        print('Checking solint = ', ints_per_solint*integration_time)
+        LOG.info(f'Checking solint = {ints_per_solint*integration_time}')
         delta = test_truncated_scans(ints_per_solint, allscantimes, integration_time)
         solint = (ints_per_solint+delta)*integration_time
         if solint > 1.90*integration_time:
@@ -519,7 +566,7 @@ def get_solints_simple(
             solints_lt_scan = np.append(solints_lt_scan, [solint])
 
         solint = solint/solint_divider
-        # print('Next solint: ',solint)                                        #divide solint by 2.0 for next solint
+        # LOG.info(f'Next solint: {solint}')                                        #divide solint by 2.0 for next solint
 
     solints_list = []
     if len(solints_gt_scan) > 0:
@@ -593,10 +640,10 @@ def test_truncated_scans(ints_per_solint, allscantimes, integration_time):
             n_remaining_ints[i] = np.max(diff_ints_per_scan[trimmed_scans[0]])
         else:
             n_remaining_ints[i] = 0.0
-        #print((ints_per_solint+delta_ints_per_solint[i])*integration_time,ints_per_solint+delta_ints_per_solint[i],  diff_ints_per_scan)
+        # LOG.info(f'{(ints_per_solint+delta_ints_per_solint[i])*integration_time,ints_per_solint+delta_ints_per_solint[i]}  {diff_ints_per_scan}')
 
-        #print('Max ints remaining: ', n_remaining_ints[i])
-        #print('N truncated scans: ', len(trimmed_scans[0]))
+        # LOG.info(f'Max ints remaining: {n_remaining_ints[i]}')
+        # LOG.info(f'N truncated scans: {len(trimmed_scans[0])}')
         n_truncated_scans[i] = len(trimmed_scans[0])
         # check if there are fewer truncated scans in the current trial and if
         # if one trial has more scans left off or fewer. Favor more left off, such that remainder might be able to
@@ -605,7 +652,7 @@ def test_truncated_scans(ints_per_solint, allscantimes, integration_time):
         # if ((i > 0) and (n_truncated_scans[i] <= n_truncated_scans[min_index]) and (n_remaining_ints[i] > n_remaining_ints[min_index])):
         if ((i > 0) and (n_truncated_scans[i] <= n_truncated_scans[min_index]) and (n_remaining_ints[i] < n_remaining_ints[min_index])):
             min_index = i
-        # print(delta_ints_per_solint[min_index])
+        # LOG.info(delta_ints_per_solint[min_index])
     return delta_ints_per_solint[min_index]
 
 
@@ -682,11 +729,11 @@ def estimate_SNR(imagename, maskname=None, verbose=True):
     peak_intensity = image_stats['max'][0]
     SNR = peak_intensity/rms
     if verbose:
-        print("#%s" % imagename)
-        print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-        print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-        print("#rms: %.2e mJy/beam" % (rms*1000,))
-        print("#Peak SNR: %.2f" % (SNR,))
+        LOG.info("#%s" % imagename)
+        LOG.info("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+        LOG.info("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
+        LOG.info("#rms: %.2e mJy/beam" % (rms*1000,))
+        LOG.info("#Peak SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
     os.system('rm -rf temp.mask temp.residual')
@@ -705,11 +752,11 @@ def estimate_near_field_SNR(imagename, maskname=None, verbose=True):
     else:
         maskImage = maskname
     if not os.path.exists(maskImage):
-        print('Does not exist')
+        LOG.info('Does not exist')
         return np.float64(-99.0), np.float64(-99.0)
     goodMask = checkmask(maskImage)
     if not goodMask:
-        print('checkmask')
+        LOG.info('checkmask')
         return np.float64(-99.0), np.float64(-99.0)
     residualImage = imagename.replace('image', 'residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
@@ -739,11 +786,11 @@ def estimate_near_field_SNR(imagename, maskname=None, verbose=True):
     peak_intensity = image_stats['max'][0]
     SNR = peak_intensity/rms
     if verbose:
-        print("#%s" % imagename)
-        print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-        print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-        print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
-        print("#Peak Near Field SNR: %.2f" % (SNR,))
+        LOG.info("#%s" % imagename)
+        LOG.info("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+        LOG.info("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
+        LOG.info("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
+        LOG.info("#Peak Near Field SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
@@ -807,15 +854,15 @@ def rank_refants(vis):
     # Calculate the mean longitude and latitude.
 
     mean_longitude = np.mean([offset[i]["longitude offset"]
-                                 ['value'] for i in range(len(names))])
+                              ['value'] for i in range(len(names))])
     mean_latitude = np.mean([offset[i]["latitude offset"]
-                                ['value'] for i in range(len(names))])
+                             ['value'] for i in range(len(names))])
 
     # Calculate the offsets from the center.
 
     offsets = [np.sqrt((offset[i]["longitude offset"]['value'] -
-                           mean_longitude)**2 + (offset[i]["latitude offset"]
-                                                 ['value'] - mean_latitude)**2) for i in
+                        mean_longitude)**2 + (offset[i]["latitude offset"]
+                                              ['value'] - mean_latitude)**2) for i in
                range(len(names))]
 
     # Calculate the number of flags for each antenna.
@@ -831,10 +878,10 @@ def rank_refants(vis):
 
     # Print out the antenna scores.
 
-    print("Refant list for "+vis)
+    LOG.info("Refant list for "+vis)
     # for i in np.argsort(score):
-    #    print(names[i], score[i])
-    print(','.join(np.array(names)[np.argsort(score)]))
+    #    LOG.info(names[i], score[i])
+    LOG.info(','.join(np.array(names)[np.argsort(score)]))
     # Return the antenna names sorted by score.
 
     return ','.join(np.array(names)[np.argsort(score)])
@@ -956,27 +1003,27 @@ def get_sensitivity(vislist, selfcal_library, specmode='mfs', spwstring='', spw=
                 bmaj = uvtaper
                 bmin = uvtaper
                 bpa = '0.0deg'
-            print('uvtaper: '+bmaj+' '+bmin+' '+bpa)
+            LOG.info('uvtaper: '+bmaj+' '+bmin+' '+bpa)
             im.filter(type='gaussian', bmaj=bmaj, bmin=bmin, bpa=bpa)
         try:
             sens = im.apparentsens()
         except:
-            print('#')
-            print('# Sensisitivity Calculation failed for '+vis)
-            print('# Continuing to next MS')
-            print('# Data in this spw/MS may be flagged')
-            print('#')
+            LOG.info('#')
+            LOG.info('# Sensisitivity Calculation failed for '+vis)
+            LOG.info('# Continuing to next MS')
+            LOG.info('# Data in this spw/MS may be flagged')
+            LOG.info('#')
             continue
-        # print(sens)
-        #print(vis,'Briggs Sensitivity = ', sens[1])
-        #print(vis,'Relative to Natural Weighting = ', sens[2])
+        # LOG.info(sens)
+        # LOG.info(f'{vis} Briggs Sensitivity = {sens[1]}')
+        # LOG.info(f'{vis} Relative to Natural Weighting = {sens[2]}')
         sensitivities[counter] = sens[1]*scalefactor
         TOS[counter] = selfcal_library[vis]['TOS']
         counter += 1
     # estsens=np.sum(sensitivities)/float(counter)/(float(counter))**0.5
-    # print(estsens)
+    # LOG.info(estsens)
     estsens = np.sum(sensitivities*TOS)/np.sum(TOS)
-    print('Estimated Sensitivity: ', estsens)
+    LOG.info(f'Estimated Sensitivity: {estsens}')
     return estsens
 
 
@@ -1104,7 +1151,7 @@ def flagchannels_from_contdotdat(vis, target, spwsarray):
 
         chans = np.array([])
         for k in range(contdotdat[spw].shape[0]):
-            print(spw, contdotdat[spw][k])
+            LOG.info(f'{spw} {contdotdat[spw][k]}')
 
             chans = np.concatenate((LSRKfreq_to_chan(vis, target, spw, contdotdat[spw][k], spwsarray), chans))
 
@@ -1122,7 +1169,7 @@ def flagchannels_from_contdotdat(vis, target, spwsarray):
             flagchannels_string += '%d~%d;' % (chans[i], chans[i+1])
         flagchannels_string += '%d~%d, ' % (chans[-1], nchan-1)
 
-    print("# Flagchannels input string for %s in %s from cont.dat file: \'%s\'" % (target, vis, flagchannels_string))
+    LOG.info("# Flagchannels input string for %s in %s from cont.dat file: \'%s\'" % (target, vis, flagchannels_string))
 
     return flagchannels_string
 
@@ -1355,7 +1402,7 @@ def get_VLA_bands(vislist):
             if not bandlist_match:
                 bands_match = False
     if not bands_match:
-        print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
+        LOG.info('WARNING: INCONSISTENT BANDS IN THE MSFILES')
     get_max_uvdist(vislist, observed_bands[vislist[0]]['bands'].copy(), observed_bands)
     return observed_bands[vislist[0]]['bands'].copy(), observed_bands
 
@@ -1525,7 +1572,7 @@ def generate_weblog_old(sclib, solints, bands):
         bands_obsd = list(sclib[target].keys())
 
         for band in bands_obsd:
-            print(target, band)
+            LOG.info(f'{target} {band}')
             htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">'+band+'</a><br>\n')
             htmlOut.writelines('Selfcal Success?: '+str(sclib[target][band]['SC_success'])+'<br>\n')
             keylist = sclib[target][band].keys()
@@ -1545,7 +1592,7 @@ def generate_weblog_old(sclib, solints, bands):
                     continue
             else:
                 htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
-                print(target, band, sclib[target][band]['Stop_Reason'])
+                LOG.info(f"{target} {band} {sclib[target][band]['Stop_Reason']}")
                 if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint'] == 'None':
                     plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',
                                'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png')
@@ -1848,15 +1895,15 @@ def get_flagged_solns_per_ant(gaintable, vis):
     # Calculate the mean longitude and latitude.
 
     mean_longitude = np.mean([offset[i]["longitude offset"]
-                                 ['value'] for i in range(len(names))])
+                              ['value'] for i in range(len(names))])
     mean_latitude = np.mean([offset[i]["latitude offset"]
-                                ['value'] for i in range(len(names))])
+                             ['value'] for i in range(len(names))])
 
     # Calculate the offsets from the center.
 
     offsets = [np.sqrt((offset[i]["longitude offset"]['value'] -
-                           mean_longitude)**2 + (offset[i]["latitude offset"]
-                                                 ['value'] - mean_latitude)**2) for i in
+                        mean_longitude)**2 + (offset[i]["latitude offset"]
+                                              ['value'] - mean_latitude)**2) for i in
                range(len(names))]
     offset_y = [(offset[i]["latitude offset"]['value']) for i in
                 range(len(names))]
@@ -1979,7 +2026,7 @@ def gaussian_norm(x, mean, sigma):
     return norm_gauss_dist
 
 
-def generate_weblog(sclib, solints, bands):
+def generate_weblog(sclib, solints, bands, outdir='weblog/'):
     from datetime import datetime
     os.system('rm -rf weblog')
     os.system('mkdir weblog')
@@ -2023,7 +2070,7 @@ def generate_weblog(sclib, solints, bands):
                     continue
             else:
                 htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
-                print(target, band, sclib[target][band]['Stop_Reason'])
+                LOG.info(f"{target} {band} {sclib[target][band]['Stop_Reason']}")
                 if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint'] == 'None':
                     render_summary_table(htmlOut, sclib, target, band)
                     continue
@@ -2181,14 +2228,20 @@ def render_summary_table(htmlOut, sclib, target, band):
     htmlOut.writelines('</table>\n')
 
 
-def render_selfcal_solint_summary_table(htmlOut, sclib, target, band, solints):
+def render_selfcal_solint_summary_table(htmlOut, sclib, target, band, solints, plstyle=False, weblog_dir='./'):
     #  SELFCAL SUMMARY TABLE
+    # figpath: figure image relative path to the report directory (which is either weblog/ or pipeline-*/html)
     vislist = sclib[target][band]['vislist']
     solint_list = solints[band]
-    htmlOut.writelines('<br>Per solint stats: <br>\n')
-    htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+
+    if plstyle:
+        htmlOut.writelines('<table table-bordered table-striped table-condensed table-custom>\n')
+    else:
+        htmlOut.writelines('<br>Per solint stats: <br>\n')
+        htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+
     htmlOut.writelines('	<tr>\n')
-    htmlOut.writelines('		<td>\n')
+    #htmlOut.writelines('		<td>\n')
     line = '<table>\n  <tr bgcolor="#ffffff">\n    <th>Solint:</th>\n    '
     for solint in solint_list:
         line += '<th>'+solint+'</th>\n    '
@@ -2292,7 +2345,7 @@ def render_selfcal_solint_summary_table(htmlOut, sclib, target, band, solints):
                     else:
                         line += '    <td>Not Available</td>\n'
                 if key == 'Plots':
-                    line += '    <td><a href="'+target+'_'+band+'_'+solint+'.html">QA Plots</a></td>\n'
+                    line += '    <td><a href="'+weblog_dir+target+'_'+band+'_'+solint+'.html">QA Plots</a></td>\n'
 
             else:
                 line += '    <td> - </td>\n'
@@ -2307,8 +2360,8 @@ def render_selfcal_solint_summary_table(htmlOut, sclib, target, band, solints):
                 # only evaluate last gaintable not the pre-apply table
                 gaintable = sclib[target][band][vis][solint]['gaintable'][
                     len(sclib[target][band][vis][solint]['gaintable']) - 1]
-                line += '<td><a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_' + \
-                    gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=200 HEIGHT=200></a></td>\n'
+                line += '<td><a href="'+weblog_dir+'/images/plot_ants_'+gaintable+'.png"><img src="'+weblog_dir + \
+                    'images/plot_ants_' + gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=200 HEIGHT=200></a></td>\n'
             else:
                 line += '<td>-</td>\n'
         line += '</tr>\n    '
@@ -2337,13 +2390,19 @@ def render_selfcal_solint_summary_table(htmlOut, sclib, target, band, solints):
     htmlOut.writelines('	</tr>\n')
     htmlOut.writelines('</table>\n')
 
+    return htmlOut
 
-def render_spw_stats_summary_table(htmlOut, sclib, target, band):
+
+def render_spw_stats_summary_table(htmlOut, sclib, target, band, plstyle=False):
     spwlist = list(sclib[target][band]['per_spw_stats'].keys())
-    htmlOut.writelines('<br>Per SPW stats: <br>\n')
-    htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+
+    if plstyle:
+        htmlOut.writelines('<table table-bordered table-striped table-condensed table-custom>\n')
+    else:
+        htmlOut.writelines('<br>Per SPW stats: <br>\n')
+        htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
     htmlOut.writelines('	<tr>\n')
-    htmlOut.writelines('		<td>\n')
+    #htmlOut.writelines('		<td>\n')
     line = '<table>\n  <tr bgcolor="#ffffff">\n    <th></th>\n    '
     for spw in spwlist:
         line += '<th>'+spw+'</th>\n    '
@@ -2376,6 +2435,7 @@ def render_spw_stats_summary_table(htmlOut, sclib, target, band):
                 htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
             if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
                 htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
+    return htmlOut
 
 
 def render_per_solint_QA_pages(sclib, solints, bands):
@@ -2493,7 +2553,7 @@ def render_per_solint_QA_pages(sclib, solints, bands):
                     ant_list = get_ant_list(vis)
                     gaintable = sclib[target][band][vis][solints[band][i]]['gaintable'][
                         len(sclib[target][band][vis][solints[band][i]]['gaintable']) - 1]
-                    print('******************'+gaintable+'***************')
+                    LOG.info('******************'+gaintable+'***************')
                     nflagged_sols, nsols = get_sols_flagged_solns(gaintable)
                     frac_flagged_sols = nflagged_sols/nsols
                     plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png', vis, gaintable)
@@ -2572,7 +2632,7 @@ def importdata(vislist, all_targets, telescope):
     bands_to_remove = []
 
     for band in bands:
-        print(band)
+        LOG.info(band)
         scantimesdict_temp, scanstartsdict_temp, scanendsdict_temp, integrationsdict_temp, integrationtimesdict_temp,\
             integrationtimes_temp, n_spws_temp, minspw_temp, spwsarray_temp, mosaic_field_temp = fetch_scan_times_band_aware(vislist, all_targets, listdict, band_properties, band)
 
@@ -2586,7 +2646,7 @@ def importdata(vislist, all_targets, telescope):
             for vis in vislist:
                 band_properties[vis].pop(band)
                 band_properties[vis]['bands'].remove(band)
-                print('Removing '+band+' bands from list due to no observations')
+                LOG.info('Removing '+band+' bands from list due to no observations')
             bands_to_remove.append(band)
         for vis in vislist:
             for target in all_targets:
@@ -2607,7 +2667,7 @@ def importdata(vislist, all_targets, telescope):
 
 
 def flag_spectral_lines(vislist, all_targets, spwsarray):
-    print("# cont.dat file found, flagging lines identified by the pipeline.")
+    LOG.info("# cont.dat file found, flagging lines identified by the pipeline.")
     for vis in vislist:
         if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
             flagmanager(vis=vis, mode='save', versionname='before_line_flags',
@@ -2628,11 +2688,11 @@ def split_to_selfcal_ms(vislist, band_properties, bands, spectral_average):
             initweights(vis=vis, wtmode='weight', dowtsp=True)  # initialize channelized weights
             for band in bands:
                 desiredWidth = get_desired_width(band_properties[vis][band]['meanfreq'])
-                print(band, desiredWidth)
+                LOG.info(f'{band} {desiredWidth}')
                 widtharray, bwarray, nchanarray = get_spw_chanwidths(vis, band_properties[vis][band]['spwarray'])
                 band_properties[vis][band]['chan_widths'] = get_spw_chanavg(
                     vis, widtharray, bwarray, nchanarray, desiredWidth=desiredWidth)
-                print(band_properties[vis][band]['chan_widths'])
+                LOG.info(band_properties[vis][band]['chan_widths'])
                 chan_widths = chan_widths+band_properties[vis][band]['chan_widths'].astype('int').tolist()
                 if spwstring == '':
                     spwstring = band_properties[vis][band]['spwstring']+''
@@ -2759,8 +2819,11 @@ def analyze_inf_EB_flagging(selfcal_library, band, spwlist, gaintable, vis, targ
 
         # replace the elements that require spwmapping (spwmap[i] == True
         for i in range(len(spwmap)):
-            print(i, spwlist[i], spwmap[i])
+            LOG.info(f'{i} {spwlist[i]} {spwmap[i]}')
             if spwmap[i]:
                 applycal_spwmap[int(spwlist[i])] = int(spwlist[map_index])
 
     return fallback, map_index, spwmap, applycal_spwmap
+
+
+LOG = get_selfcal_logger(__name__)
