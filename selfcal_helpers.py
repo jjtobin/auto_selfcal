@@ -1115,6 +1115,16 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
    return avgarray
 
 
+def largest_prime_factor(n):
+    i = 2
+    while i * i <= n:
+        if n % i:
+            i += 1
+        else:
+            n //= i
+    return n
+
+
 def get_image_parameters(vislist,telescope,band,band_properties):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
@@ -1139,6 +1149,10 @@ def get_image_parameters(vislist,telescope,band,band_properties):
    npixels=int(np.ceil(fov/cell / 100.0)) * 100
    if npixels > 16384:
       npixels=16384
+
+   while largest_prime_factor(npixels) >= 7:
+       npixels += 2
+
    return cellsize,npixels,nterms
 
 
