@@ -12,14 +12,7 @@ from casatools import table as tbtool
 from casaviewer import imview
 from PIL import Image
 
-use_pipeline = False
-try:
-    # run as a Pipeline extern module
-    import pipeline.infrastructure as infrastructure
-    use_pipeline = True
-except ImportError as error:
-    # run as a script
-    pass
+
 
 tb = tbtool()
 msmd = msmdtool()
@@ -35,14 +28,10 @@ def get_selfcal_logger(loggername='auto_selfcal', loglevel='DEBUG', logfile=None
     When auto_selfcal runs as a Pipeline "extern" module, this function directly wraps around 
     pipeline.infrastructure.get_logger
     """
-
-    if use_pipeline:
-        logger = infrastructure.get_logger(loggername)
-        return logger
-    else:
-        casalog.showconsole(onconsole=True)
-        if logfile is None:
-            logfile = casalog.logfile()
+    
+    casalog.showconsole(onconsole=True)
+    if logfile is None:
+        logfile = casalog.logfile()
 
     format = '%(asctime)s %(levelname)s    %(module)s.%(funcName)s     %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
