@@ -694,10 +694,10 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
     maskStats=imstat(imagename='temp.mask')
-    imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*3.0)+'arcsec',minor=str(beammajor*3.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
-    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
+    imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*1.0)+'arcsec',minor=str(beammajor*1.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
+    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
     if las is not None:
-        imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(las/2.355)+'arcsec',minor=str(las/2.355)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+        imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(las/2.355*2)+'arcsec',minor=str(las/2.355*2)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
     else:
         imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
     immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
