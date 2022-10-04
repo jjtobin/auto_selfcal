@@ -2231,7 +2231,7 @@ def render_selfcal_solint_summary_table(htmlOut, sclib, target, band, solints, p
         htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
 
     htmlOut.writelines('	<tr>\n')
-    #htmlOut.writelines('		<td>\n')
+    htmlOut.writelines('		<td>\n')
     line = '<table>\n  <tr bgcolor="#ffffff">\n    <th>Solint:</th>\n    '
     for solint in solint_list:
         line += '<th>'+solint+'</th>\n    '
