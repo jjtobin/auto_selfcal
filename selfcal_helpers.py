@@ -1,5 +1,7 @@
 import numpy as np
 import numpy 
+import scipy.stats
+import scipy.signal
 import math
 from PIL import Image
 def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
@@ -2532,7 +2534,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
-def unflag_long_baseline_antennas(vis, caltable, flagged_fraction=0.25):
+def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True):
     tb.open(caltable, nomodify=False)
     antennas = tb.getcol("ANTENNA1")
     flags = tb.getcol("FLAG")
@@ -2544,13 +2546,108 @@ def unflag_long_baseline_antennas(vis, caltable, flagged_fraction=0.25):
     ordered_flags = flags.reshape(flags.shape[0:2] + (flags.shape[2]//nants, nants))
     percentage_flagged = (ordered_flags.sum(axis=2) / ordered_flags.shape[2]).mean(axis=0).mean(axis=0)
  
+    if only_long_baselines:
+        # Load in the positions of the antennas and calculate their offsets from the geometric center.
+        msmd.open(vis)
+        offsets = [msmd.antennaoffset(a) for a in antennas]
+        unique_offsets = [msmd.antennaoffset(a) for a in unique_antennas]
+        msmd.close()
+     
+        mean_longitude = np.mean([offsets[i]["longitude offset"]['value'] for i in range(nants)])
+        mean_latitude = np.mean([offsets[i]["latitude offset"]['value'] for i in range(nants)])
+        offsets = np.array([np.sqrt((offsets[i]["longitude offset"]['value'] - \
+                mean_longitude)**2 + (offsets[i]["latitude offset"]['value'] - mean_latitude)**2) for i in range(len(antennas))])
+        unique_offsets = np.array([np.sqrt((unique_offsets[i]["longitude offset"]['value'] - \
+                mean_longitude)**2 + (unique_offsets[i]["latitude offset"]['value'] - mean_latitude)**2) for i in range(len(unique_antennas))])
+     
+        # Get a smoothed number of antennas flagged as a function of offset.
+        test_r = np.linspace(0., offsets.max(), 1000)
+        neff = (nants)**(-1./(1+4))
+        kernel = scipy.stats.gaussian_kde(offsets[np.any(flags, axis=(0,1))], bw_method=neff)
+        kernal2 = scipy.stats.gaussian_kde(offsets, bw_method=neff)
+
+        normalized = kernel(test_r) * np.any(flags, axis=(0,1)).sum() / np.trapz(kernel(test_r), test_r)
+        normalized2 = kernal2(test_r) * antennas.size / np.trapz(kernal2(test_r), test_r)
+        fraction_flagged_antennas = normalized / normalized2
+
+        # Calculate the derivatives to see where flagged fraction is sharply changing.
+
+        derivative = np.gradient(fraction_flagged_antennas, test_r)
+        second_derivative = np.gradient(derivative, test_r)
+
+        # Check which minima include enough antennas to explain the beam ratio.
+
+        maxima = scipy.signal.argrelextrema(second_derivative, np.greater)[0]
+        max_velocity = 0.
+        for m in maxima[::-1]:
+            if second_derivative[m] < 0:
+                continue
+
+            # Estimated change ine the size of the beam.
+            beam_original = np.percentile(offsets, 80)
+            beam_post = np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
+                    offsets > test_r[m])], 80)
+            beam_change = beam_original / beam_post
+
+            # If the change in the beam size is < 1.05, then this is an acceptable solution.
+            """
+            if beam_change < 1.05:
+                offset_limit = test_r[m]
+                break
+            """
+            if derivative[m] > max_velocity:
+                offset_limit = test_r[m]
+                max_velocity = derivative[m]
+
+        ok_to_flag_antennas = unique_antennas[unique_offsets > offset_limit]
+
+        # Make a plot of all of this info
+
+        import matplotlib.pyplot as plt
+
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+
+        ax1.plot(unique_offsets, percentage_flagged, "o")
+
+        ax2.plot(test_r, fraction_flagged_antennas, "k-")
+        ax2.plot(test_r, derivative / derivative.max(), "g-")
+        ax2.plot(test_r, second_derivative / second_derivative.max(), "r-")
+
+        for m in maxima[::-1]:
+            if second_derivative[m] < 0:
+                continue
+
+            # Estimated change ine the size of the beam.
+            beam_change = np.percentile(offsets, 80) / np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
+                    offsets > test_r[m])], 80)
+
+            #if beam_change < 1.05:
+            if test_r[m] == offset_limit:
+                ax1.axvline(test_r[m], linestyle="--")
+            else:
+                ax1.axvline(test_r[m])
+
+        fig.savefig(caltable.replace(".g",".pass.png"))
+    else:
+        ok_to_flag_antennas = unique_antennas
+
+    # Now combine the cluster of antennas with high flagging fraction with the antennas that actually have enough
+    # flagging to warrant passing through to get the list of pass through antennas.
     bad_antennas = unique_antennas[percentage_flagged >= flagged_fraction]
 
+    pass_through_antennas = np.intersect1d(ok_to_flag_antennas, bad_antennas)
+
     # For the antennas we just identified, we just pass them through without doing anything. I.e. we set flags to False and the caltable value to 1.0+0j.
-    for a in bad_antennas:
+    for a in pass_through_antennas:
         indices = np.where(antennas == a)
         flags[:,:,indices] = False
         cals[:,:,indices] = 1.0+0j
+
+    if solnorm:
+        scale = np.mean(np.abs(cals[flags == False])**2)**0.5
+        print("Normalizing the amplitudes by a factor of ", scale)
+        cals = cals / scale
 
     tb.putcol("FLAG", flags)
     tb.putcol("CPARAM", cals)

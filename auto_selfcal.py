@@ -559,7 +559,7 @@ for target in all_targets:
                 ##
                 ## Solve gain solutions per MS, target, solint, and band
                 ##
-                os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+                os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'*.g')
                 ##
                 ## Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
                 ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
@@ -619,7 +619,7 @@ for target in all_targets:
                 gaincal(vis=vis,\
                      caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                      gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
-                     refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm,
+                     refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
                      solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,5.0), minblperant=4,combine=gaincal_combine[band][iteration],
                      field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                      interp=gaincal_interpolate[vis])
@@ -627,8 +627,12 @@ for target in all_targets:
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
                 # Should we also restrict to just long baseline antennas?
                 if applymode == "calonly":
-                    unflag_long_baseline_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][iteration]+'.g', flagged_fraction=0.25)
+                    # Make a copy of the caltable before unflagging, for reference.
+                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][iteration]+'.pre-pass.g')
+                    unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, only_long_baselines=True)
 
 
                 ##
