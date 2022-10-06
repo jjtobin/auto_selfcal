@@ -2502,7 +2502,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
-def unflag_long_baseline_antennas(vis, caltable, flagged_fraction=0.25):
+def unflag_long_baseline_antennas(vis, caltable, flagged_fraction=0.25, solnorm=True):
     tb.open(caltable, nomodify=False)
     antennas = tb.getcol("ANTENNA1")
     flags = tb.getcol("FLAG")
@@ -2521,6 +2521,11 @@ def unflag_long_baseline_antennas(vis, caltable, flagged_fraction=0.25):
         indices = np.where(antennas == a)
         flags[:,:,indices] = False
         cals[:,:,indices] = 1.0+0j
+
+    if solnorm:
+        scale = np.mean(np.abs(cals[flags == False])**2)**0.5
+        print("Normalizing the amplitudes by a factor of ", scale)
+        cals = cals / scale
 
     tb.putcol("FLAG", flags)
     tb.putcol("CPARAM", cals)
