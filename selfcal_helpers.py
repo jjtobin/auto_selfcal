@@ -27,6 +27,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        phasecenter=get_phasecenter(vis[0],field)
 
 
+    # Minimize out the nfrms_multiplier at 1.
+    nfrms_multiplier = max(nfrms_multiplier, 1.0)
+
     if mask == '':
        usemask='auto-multithresh'
     else:
