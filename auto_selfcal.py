@@ -58,6 +58,7 @@ telescope=get_telescope(vislist[0])
 apply_cal_mode_default='calflag'
 unflag_only_lbants = False
 unflag_only_lbants_onlyap = False
+second_iter_solmode = ""
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -569,6 +570,7 @@ for target in all_targets:
                    gaincal_preapply_gaintable[vis]=[]
                    gaincal_interpolate[vis]=[]
                    gaincal_gaintype=inf_EB_gaintype_dict[target][band][vis]
+                   gaincal_solmode=""
                    gaincal_combine[band][iteration]=inf_EB_gaincal_combine_dict[target][band][vis]
                    if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
                       applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
@@ -581,7 +583,8 @@ for target in all_targets:
                    gaincal_spwmap[vis]=[]
                    gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0_p.g']
                    gaincal_interpolate[vis]=[applycal_interp[band]]
-                   gaincal_gaintype='T'
+                   gaincal_gaintype='T' if applymode == "calflag" or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+                   gaincal_solmode = "" if applymode == "calflag" or second_iter_solmode == "GSPLINE" else second_iter_solmode
                    if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
                       applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
                       gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
@@ -597,7 +600,8 @@ for target in all_targets:
                    gaincal_spwmap[vis]=[]
                    gaincal_preapply_gaintable[vis]=selfcal_library[target][band][vis][selfcal_library[target][band]['final_phase_solint']]['gaintable']
                    gaincal_interpolate[vis]=[applycal_interp[band]]*len(gaincal_preapply_gaintable[vis])
-                   gaincal_gaintype='T'
+                   gaincal_gaintype='T' if applymode == "calflag" or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+                   gaincal_solmode = "" if applymode == "calflag" or second_iter_solmode == "GSPLINE" else second_iter_solmode
                    if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
                       applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
                       gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
@@ -614,13 +618,21 @@ for target in all_targets:
                    solnorm=True
                 else:
                    solnorm=False
+
+                if gaincal_gaintype == "GSPLINE":
+                    splinetime = solint.replace('_EB','').replace('_ap','')
+                    if splinetime == "inf":
+                        splinetime = selfcal_library[target][band]["Median_scan_time"]
+                    else:
+                        splinetime = float(splinetime[0:-1])
+
                 gaincal(vis=vis,\
                      caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                      gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                      refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
                      solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,5.0), minblperant=4,combine=gaincal_combine[band][iteration],
                      field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
-                     interp=gaincal_interpolate[vis])
+                     interp=gaincal_interpolate[vis], solmode=gaincal_solmode)
 
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
                 # Should we also restrict to just long baseline antennas?
