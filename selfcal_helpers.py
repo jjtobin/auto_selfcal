@@ -699,20 +699,37 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
        print('checkmask')
        return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.beam.extent.mask')
     os.system('cp -r '+maskImage+ ' temp.mask')
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
     maskStats=imstat(imagename='temp.mask')
     imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*1.0)+'arcsec',minor=str(beammajor*1.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
     immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
-    if las is not None:
-        imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(las/2.355*2)+'arcsec',minor=str(las/2.355*2)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
-    else:
-        imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+
+    # Check the extent of the beam as well.
+    psfImage = imagename.replace('image','psf')
+    pbImage = imagename.replace('image','pb')
+
+    immath(imagename=[psfImage,pbImage], mode="evalexpr", expr="iif(IM0 > 0.1,1/IM1,0.0)", outfile="temp.beam.extent.image")
+
+    centerpos = imhead(psfImage, mode="get", hdkey="maxpixpos")
+    maxpos = imhead("temp.beam.extent.image", mode="get", hdkey="maxpixpos")
+    center_coords = imval(psfImage, box=str(centerpos[0])+","+str(centerpos[1]))["coords"]
+    max_coords = imval(psfImage, box=str(maxpos[0])+","+str(maxpos[1]))["coords"]
+
+    beam_extent_size = ((center_coords - max_coords)**2)[0:2].sum()**0.5 * 360*60*60/(2*np.pi)
+
+    # use the maximum of the three possibilities as the outer extent of the mask.
+    print("beammajor*5 = ", beammajor*5, ", LAS = ", las, ", beam_extent = ", beam_extent_size)
+    outer_major = max(beammajor*5, beam_extent_size, las if las is not None else 0.)
+
+    imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(outer_major)+'arcsec',minor=str(outer_major)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+
     immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
     #immath(imagename=['temp.smooth.ceiling.mask','temp.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.border.mask')
-    immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.mask')
+    immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.prepb.mask')
+    immath(imagename=['temp.nearfield.prepb.mask',imagename.replace("image","pb")], expr='iif(VALUE(IM1) > 0.1,IM0,1.0)',outfile='temp.nearfield.mask')
     maskImage='temp.nearfield.mask'
     ia.close()
     ia.done()
@@ -734,7 +751,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     ia.close()
     ia.done()
     os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image')
     return SNR,rms
 
 
