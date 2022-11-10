@@ -1,0 +1,15 @@
+*.ms*
+*.log
+*.last
+*.g
+*.pre
+*.pickle
+*.tt*
+*.alpha*
+*.gridwt
+*.mask
+weblog
+
+.*.swp
+
+applycal_to_orig_MSes.py
