@@ -2551,27 +2551,21 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # Check which minima include enough antennas to explain the beam ratio.
 
     maxima = scipy.signal.argrelextrema(second_derivative, np.greater)[0]
-    max_velocity = 0.
-    for m in maxima[::-1]:
-        if second_derivative[m] < 0:
-            continue
+    # We only want positive accelerations, i.e. flagging increasing.
+    maxima = maxima[second_derivative[maxima] > 0]
+    # Pick the shortest baseline "significant" maximum.
+    good = second_derivative[maxima] / second_derivative.max() > 0.5
+    m = maxima[good].min()
+    # If thats not the shortest baseline maximum, we can go one lower as long as the velocity doesn't go below 0.
+    if m != maxima.min():
+        index = np.where(maxima == m)[0][0]
+        m_test = maxima[index-1]
+        if np.all(derivative[m_test:m]/derivative.max() > -0.05):
+            m = m_test
 
-        # Estimated change ine the size of the beam.
-        beam_original = np.percentile(offsets, 80)
-        beam_post = np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
-                offsets > test_r[m])], 80)
-        beam_change = beam_original / beam_post
-
-        # If the change in the beam size is < 1.05, then this is an acceptable solution.
-        """
-        if beam_change < 1.05:
-            offset_limit = test_r[m]
-            break
-        """
-        if derivative[m] > max_velocity:
-            offset_limit = test_r[m]
-            max_velocity = derivative[m]
-            flagged_fraction = fraction_flagged_antennas[m]
+    offset_limit = test_r[m]
+    max_velocity = derivative[m]
+    flagged_fraction = fraction_flagged_antennas[m]
 
     if only_long_baselines:
         ok_to_flag_antennas = unique_antennas[unique_offsets > offset_limit]
