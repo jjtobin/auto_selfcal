@@ -537,7 +537,7 @@ for target in all_targets:
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, savemodel_only=True)
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], savemodel_only=True)
 
          for vis in vislist:
             applycal_gaintable[vis]=[]
