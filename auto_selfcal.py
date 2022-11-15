@@ -56,6 +56,7 @@ delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
 telescope=get_telescope(vislist[0])
 apply_cal_mode_default='calflag'
+full_tclean_post=True
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -689,14 +690,23 @@ for target in all_targets:
             startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0']
          elif selfcal_library[target][band]['nterms']==2:
             startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
-         tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                  band_properties,band,telescope=telescope,scales=[0], nsigma=0.0,\
-                  savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=selfcal_library[target][band]['nterms'],\
-                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],
-                  uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+         if full_tclean_post:
+             tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
+                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
+                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
+                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
+                      nterms=selfcal_library[target][band]['nterms'],
+                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+         else:
+             tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
+                      band_properties,band,telescope=telescope,scales=[0], nsigma=0.0,\
+                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=selfcal_library[target][band]['nterms'],\
+                      niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],
+                      uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
          print('Post selfcal assessemnt: '+target)
          #copy mask for use in post-selfcal SNR measurement
-         os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+         if not full_tclean_post:
+             os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
          post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          if post_SNR > 500.0: # if S/N > 500, change nterms to 2 for best performance
             selfcal_library[target][band]['nterms']=2
