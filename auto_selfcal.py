@@ -56,7 +56,7 @@ delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
 telescope=get_telescope(vislist[0])
 apply_cal_mode_default='calflag'
-full_tclean_post=True
+full_tclean_post=False
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
