@@ -60,7 +60,7 @@ unflag_only_lbants = False
 unflag_only_lbants_onlyap = False
 calonly_max_flagged = 0.0
 second_iter_solmode = ""
-full_tclean_post=True
+full_tclean_post=False
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
