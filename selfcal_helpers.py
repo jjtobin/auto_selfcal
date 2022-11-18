@@ -2549,8 +2549,9 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # Get a smoothed number of antennas flagged as a function of offset.
     test_r = np.linspace(0., offsets.max(), 1000)
     neff = (nants)**(-1./(1+4))
-    kernel = scipy.stats.gaussian_kde(offsets[np.any(flags, axis=(0,1))], bw_method=neff)
     kernal2 = scipy.stats.gaussian_kde(offsets, bw_method=neff)
+    kernel = scipy.stats.gaussian_kde(offsets[np.any(flags, axis=(0,1))], \
+            bw_method=kernal2.factor*offsets.std()/offsets[np.any(flags, axis=(0,1))].std())
 
     normalized = kernel(test_r) * np.any(flags, axis=(0,1)).sum() / np.trapz(kernel(test_r), test_r)
     normalized2 = kernal2(test_r) * antennas.size / np.trapz(kernal2(test_r), test_r)
@@ -2564,10 +2565,10 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # Check which minima include enough antennas to explain the beam ratio.
 
     maxima = scipy.signal.argrelextrema(second_derivative, np.greater)[0]
-    # We only want positive accelerations, i.e. flagging increasing.
-    maxima = maxima[second_derivative[maxima] > 0]
+    # We only want positive accelerations and positive velocities, i.e. flagging increasing.
+    maxima = maxima[np.logical_and(second_derivative[maxima] > 0, derivative[maxima] > 0 )]
     # Pick the shortest baseline "significant" maximum.
-    good = second_derivative[maxima] / second_derivative.max() > 0.5
+    good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
     m = maxima[good].min()
     # If thats not the shortest baseline maximum, we can go one lower as long as the velocity doesn't go below 0.
     if m != maxima.min():
@@ -2596,7 +2597,7 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
 
     ax1.plot(test_r, fraction_flagged_antennas, "k-")
     ax2.plot(test_r, derivative / derivative.max(), "g-")
-    ax2.plot(test_r, second_derivative / second_derivative.max(), "r-")
+    ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
 
     for m in maxima[::-1]:
         if second_derivative[m] < 0:
