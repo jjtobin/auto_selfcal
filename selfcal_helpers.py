@@ -2507,12 +2507,25 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
-def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0.):
+def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[]):
     tb.open(caltable, nomodify=False)
     antennas = tb.getcol("ANTENNA1")
     flags = tb.getcol("FLAG")
     cals = tb.getcol("CPARAM")
     snr = tb.getcol("SNR")
+
+    if len(spwmap) > 0:
+        spws = tb.getcol("SPECTRAL_WINDOW_ID")
+        good_spws = np.repeat(False, spws.size)
+        for spw in np.unique(spwmap):
+            good_spws = np.logical_or(good_spws, spws == spw)
+
+        antennas = antennas[good_spws]
+        flags = flags[:,:,good_spws]
+        cals = cals[:,:,good_spws]
+        snr = snr[:,:,good_spws]
+    else:
+        good_spws = np.repeat(True, antennas.size)
  
     # Get the percentage of flagged solutions for each antenna.
     unique_antennas = np.unique(antennas)
@@ -2624,8 +2637,14 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
         print("Normalizing the amplitudes by a factor of ", scale)
         cals = cals / scale
 
-    tb.putcol("FLAG", flags)
-    tb.putcol("CPARAM", cals)
+    modified_flags = tb.getcol("FLAG")
+    modified_cals = tb.getcol("CPARAM")
+
+    modified_flags[:,:,good_spws] = flags
+    modified_cals[:,:,good_spws] = cals
+
+    tb.putcol("FLAG", modified_flags)
+    tb.putcol("CPARAM", modified_cals)
     tb.flush()
 
     tb.close()
