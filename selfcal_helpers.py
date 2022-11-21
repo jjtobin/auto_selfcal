@@ -795,7 +795,7 @@ def get_ant_list(vis):
    msmd.close()
    return names
 
-def rank_refants(vis):
+def rank_refants(vis, caltable=None):
      # Get the antenna names and offsets.
 
      msmd = casatools.msmetadata()
@@ -826,10 +826,23 @@ def rank_refants(vis):
              str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
              range(len(names))]
 
+     # Calculate the median SNR for each antenna.
+
+     if caltable != None:
+         tb.open(caltable)
+         snr = tb.getcol("SNR")
+         tb.close()
+
+         nants = len(names)
+         ordered_snr = snr.reshape(snr.shape[0:2] + (snr.shape[2]//nants, nants))
+         total_snr = ordered_snr.sum(axis=2).sum(axis=0).sum(axis=0)
+
      # Calculate a score based on those two.
 
      score = [offsets[i] / max(offsets) + nflags[i] / max(nflags) \
              for i in range(len(names))]
+     if caltable != None:
+         score = [score[i] + (1 - total_snr[i] / max(total_snr)) for i in range(len(names))]
 
      # Print out the antenna scores.
 
@@ -2557,7 +2570,8 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
-def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0.):
+def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., 
+        fb_to_prev_solint=False, solints=[], iteration=0):
     tb.open(caltable, nomodify=False)
     antennas = tb.getcol("ANTENNA1")
     flags = tb.getcol("FLAG")
@@ -2657,6 +2671,7 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
             ax1.axvline(test_r[m])
 
     fig.savefig(caltable.replace(".g",".pass.png"))
+    plt.close(fig)
 
     # Now combine the cluster of antennas with high flagging fraction with the antennas that actually have enough
     # flagging to warrant passing through to get the list of pass through antennas.
@@ -2685,3 +2700,60 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     tb.flush()
 
     tb.close()
+
+    # Check whether earlier solints have acceptable solutions, and if so use, those instead.
+
+    if fb_to_prev_solint:
+        if "ap" in solints[iteration]:
+            for i in range(len(solints)):
+                if "ap" in solints[i]:
+                    min_iter = i
+                    break
+        else:
+            min_iter = 1
+
+        for i, solint in enumerate(solints[min_iter:iteration][::-1]):
+            print("Testing solint ", solint)
+            print("Opening gaintable ", caltable.replace(solints[iteration]+"_"+str(iteration), solint+"_"+str(iteration-i-1)))
+            tb.open(caltable.replace(solints[iteration]+"_"+str(iteration), solint+"_"+str(iteration-i-1)))
+            antennas = tb.getcol("ANTENNA1")
+            flags = tb.getcol("FLAG")
+            cals = tb.getcol("CPARAM")
+            snr = tb.getcol("SNR")
+            tb.close()
+
+            new_pass_through_antennas = []
+            print(list(pass_through_antennas))
+            for ant in pass_through_antennas:
+                good = antennas == ant
+                if np.all(cals[:,:,good].real == 1) and np.all(cals[:,:,good].imag == 0) and np.all(flags[:,:,good] == False):
+                    new_pass_through_antennas.append(ant)
+                    print("Skipping ant ",ant," because it was passed through in solint = ", solint)
+                else:
+                    tb.open(caltable, nomodify=False)
+                    bad_rows = np.where(tb.getcol("ANTENNA1") == ant)[0]
+                    tb.removerows(rownrs=bad_rows)
+                    tb.flush()
+                    tb.close()
+
+                    tb.open(caltable.replace(solints[iteration]+"_"+str(iteration), solint+"_"+str(iteration-i-1)))
+                    good_rows = np.where(tb.getcol("ANTENNA1") == ant)[0]
+                    print("Copying these rows into ", caltable, ":")
+                    print(good_rows)
+                    for row in good_rows:
+                        tb.copyrows(outtable=caltable, startrowin=row, nrow=1)
+                    tb.close()
+
+            pass_through_antennas = new_pass_through_antennas
+
+        tb.open(caltable)
+        rownumbers = tb.rownumbers()
+        subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
+        tb.close()
+
+        subt.copyrows(outtable=caltable)
+        tb.open(caltable, nomodify=False)
+        tb.removerows(rownrs=rownumbers)
+        tb.flush()
+        tb.close()
+        subt.close()

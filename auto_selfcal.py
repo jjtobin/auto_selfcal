@@ -60,6 +60,8 @@ unflag_only_lbants = False
 unflag_only_lbants_onlyap = False
 calonly_max_flagged = 0.0
 second_iter_solmode = ""
+unflag_fb_to_prev_solint = False
+rerank_refants=False
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -650,6 +652,41 @@ for target in all_targets:
                      field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                      interp=gaincal_interpolate[vis], solmode=gaincal_solmode)
 
+                if rerank_refants:
+                    selfcal_library[target][band][vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+
+                    # If we are falling back to a previous solution interval on the unflagging, we need to make sure all tracks use a common 
+                    # reference antenna.
+                    if fb_to_prev_solint:
+                        for it, sint in enumerate(solints[band][0:iteration+1]):
+                            if not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g'):
+                                continue
+
+                            # If a previous iteration went through the unflagging routine, it is possible that some antennas fell back to
+                            # a previous solint. In that case, rerefant will flag those antennas because they can't be re-referenced with
+                            # a different time interval. So to be safe, we go back to the pre-pass solutions and then re-run the passing.
+                            # We could probably check more carefully whether this is the case to avoid having to do this... but the 
+                            # computing time isn't significant so it's easy just to run through again.
+                            if os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g'):
+                                rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g', \
+                                        refant=selfcal_library[target][band][vis]["refant"])
+
+                                os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g'):
+                                os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g '+\
+                                        sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g')
+
+                                unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
+                                        solmode[band][it]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                                        only_long_baselines=solmode[band][it]=="ap" if unflag_only_lbants and \
+                                        unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
+                                        fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=it)
+                            else:
+                                rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
+                                        refant=selfcal_library[target][band][vis]["refant"])
+                    else:
+                        rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
+                                refant=selfcal_library[target][band][vis]["refant"])
+
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
                 # Should we also restrict to just long baseline antennas?
                 if applymode == "calonly":
@@ -660,7 +697,8 @@ for target in all_targets:
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
                             solmode[band][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=solmode[band][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
-                            unflag_only_lbants, calonly_max_flagged=calonly_max_flagged)
+                            unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, fb_to_prev_solint=unflag_fb_to_prev_solint, \
+                            solints=solints[band], iteration=iteration)
 
                 ##
                 ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
