@@ -769,7 +769,7 @@ def get_ant_list(vis):
    msmd.close()
    return names
 
-def rank_refants(vis):
+def rank_refants(vis, caltable=None):
      # Get the antenna names and offsets.
 
      msmd = casatools.msmetadata()
@@ -800,10 +800,23 @@ def rank_refants(vis):
              str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
              range(len(names))]
 
+     # Calculate the median SNR for each antenna.
+
+     if caltable != None:
+         tb.open(caltable)
+         snr = tb.getcol("SNR")
+         tb.close()
+
+         nants = len(names)
+         ordered_snr = snr.reshape(snr.shape[0:2] + (snr.shape[2]//nants, nants))
+         total_snr = ordered_snr.sum(axis=2).sum(axis=0).sum(axis=0)
+
      # Calculate a score based on those two.
 
      score = [offsets[i] / max(offsets) + nflags[i] / max(nflags) \
              for i in range(len(names))]
+     if caltable != None:
+         score = [score[i] + (1 - total_snr[i] / max(total_snr)) for i in range(len(names))]
 
      # Print out the antenna scores.
 

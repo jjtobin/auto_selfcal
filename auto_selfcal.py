@@ -61,6 +61,7 @@ unflag_only_lbants_onlyap = False
 calonly_max_flagged = 0.0
 second_iter_solmode = ""
 unflag_fb_to_prev_solint = False
+rerank_refants=False
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -635,6 +636,12 @@ for target in all_targets:
                      solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,5.0), minblperant=4,combine=gaincal_combine[band][iteration],
                      field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                      interp=gaincal_interpolate[vis], solmode=gaincal_solmode)
+
+                if rerank_refants:
+                    selfcal_library[target][band][vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+
+                    rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
+                            refant=selfcal_library[target][band][vis]["refant"])
 
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
                 # Should we also restrict to just long baseline antennas?
