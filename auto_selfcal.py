@@ -56,6 +56,7 @@ delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
 telescope=get_telescope(vislist[0])
 apply_cal_mode_default='calflag'
+rerank_refants=False
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -603,6 +604,13 @@ for target in all_targets:
                  solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
                  field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                  interp=gaincal_interpolate[vis])
+
+            if rerank_refants:
+                selfcal_library[target][band][vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+
+                rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
+                        refant=selfcal_library[target][band][vis]["refant"])
+
             ##
             ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
             ## the number of flagged antennas when combine='spw' then determine if it needs spwmapping or to use the gaintable with spwcombine.
