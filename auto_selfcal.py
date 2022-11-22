@@ -642,7 +642,7 @@ for target in all_targets:
 
                     # If we are falling back to a previous solution interval on the unflagging, we need to make sure all tracks use a common 
                     # reference antenna.
-                    if fb_to_prev_solint:
+                    if unflag_fb_to_prev_solint:
                         for it, sint in enumerate(solints[band][0:iteration+1]):
                             if not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g'):
                                 continue
@@ -656,7 +656,7 @@ for target in all_targets:
                                 rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g', \
                                         refant=selfcal_library[target][band][vis]["refant"])
 
-                                os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g'):
+                                os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g')
                                 os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g '+\
                                         sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g')
 
