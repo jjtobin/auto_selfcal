@@ -672,19 +672,6 @@ for target in all_targets:
                         rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
                                 refant=selfcal_library[target][band][vis]["refant"])
 
-                # If iteration two, try restricting to just the antennas with enough unflagged data.
-                # Should we also restrict to just long baseline antennas?
-                if applymode == "calonly":
-                    # Make a copy of the caltable before unflagging, for reference.
-                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][iteration]+'.pre-pass.g')
-                    unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
-                            only_long_baselines=solmode[band][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
-                            unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, fb_to_prev_solint=unflag_fb_to_prev_solint, \
-                            solints=solints[band], iteration=iteration)
-
                 ##
                 ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
                 ## the number of flagged antennas when combine='spw' then determine if it needs spwmapping or to use the gaintable with spwcombine.
@@ -717,8 +704,27 @@ for target in all_targets:
                          gaincal_spwmap[vis]=applycal_spwmap_inf_EB
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan'
                          gaincal_combine[band][iteration]='scan'
-                         applycal_spwmap[vis]=applycal_spwmap_inf_EB
+                         applycal_spwmap[vis]=[applycal_spwmap_inf_EB]
                    os.system('rm -rf test_inf_EB.g')               
+
+                # If iteration two, try restricting to just the antennas with enough unflagged data.
+                # Should we also restrict to just long baseline antennas?
+                if applymode == "calonly":
+                    # Make a copy of the caltable before unflagging, for reference.
+                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][iteration]+'.pre-pass.g')
+
+                    if solint == "inf_EB" and len(applycal_spwmap[vis]) > 0:
+                        unflag_spwmap = applycal_spwmap[vis][0]
+                    else:
+                        unflag_spwmap = []
+
+                    unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                            only_long_baselines=solmode[band][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
+                            unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, 
+                            fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=iteration)
 
              for vis in vislist:
                 ##
@@ -742,16 +748,16 @@ for target in all_targets:
                     selfcal_library[target][band][vis][solint]['Beam_major_pre']=header['restoringbeam']['major']['value']
                     selfcal_library[target][band][vis][solint]['Beam_minor_pre']=header['restoringbeam']['minor']['value']
                     selfcal_library[target][band][vis][solint]['Beam_PA_pre']=header['restoringbeam']['positionangle']['value'] 
-                    selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
                     selfcal_library[target][band][vis][solint]['iteration']=iteration+0
-                    selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
-                    selfcal_library[target][band][vis][solint]['applycal_mode']=applymode
-                    selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                    selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
                     selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
                     selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
-                    selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
-                    selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
+                selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
+                selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
+                selfcal_library[target][band][vis][solint]['applycal_mode']=applymode
+                selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
+                selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
+                selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
              ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
              ##
              if selfcal_library[target][band]['nterms']==1:

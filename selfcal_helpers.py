@@ -2520,13 +2520,26 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
-def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., 
+def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
         fb_to_prev_solint=False, solints=[], iteration=0):
     tb.open(caltable, nomodify=False)
     antennas = tb.getcol("ANTENNA1")
     flags = tb.getcol("FLAG")
     cals = tb.getcol("CPARAM")
     snr = tb.getcol("SNR")
+
+    if len(spwmap) > 0:
+        spws = tb.getcol("SPECTRAL_WINDOW_ID")
+        good_spws = np.repeat(False, spws.size)
+        for spw in np.unique(spwmap):
+            good_spws = np.logical_or(good_spws, spws == spw)
+
+        antennas = antennas[good_spws]
+        flags = flags[:,:,good_spws]
+        cals = cals[:,:,good_spws]
+        snr = snr[:,:,good_spws]
+    else:
+        good_spws = np.repeat(True, antennas.size)
  
     # Get the percentage of flagged solutions for each antenna.
     unique_antennas = np.unique(antennas)
@@ -2550,8 +2563,9 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # Get a smoothed number of antennas flagged as a function of offset.
     test_r = np.linspace(0., offsets.max(), 1000)
     neff = (nants)**(-1./(1+4))
-    kernel = scipy.stats.gaussian_kde(offsets[np.any(flags, axis=(0,1))], bw_method=neff)
     kernal2 = scipy.stats.gaussian_kde(offsets, bw_method=neff)
+    kernel = scipy.stats.gaussian_kde(offsets[np.any(flags, axis=(0,1))], \
+            bw_method=kernal2.factor*offsets.std()/offsets[np.any(flags, axis=(0,1))].std())
 
     normalized = kernel(test_r) * np.any(flags, axis=(0,1)).sum() / np.trapz(kernel(test_r), test_r)
     normalized2 = kernal2(test_r) * antennas.size / np.trapz(kernal2(test_r), test_r)
@@ -2565,27 +2579,21 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # Check which minima include enough antennas to explain the beam ratio.
 
     maxima = scipy.signal.argrelextrema(second_derivative, np.greater)[0]
-    max_velocity = 0.
-    for m in maxima[::-1]:
-        if second_derivative[m] < 0:
-            continue
+    # We only want positive accelerations and positive velocities, i.e. flagging increasing.
+    maxima = maxima[np.logical_and(second_derivative[maxima] > 0, derivative[maxima] > 0 )]
+    # Pick the shortest baseline "significant" maximum.
+    good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
+    m = maxima[good].min()
+    # If thats not the shortest baseline maximum, we can go one lower as long as the velocity doesn't go below 0.
+    if m != maxima.min():
+        index = np.where(maxima == m)[0][0]
+        m_test = maxima[index-1]
+        if np.all(derivative[m_test:m]/derivative.max() > -0.05):
+            m = m_test
 
-        # Estimated change ine the size of the beam.
-        beam_original = np.percentile(offsets, 80)
-        beam_post = np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
-                offsets > test_r[m])], 80)
-        beam_change = beam_original / beam_post
-
-        # If the change in the beam size is < 1.05, then this is an acceptable solution.
-        """
-        if beam_change < 1.05:
-            offset_limit = test_r[m]
-            break
-        """
-        if derivative[m] > max_velocity:
-            offset_limit = test_r[m]
-            max_velocity = derivative[m]
-            flagged_fraction = fraction_flagged_antennas[m]
+    offset_limit = test_r[m]
+    max_velocity = derivative[m]
+    flagged_fraction = fraction_flagged_antennas[m]
 
     if only_long_baselines:
         ok_to_flag_antennas = unique_antennas[unique_offsets > offset_limit]
@@ -2603,7 +2611,7 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
 
     ax1.plot(test_r, fraction_flagged_antennas, "k-")
     ax2.plot(test_r, derivative / derivative.max(), "g-")
-    ax2.plot(test_r, second_derivative / second_derivative.max(), "r-")
+    ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
 
     for m in maxima[::-1]:
         if second_derivative[m] < 0:
@@ -2645,8 +2653,14 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
         print("Normalizing the amplitudes by a factor of ", scale)
         cals = cals / scale
 
-    tb.putcol("FLAG", flags)
-    tb.putcol("CPARAM", cals)
+    modified_flags = tb.getcol("FLAG")
+    modified_cals = tb.getcol("CPARAM")
+
+    modified_flags[:,:,good_spws] = flags
+    modified_cals[:,:,good_spws] = cals
+
+    tb.putcol("FLAG", modified_flags)
+    tb.putcol("CPARAM", modified_cals)
     tb.flush()
 
     tb.close()
