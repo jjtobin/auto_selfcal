@@ -678,11 +678,16 @@ for target in all_targets:
                                 os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g '+\
                                         sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g')
 
+                                if sint == "inf_EB" and len(selfcal_library[target][band][vis][sint]["spwmap"][0]) > 0:
+                                    unflag_spwmap = selfcal_library[target][band][vis][sint]["spwmap"][0]
+                                else:
+                                    unflag_spwmap = []
+
                                 unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
                                         solmode[band][it]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
                                         only_long_baselines=solmode[band][it]=="ap" if unflag_only_lbants and \
                                         unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
-                                        fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=it)
+                                        spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=it)
                             else:
                                 rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
                                         refant=selfcal_library[target][band][vis]["refant"])
