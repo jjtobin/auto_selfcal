@@ -692,7 +692,7 @@ for target in all_targets:
                                 rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
                                         refant=selfcal_library[target][band][vis]["refant"])
                     else:
-                        rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
+                        rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', \
                                 refant=selfcal_library[target][band][vis]["refant"])
 
                 ##
