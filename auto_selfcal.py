@@ -703,6 +703,7 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
             selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
 
+<<<<<<< HEAD
          ##
          ## compare beam relative to original image to ensure we are not incrementally changing the beam in each iteration
          ##
@@ -728,6 +729,7 @@ for target in all_targets:
                selfcal_library[target][band][vis]['applycal_interpolate_final']=selfcal_library[target][band][vis][solint]['applycal_interpolate']
                selfcal_library[target][band][vis]['gaincal_combine_final']=selfcal_library[target][band][vis][solint]['gaincal_combine']
                selfcal_library[target][band][vis][solint]['Pass']=True
+               selfcal_library[target][band][vis][solint]['Fail_Reason']='None'
             if solmode[band][iteration]=='p':            
                selfcal_library[target][band]['final_phase_solint']=solint
             selfcal_library[target][band]['final_solint']=solint
@@ -743,14 +745,13 @@ for target in all_targets:
                print('****************Selfcal passed, shortening solint*************')
             else:
                print('****************Selfcal passed for Minimum solint*************')
+
          ## 
          ## if S/N worsens, and/or beam area increases reject current solutions and reapply previous (or revert to origional data)
          ##
  
 
          else: 
-            for vis in vislist:
-               selfcal_library[target][band][vis][solint]['Pass']=False
             reason=''
             if (post_SNR <= SNR):
                reason=reason+' S/N decrease'
@@ -759,6 +760,9 @@ for target in all_targets:
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
             selfcal_library[target][band]['Stop_Reason']=reason
+            for vis in vislist:
+               selfcal_library[target][band][vis][solint]['Pass']=False
+               selfcal_library[target][band][vis][solint]['Fail_Reason']=reason
             print('****************Selfcal failed*************')
             print('REASON: '+reason)
             if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round

@@ -2046,7 +2046,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                   vis_solint_keys=sclib[target][band][vislist[len(vislist)-1]][solint].keys()
                   if key=='Pass':
                      if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
-                        line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band]['Stop_Reason'])
+                        line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
                   if key=='intflux_final':
@@ -2072,7 +2072,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                      line+='    <td>{:0.2e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
 
                   if key=='Beam_Ratio':
-                     line+='    <td>{:0.2e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post'])/(sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']))
+                     line+='    <td>{:0.2e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))
                   if key =='clean_threshold':
                      if key in vis_solint_keys:
                         line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['clean_threshold']*1000.0)
