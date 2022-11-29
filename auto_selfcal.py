@@ -703,7 +703,6 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
             selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
 
-<<<<<<< HEAD
          ##
          ## compare beam relative to original image to ensure we are not incrementally changing the beam in each iteration
          ##
