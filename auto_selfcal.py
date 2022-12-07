@@ -499,18 +499,29 @@ for target in all_targets:
          ## set threshold based on RMS of initial image and lower if value becomes lower
          ## during selfcal by resetting 'RMS_curr' after the post-applycal evaluation
          ##
+         if selfcal_library[target][band]['final_solint'] != 'None':
+             prev_solint = selfcal_library[target][band]['final_solint']
+             prev_iteration = selfcal_library[target][band][vislist[0]][prev_solint]['iteration']
+
+             nterms_changed = len(glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.model.tt*")) < 
+                    selfcal_library[target][band]['nterms']
+
+             if nterms_changed:
+                 resume = False
+             else:
+                 resume = True
+                 files = glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.*")
+                 for f in files:
+                     os.system("cp -r "+f+" "+f.replace(prev_solint+"_"+str(prev_iteration)+"_post", solint+'_'+str(iteration)))
+         else:
+             resume = False
+
          tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
-         print('Pre selfcal assessemnt: '+target)
-         SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
-         if telescope !='ACA':
-            SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
-         else:
-            SNR_NF,RMS_NF=SNR,RMS
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], resume=resume)
 
          header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
 
@@ -656,6 +667,40 @@ for target in all_targets:
                      gaintable=applycal_gaintable[vis],\
                      interp=applycal_interpolate[vis], calwt=True,spwmap=applycal_spwmap[vis],\
                      applymode=applycal_mode[band][iteration],field=target,spw=selfcal_library[target][band][vis]['spws'])
+
+         ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
+         ##
+         os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
+         tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
+                  band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
+                  threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
+                  savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
+                  nterms=selfcal_library[target][band]['nterms'],
+                  field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+
+         ##
+         ## Do the assessment of the post- (and pre-) selfcal images.
+         ##
+         print('Pre selfcal assessemnt: '+target)
+         SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                 maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+         if telescope !='ACA':
+            SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                    maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+         else:
+            SNR_NF,RMS_NF=SNR,RMS
+
+         print('Post selfcal assessemnt: '+target)
+         #copy mask for use in post-selfcal SNR measurement
+         post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+         if telescope !='ACA':
+            post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+         else:
+            post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
+
+         if post_SNR > 500.0: # if S/N > 500, change nterms to 2 for best performance
+            selfcal_library[target][band]['nterms']=2
+
          for vis in vislist:
             ##
             ## record self cal results/details for this solint
@@ -678,28 +723,6 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
             selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
             selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
-         ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
-         ##
-         if selfcal_library[target][band]['nterms']==1:
-            startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0']
-         elif selfcal_library[target][band]['nterms']==2:
-            startmodel=[sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt0',sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.model.tt1']
-         tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                  band_properties,band,telescope=telescope,scales=[0], nsigma=0.0,\
-                  savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=selfcal_library[target][band]['nterms'],\
-                  niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],
-                  uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
-         print('Post selfcal assessemnt: '+target)
-         #copy mask for use in post-selfcal SNR measurement
-         os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
-         post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         if post_SNR > 500.0: # if S/N > 500, change nterms to 2 for best performance
-            selfcal_library[target][band]['nterms']=2
-         if telescope !='ACA':
-            post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-         else:
-            post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
-         for vis in vislist:
             selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
             selfcal_library[target][band][vis][solint]['SNR_NF_post']=post_SNR_NF.copy()
