@@ -6,8 +6,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
-                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point',\
-                   resume=False):
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', \
+                   savemodel_only=False, resume=False):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -73,42 +73,43 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
 
     if gridder=='mosaic' and startmodel!='':
        parallel=False
-    if not resume:
-        for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
-            os.system('rm -rf '+ imagename + ext)
-    tclean(vis= vis, 
-           imagename = imagename, 
-           field=field,
-           specmode = 'mfs', 
-           deconvolver = 'mtmfs',
-           scales = scales, 
-           gridder=gridder,
-           weighting='briggs', 
-           robust = robust,
-           gain = gain,
-           imsize = imsize,
-           cell = cellsize, 
-           smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
-           niter = niter, #we want to end on the threshold
-           interactive = interactive,
-           nsigma=nsigma,    
-           cycleniter = cycleniter,
-           cyclefactor = cyclefactor, 
-           uvtaper = uvtaper, 
-           savemodel = 'none',
-           mask=mask,
-           usemask=usemask,
-           sidelobethreshold=sidelobethreshold,
-           smoothfactor=smoothfactor,
-           pbmask=pbmask,
-           pblimit=pblimit,
-           nterms = nterms,
-           uvrange=uvrange,
-           threshold=threshold,
-           parallel=parallel,
-           phasecenter=phasecenter,
-           startmodel=startmodel,
-           datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes)
+    if not savemodel_only:
+        if not resume:
+            for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+                os.system('rm -rf '+ imagename + ext)
+        tclean(vis= vis, 
+               imagename = imagename, 
+               field=field,
+               specmode = 'mfs', 
+               deconvolver = 'mtmfs',
+               scales = scales, 
+               gridder=gridder,
+               weighting='briggs', 
+               robust = robust,
+               gain = gain,
+               imsize = imsize,
+               cell = cellsize, 
+               smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
+               niter = niter, #we want to end on the threshold
+               interactive = interactive,
+               nsigma=nsigma,    
+               cycleniter = cycleniter,
+               cyclefactor = cyclefactor, 
+               uvtaper = uvtaper, 
+               savemodel = 'none',
+               mask=mask,
+               usemask=usemask,
+               sidelobethreshold=sidelobethreshold,
+               smoothfactor=smoothfactor,
+               pbmask=pbmask,
+               pblimit=pblimit,
+               nterms = nterms,
+               uvrange=uvrange,
+               threshold=threshold,
+               parallel=parallel,
+               phasecenter=phasecenter,
+               startmodel=startmodel,
+               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes)
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel=='modelcolumn':
           print("")
@@ -140,6 +141,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  pblimit=pblimit,
                  calcres = False,
                  calcpsf = False,
+                 restoration = False,
                  nterms = nterms,
                  uvrange=uvrange,
                  threshold=threshold,
@@ -1111,6 +1113,16 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
    return avgarray
 
 
+def largest_prime_factor(n):
+    i = 2
+    while i * i <= n:
+        if n % i:
+            i += 1
+        else:
+            n //= i
+    return n
+
+
 def get_image_parameters(vislist,telescope,band,band_properties):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
@@ -1135,6 +1147,10 @@ def get_image_parameters(vislist,telescope,band,band_properties):
    npixels=int(np.ceil(fov/cell / 100.0)) * 100
    if npixels > 16384:
       npixels=16384
+
+   while largest_prime_factor(npixels) >= 7:
+       npixels += 2
+
    return cellsize,npixels,nterms
 
 
