@@ -500,12 +500,29 @@ for target in all_targets:
          ## set threshold based on RMS of initial image and lower if value becomes lower
          ## during selfcal by resetting 'RMS_curr' after the post-applycal evaluation
          ##
+         if full_tclean_post and selfcal_library[target][band]['final_solint'] != 'None':
+             prev_solint = selfcal_library[target][band]['final_solint']
+             prev_iteration = selfcal_library[target][band][vislist[0]][prev_solint]['iteration']
+
+             nterms_changed = len(glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.model.tt*")) < 
+                    selfcal_library[target][band]['nterms']
+
+             if nterms_changed:
+                 resume = False
+             else:
+                 resume = True
+                 files = glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.*")
+                 for f in files:
+                     os.system("cp -r "+f+" "+f.replace(prev_solint+"_"+str(prev_iteration)+"_post", solint+'_'+str(iteration)))
+         else:
+             resume = False
+
          tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], resume=resume)
 
          if not full_tclean_post:
             print('Pre selfcal assessemnt: '+target)

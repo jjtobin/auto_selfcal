@@ -6,7 +6,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
-                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point',):
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point',\
+                   resume=False):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -72,8 +73,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
 
     if gridder=='mosaic' and startmodel!='':
        parallel=False
-    for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
-        os.system('rm -rf '+ imagename + ext)
+    if not resume:
+        for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+            os.system('rm -rf '+ imagename + ext)
     tclean(vis= vis, 
            imagename = imagename, 
            field=field,
