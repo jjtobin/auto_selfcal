@@ -503,8 +503,8 @@ for target in all_targets:
              prev_solint = selfcal_library[target][band]['final_solint']
              prev_iteration = selfcal_library[target][band][vislist[0]][prev_solint]['iteration']
 
-             nterms_changed = len(glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.model.tt*")) < 
-                    selfcal_library[target][band]['nterms']
+             nterms_changed = (len(glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.model.tt*")) < 
+                    selfcal_library[target][band]['nterms'])
 
              if nterms_changed:
                  resume = False
