@@ -903,6 +903,7 @@ for target in all_targets:
              else:
                 for vis in vislist:
                    selfcal_library[target][band][vis][solint]['Pass']=False
+                break
 
 
          ## 
