@@ -638,6 +638,14 @@ for target in all_targets:
                      applycal_spwmap[vis]=applycal_spwmap_inf_EB
                os.system('rm -rf test_inf_EB.g')               
 
+            # Do some post-gaincal cleanup.
+            tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', nomodify=False)
+            flags = tb.getcol("FLAG")
+            bad = np.where(flags[0,0,:])[0]
+            tb.removerows(rownrs=bad)
+            tb.flush()
+            tb.close()
+
          for vis in vislist:
             ##
             ## Apply gain solutions per MS, target, solint, and band
