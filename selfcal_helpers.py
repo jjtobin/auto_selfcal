@@ -1130,6 +1130,23 @@ def get_image_parameters(vislist,telescope,band,band_properties):
       fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
    if telescope=='ACA':
       fov=108.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
+
+   if mosaic:
+       msmd.open(vislist[0])
+       fieldid=msmd.fieldsforintent("*OBSERVE_TARGET*")
+       ra_phasecenter_arr=np.zeros(len(fieldid))
+       dec_phasecenter_arr=np.zeros(len(fieldid))
+       for i in range(len(fieldid)):
+          phasecenter=msmd.phasecenter(fieldid[i])
+          ra_phasecenter_arr[i]=phasecenter['m0']['value']
+          dec_phasecenter_arr[i]=phasecenter['m1']['value']
+       msmd.done()
+   
+       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
+               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
+   
+       fov += mosaic_size
+
    npixels=int(np.ceil(fov/cell / 100.0)) * 100
    if npixels > 16384:
       npixels=16384
