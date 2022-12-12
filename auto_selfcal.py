@@ -68,7 +68,7 @@ if 'VLA' in telescope:
 ##
 ## Import inital MS files to get relevant meta data
 ##
-listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
+listdict,bands,band_properties,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
 integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
 
 ##
@@ -100,7 +100,7 @@ spwstring_orig=spwstring+''
 spwsarray_orig =spwsarray.copy()
 
 vislist=glob.glob('*selfcal.ms')
-listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
+listdict,bands,band_properties,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
 integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
 
 ##
@@ -123,7 +123,7 @@ nterms={}
 applycal_interp={}
 
 for band in bands:
-   cellsize[band],imsize[band],nterms[band]=get_image_parameters(vislist,telescope,band,band_properties)
+   cellsize[band],imsize[band],nterms[band]=get_image_parameters(vislist,telescope,band,band_properties,mosaic=mosaic_field[band][all_targets[0]])
    if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
       applycal_interp[band]='linearPD'
    else:
@@ -168,7 +168,7 @@ gaincal_combine={}
 solmode={}
 applycal_mode={}
 for band in bands:
-   solints[band],integration_time,gaincal_combine[band],solmode[band]=get_solints_simple(vislist,scantimesdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal)
+   solints[band],integration_time,gaincal_combine[band],solmode[band]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=mosaic_field[band][all_targets[0]])
    print(band,solints[band])
    applycal_mode[band]=[apply_cal_mode_default]*len(solints[band])
 
@@ -194,11 +194,14 @@ for target in all_targets:
    else:
       selfcal_library[target][band]['obstype']='single-point'
    allscantimes=np.array([])
+   allscannfields=np.array([])
    for vis in vislist:
       selfcal_library[target][band][vis]['gaintable']=[]
       selfcal_library[target][band][vis]['TOS']=np.sum(scantimesdict[band][vis][target])
       selfcal_library[target][band][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target])
+      selfcal_library[target][band][vis]['Median_fields_per_scan']=np.median(scannfieldsdict[band][vis][target])
       allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
+      allscannfields=np.append(allscannfields,scannfieldsdict[band][vis][target])
       selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
       n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
       spwslist=spwsarray.tolist()
@@ -212,6 +215,7 @@ for target in all_targets:
       selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
       selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
+   selfcal_library[target][band]['Median_fields_per_scan']=np.median(allscannfields)
    selfcal_library[target][band]['uvrange']=get_uv_range(band,band_properties,vislist)
    selfcal_library[target][band]['75thpct_uv']=band_properties[vislist[0]][band]['75thpct_uv']
    print(selfcal_library[target][band]['uvrange'])
@@ -600,7 +604,7 @@ for target in all_targets:
                  caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                  gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                  refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm,
-                 solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
+                 solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
                  field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                  interp=gaincal_interpolate[vis])
             ##
