@@ -207,6 +207,7 @@ def fetch_scan_times(vislist,targets,listdict):
 
 def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
    scantimesdict={}
+   scannfieldsdict={}
    scanstartsdict={}
    scanendsdict={}
    integrationsdict={}
@@ -218,6 +219,7 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
    mosaic_field={}
    for vis in vislist:
       scantimesdict[vis]={}
+      scannfieldsdict[vis]={}
       scanstartsdict[vis]={}
       scanendsdict[vis]={}
       integrationsdict[vis]={}
@@ -229,6 +231,7 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          mosaic_field[target]['mosaic']=False
          countscans=0
          scantimes=np.array([])
+         scannfields=np.array([])
          integrations=np.array([])
          scanstarts=np.array([])
          scanends=np.array([])
@@ -236,12 +239,14 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
             if ('scan' in key) and (listdict[vis][key]['0']['FieldName']==target) and np.all(np.in1d(np.array(listdict[vis][key]['0']['SpwIds']),band_properties[vis][band]['spwarray'])):
                countscans+=1
                scantime=(listdict[vis][key]['0']['EndTime']- listdict[vis][key]['0']['BeginTime'])*86400.0
+               scannfield = len(listdict[vis][key].keys())
                ints_per_scan=np.round(scantime/listdict[vis][key]['0']['IntegrationTime'])
                integrationtime=np.append(integrationtime,np.array([listdict[vis][key]['0']['IntegrationTime']]))
                #print('Key:', key,scantime)
                scanstarts=np.append(scanstarts,np.array([listdict[vis][key]['0']['BeginTime']]))
                scanends=np.append(scanends,np.array([listdict[vis][key]['0']['EndTime']]))
                scantimes=np.append(scantimes,np.array([scantime]))
+               scannfields=np.append(scannfields,np.array([scannfield]))
                integrations=np.append(integrations,np.array([ints_per_scan]))
                n_spws=np.append(len(listdict[vis][key]['0']['SpwIds']),n_spws)
                min_spws=np.append(np.min(listdict[vis][key]['0']['SpwIds']),min_spws)
@@ -257,6 +262,7 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
                #print(scantimes)
 
          scantimesdict[vis][target]=scantimes.copy()
+         scannfieldsdict[vis][target]=scannfields.copy()
          scanstartsdict[vis][target]=scanstarts.copy()
          scanendsdict[vis][target]=scanends.copy()
          #assume each band only has a single integration time
@@ -269,8 +275,8 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
       spwslist=np.unique(spwslist).astype(int)
    else:
-     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
-   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
+     return scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
+   return scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
 
 
 def fetch_spws(vislist,targets,listdict):
@@ -402,8 +408,8 @@ def get_solints_vla(vis,scantimesdict,integrationtime):
     
 
 #actual routine used for getting solints
-def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integrationtimes,\
-                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,n_solints=4.0,do_amp_selfcal=False):
+def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationtimes,\
+                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,n_solints=4.0,do_amp_selfcal=False, mosaic=False):
    all_integrations=np.array([])
    all_nscans_per_obs=np.array([])
    all_time_between_scans=np.array([])
@@ -424,7 +430,7 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
       latest_end=0.0
       for target in targets:
          nscans_per_obs[vis][target]=len(scantimesdict[vis][target])
-         allscantimes=np.append(allscantimes,scantimesdict[vis][target])
+         allscantimes=np.append(allscantimes,scantimesdict[vis][target]/scannfieldsdict[vis][target])
          for i in range(len(scanstartsdict[vis][target])):# way to get length of an EB with multiple targets without writing new functions; I could be more clever with np.where()
             if scanstartsdict[vis][target][i] < earliest_start: 
                earliest_start=scanstartsdict[vis][target][i]
@@ -522,8 +528,16 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
    solints_list.insert(0,'inf_EB')
    gaincal_combine.insert(0,inf_EB_gaincal_combine)
 
+   # Insert scan_inf_EB if this is a mosaic.
+   if mosaic and median_scans_per_obs > 1:
+       solints_list.append('scan_inf')
+       if spwcombine:
+           gaincal_combine.append('spw,field')
+       else:
+           gaincal_combine.append('field')
+
    #insert solint = inf
-   if median_scans_per_obs > 1:                    # if only a single scan per target, redundant with inf_EB and do not include
+   if (not mosaic and median_scans_per_obs > 1) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
       solints_list.append('inf')
       if spwcombine:
          gaincal_combine.append('spw')
@@ -893,11 +907,16 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                solint_snr_per_spw[target][band][solint][str(spw)]=mean_SNR
             solint_snr[target][band][solint]=np.mean(SNR_self_EB)
             selfcal_library[target][band]['per_EB_SNR']=np.mean(SNR_self_EB)
-         elif solint =='inf' or solint == 'inf_ap':
+         elif solint =='scan_inf':
                selfcal_library[target][band]['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
                solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
                for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
                   solint_snr_per_spw[target][band][solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+         elif solint =='inf' or solint == 'inf_ap':
+               selfcal_library[target][band]['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/(selfcal_library[target][band]['Median_scan_time']/selfcal_library[target][band]['Median_fields_per_scan']))**0.5)
+               solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
+               for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
+                  solint_snr_per_spw[target][band][solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/(selfcal_library[target][band]['Median_scan_time']/selfcal_library[target][band]['Median_fields_per_scan']))**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[target][band][solint]=SNR/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
                for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
@@ -915,6 +934,9 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
       SNR = max(selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post'],selfcal_library[target][band][vislist[0]][solint_curr]['intflux_post']/selfcal_library[target][band][vislist[0]][solint_curr]['e_intflux_post'])
 
       if solint_next == 'inf' or solint_next == 'inf_ap':
+         selfcal_library[target][band]['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/(selfcal_library[target][band]['Median_scan_time']/selfcal_library[target][band]['Median_fields_per_scan']))**0.5)
+         solint_snr[target][band][solint_next]=selfcal_library[target][band]['per_scan_SNR']
+      elif solint_next == 'scan_inf':
          selfcal_library[target][band]['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
          solint_snr[target][band][solint_next]=selfcal_library[target][band]['per_scan_SNR']
       elif solint_next == 'int':
@@ -1170,7 +1192,7 @@ def largest_prime_factor(n):
     return n
 
 
-def get_image_parameters(vislist,telescope,band,band_properties):
+def get_image_parameters(vislist,telescope,band,band_properties,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -1183,6 +1205,7 @@ def get_image_parameters(vislist,telescope,band,band_properties):
    nterms=1
    if band_properties[vislist[0]][band]['fracbw'] > 0.1:
       nterms=2
+
    if 'VLA' in telescope:
       fov=45.0e9/band_properties[vislist[0]][band]['meanfreq']*60.0*1.5
       if band_properties[vislist[0]][band]['meanfreq'] < 12.0e9:
@@ -1191,6 +1214,23 @@ def get_image_parameters(vislist,telescope,band,band_properties):
       fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
    if telescope=='ACA':
       fov=108.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
+
+   if mosaic:
+       msmd.open(vislist[0])
+       fieldid=msmd.fieldsforintent("*OBSERVE_TARGET*")
+       ra_phasecenter_arr=np.zeros(len(fieldid))
+       dec_phasecenter_arr=np.zeros(len(fieldid))
+       for i in range(len(fieldid)):
+          phasecenter=msmd.phasecenter(fieldid[i])
+          ra_phasecenter_arr[i]=phasecenter['m0']['value']
+          dec_phasecenter_arr[i]=phasecenter['m1']['value']
+       msmd.done()
+
+       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
+               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
+
+       fov += mosaic_size
+
    npixels=int(np.ceil(fov/cell / 100.0)) * 100
    if npixels > 16384:
       npixels=16384
@@ -2377,6 +2417,7 @@ def importdata(vislist,all_targets,telescope):
      bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
 
    scantimesdict={}
+   scannfieldsdict={}
    scanstartsdict={}
    scanendsdict={}
    integrationsdict={}
@@ -2386,10 +2427,11 @@ def importdata(vislist,all_targets,telescope):
 
    for band in bands:
         print(band)
-        scantimesdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+        scantimesdict_temp,scannfieldsdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
         integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
 
         scantimesdict[band]=scantimesdict_temp.copy()
+        scannfieldsdict[band]=scannfieldsdict_temp.copy()
         scanstartsdict[band]=scanstartsdict_temp.copy()
         scanendsdict[band]=scanendsdict_temp.copy()
         integrationsdict[band]=integrationsdict_temp.copy()
@@ -2408,6 +2450,7 @@ def importdata(vislist,all_targets,telescope):
                  integrationsdict[band][vis].pop(target)
                  integrationtimesdict[band][vis].pop(target)
                  scantimesdict[band][vis].pop(target)
+                 scannfieldsdict[band][vis].pop(target)
                  scanstartsdict[band][vis].pop(target)
                  scanendsdict[band][vis].pop(target) 
                            
@@ -2416,7 +2459,7 @@ def importdata(vislist,all_targets,telescope):
       for delband in bands_to_remove:
          bands.remove(delband)
    
-   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict
+   return listdict,bands,band_properties,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict
 
 def flag_spectral_lines(vislist,all_targets,spwsarray):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
