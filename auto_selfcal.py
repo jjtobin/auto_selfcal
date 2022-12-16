@@ -546,7 +546,7 @@ for target in all_targets:
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume)
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic')
 
          if iteration == 0:
             gaincal_preapply_gaintable={}
@@ -787,7 +787,7 @@ for target in all_targets:
                       threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                       nterms=selfcal_library[target][band]['nterms'],
-                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier)
+                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic')
 
              ##
              ## Do the assessment of the post- (and pre-) selfcal images.
@@ -802,12 +802,39 @@ for target in all_targets:
                 SNR_NF,RMS_NF=SNR,RMS
 
              print('Post selfcal assessemnt: '+target)
-             #copy mask for use in post-selfcal SNR measurement
              post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
              if telescope !='ACA':
-                post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0', las=selfcal_library[target][band]['LAS'])
+                post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0', \
+                        las=selfcal_library[target][band]['LAS'])
              else:
                 post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
+
+             if selfcal_library[target][band]['obstype'] == 'mosaic':
+                 msmd.open(vislist[0])
+                 field_ids = msmd.fieldsforname(target)
+                 msmd.close()
+
+                 for field_id in field_ids:
+                     print()
+                     print('Pre selfcal assessemnt: '+target+', field '+str(field_id))
+                     mosaic_SNR, mosaic_RMS = estimate_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+str(iteration)+\
+                             '.image.tt0', maskname=sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+                     if telescope !='ACA':
+                        mosaic_SNR_NF,mosaic_RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+\
+                                str(iteration)+'.image.tt0', maskname=sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+\
+                                str(iteration)+'_post.mask', las=selfcal_library[target][band]['LAS'])
+                     else:
+                        mosaic_SNR_NF,mosaic_RMS_NF=mosaic_SNR,mosaic_RMS
+
+                     print('Post selfcal assessemnt: '+target+', field '+str(field_id))
+                     post_mosaic_SNR, post_mosaic_RMS = estimate_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+\
+                             str(iteration)+'_post.image.tt0')
+                     if telescope !='ACA':
+                        post_mosaic_SNR_NF,post_mosaic_RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+\
+                                '_'+str(iteration)+'_post.image.tt0', las=selfcal_library[target][band]['LAS'])
+                     else:
+                        post_mosaic_SNR_NF,post_mosaic_RMS_NF=mosaic_SNR,mosaic_RMS
+                     print()
 
              if post_SNR > 500.0: # if S/N > 500, change nterms to 2 for best performance
                 selfcal_library[target][band]['nterms']=2

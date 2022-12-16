@@ -9,7 +9,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False):
+                   savemodel_only=False, resume=False, image_mosaic_fields_separately=False):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -117,6 +117,32 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                phasecenter=phasecenter,
                startmodel=startmodel,
                datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True)
+
+        if image_mosaic_fields_separately:
+            msmd.open(vis[0]) 
+            field_ids = msmd.fieldsforname(field)
+            phasecenters = dict(zip(field_ids, [msmd.phasecenter(field_id) for field_id in field_ids]))
+            msmd.close()
+
+            for field_id in field_ids:
+                if 'VLA' in telescope:
+                   fov=45.0e9/band_properties[vis[0]][band]['meanfreq']*60.0*1.5*0.5
+                   if band_properties[vis[0]][band]['meanfreq'] < 12.0e9:
+                      fov=fov*2.0
+                if telescope=='ALMA':
+                   fov=63.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
+                if telescope=='ACA':
+                   fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
+
+                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(phasecenters[field_id]['m0']['value'], \
+                        phasecenters[field_id]['m1']['value'], fov)
+
+                for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0", ".pb.tt0"]:
+                    os.system('rm -rf '+ imagename.replace(field,field+"_field_"+str(field_id)) + ext)
+
+                    imsubimage(imagename+ext, outfile=imagename.replace(field,field+"_field_"+str(field_id))+ext, region=region, overwrite=True)
+
+
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel=='modelcolumn':
           print("")
