@@ -508,13 +508,29 @@ for target in all_targets:
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic')
          print('Pre selfcal assessemnt: '+target)
          SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
          if telescope !='ACA':
             SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
          else:
             SNR_NF,RMS_NF=SNR,RMS
+
+         if selfcal_library[target][band]['obstype'] == 'mosaic':
+             msmd.open(vislist[0])
+             field_ids = msmd.fieldsforname(target)
+             msmd.close()
+
+             for field_id in field_ids:
+                 print()
+                 print('Pre selfcal assessemnt: '+target+', field '+str(field_id))
+                 mosaic_SNR, mosaic_RMS = estimate_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
+                 if telescope !='ACA':
+                    mosaic_SNR_NF,mosaic_RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+\
+                            str(iteration)+'.image.tt0')
+                 else:
+                    mosaic_SNR_NF,mosaic_RMS_NF=mosaic_SNR,mosaic_RMS
+                 print()
 
          header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
 
@@ -690,7 +706,8 @@ for target in all_targets:
                   band_properties,band,telescope=telescope,scales=[0], nsigma=0.0,\
                   savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=selfcal_library[target][band]['nterms'],\
                   niter=0,startmodel=startmodel,field=target,spw=selfcal_library[target][band]['spws_per_vis'],
-                  uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+                  uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
+                  image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic')
          print('Post selfcal assessemnt: '+target)
          #copy mask for use in post-selfcal SNR measurement
          os.system('cp -r '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
@@ -701,6 +718,25 @@ for target in all_targets:
             post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
          else:
             post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
+
+         if selfcal_library[target][band]['obstype'] == 'mosaic':
+             msmd.open(vislist[0])
+             field_ids = msmd.fieldsforname(target)
+             msmd.close()
+
+             for field_id in field_ids:
+                 print()
+                 print('Post selfcal assessemnt: '+target+', field '+str(field_id))
+                 os.system('cp -r '+sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+str(iteration)+'.mask '+sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+                 post_mosaic_SNR, post_mosaic_RMS = estimate_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+\
+                         str(iteration)+'_post.image.tt0')
+                 if telescope !='ACA':
+                    post_mosaic_SNR_NF,post_mosaic_RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(field_id)+'_'+band+'_'+solint+'_'+\
+                            str(iteration)+'_post.image.tt0')
+                 else:
+                    post_mosaic_SNR_NF,post_mosaic_RMS_NF=mosaic_SNR,mosaic_RMS
+                 print()
+
          for vis in vislist:
             selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
