@@ -138,9 +138,10 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                         phasecenters[field_id]['m1']['value'], fov)
 
                 for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0", ".pb.tt0"]:
-                    os.system('rm -rf '+ imagename.replace(field,field+"_field_"+str(field_id)) + ext)
+                    target = sanitize_string(field)
+                    os.system('rm -rf '+ imagename.replace(target,target+"_field_"+str(field_id)) + ext)
 
-                    imsubimage(imagename+ext, outfile=imagename.replace(field,field+"_field_"+str(field_id))+ext, region=region, overwrite=True)
+                    imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+ext, region=region, overwrite=True)
 
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
