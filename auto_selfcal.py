@@ -129,7 +129,7 @@ nterms={}
 applycal_interp={}
 
 for band in bands:
-   cellsize[band],imsize[band],nterms[band]=get_image_parameters(vislist,telescope,band,band_properties,mosaic=mosaic_field[band][all_targets[0]])
+   cellsize[band],imsize[band],nterms[band]=get_image_parameters(vislist,telescope,band,band_properties,mosaic=mosaic_field[band][all_targets[0]]['mosaic'])
    if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
       applycal_interp[band]='linearPD'
    else:
@@ -174,7 +174,7 @@ gaincal_combine={}
 solmode={}
 applycal_mode={}
 for band in bands:
-   solints[band],integration_time,gaincal_combine[band],solmode[band]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=mosaic_field[band][all_targets[0]])
+   solints[band],integration_time,gaincal_combine[band],solmode[band]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=mosaic_field[band][all_targets[0]]['mosaic'])
    print(band,solints[band])
    applycal_mode[band]=[apply_cal_mode_default]*len(solints[band])
 
