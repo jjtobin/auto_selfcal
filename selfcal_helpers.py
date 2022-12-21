@@ -808,9 +808,13 @@ def get_intflux(imagename,rms,maskname=None):
    if maskname is None:
       maskname=imagename.replace('image.tt0','mask')
    imagestats=imstat(imagename=imagename,mask=maskname)
-   flux=imagestats['flux'][0]
-   n_beams=imagestats['npts'][0]/pix_per_beam
-   e_flux=(n_beams)**0.5*rms
+   if len(imagestats['flux']) > 0:
+       flux=imagestats['flux'][0]
+       n_beams=imagestats['npts'][0]/pix_per_beam
+       e_flux=(n_beams)**0.5*rms
+   else:
+       flux = 0.
+       e_flux = rms
    return flux,e_flux
 
 def get_n_ants(vislist):
