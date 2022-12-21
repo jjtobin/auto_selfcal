@@ -844,7 +844,8 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
             for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(vislist)):
-                  mean_SNR+=SNR_self_EB_spw[vislist[j]][str(spw)]
+                  if spw in SNR_self_EB_spw[vislist[j]].keys():
+                     mean_SNR+=SNR_self_EB_spw[vislist[j]][str(spw)]
                mean_SNR=mean_SNR/len(vislist) 
                solint_snr_per_spw[target][band][solint][str(spw)]=mean_SNR
             solint_snr[target][band][solint]=np.mean(SNR_self_EB)
@@ -2350,6 +2351,7 @@ def importdata(vislist,all_targets,telescope):
               band_properties[vis]['bands'].remove(band)
               print('Removing '+band+' bands from list due to no observations')
            bands_to_remove.append(band)
+        loopcount=0
         for vis in vislist:
            for target in all_targets:
               check_target=len(integrationsdict[band][vis][target])
@@ -2359,8 +2361,10 @@ def importdata(vislist,all_targets,telescope):
                  scantimesdict[band][vis].pop(target)
                  scanstartsdict[band][vis].pop(target)
                  scanendsdict[band][vis].pop(target) 
-                           
-                 mosaic_field_dict[band].pop(target)           
+                 #handle case of multiMS mosaic data; assumes mosaic info is the same for MSes
+                 if loopcount == 0:
+                    mosaic_field_dict[band].pop(target)
+           loopcount+=1        
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:
          bands.remove(delband)
