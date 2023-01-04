@@ -984,7 +984,7 @@ def get_sensitivity(vislist,selfcal_library,specmode='mfs',spwstring='',spw=[],c
    scalefactor=1.0
    for vis in vislist:
       im.open(vis)
-      im.selectvis(field='',spw=spwstring)
+      im.selectvis(field=selfcal_library['sub-fields'][0],spw=spwstring)
       im.defineimage(mode=specmode,stokes='I',spw=spw,cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
       im.weight(type='briggs',robust=robust)  
       if uvtaper != '':
