@@ -1102,10 +1102,25 @@ for target in all_targets:
              ## if S/N improvement, and beamarea is changing by < delta_beam_thresh, accept solutions to main calibration dictionary
              ## allow to proceed if solint was inf_EB and SNR decrease was less than 2%
              ##
-             field_by_field_success = [((post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NF[fid] >= mosaic_SNR_NF[fid]) and \
-                     (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_mosaic_SNR[fid]-mosaic_SNR[fid])/mosaic_SNR[fid] > \
-                     -0.02) and ((post_mosaic_SNR_NF[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02) and \
-                     (delta_beamarea < delta_beam_thresh)) for fid in selfcal_library[target][band]['sub-fields']]
+             field_by_field_success = []
+             for fid in selfcal_library[target][band]['sub-fields']:
+                 if selfcal_library[target][band][fid][vis][solint]['intflux_post'] == 0:
+                     # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
+                     # signs go the right direction. Might be good to fix this terminology to be less confusing...
+                     mosaic_value = post_mosaic_RMS[fid]
+                     post_mosaic_value = mosaic_RMS[fid]
+                     mosaic_value_NF = post_mosaic_RMS_NF[fid]
+                     post_mosaic_value_NF = post_mosaic_RMS_NF[fid]
+                 else:
+                     mosaic_value = mosaic_SNR[fid]
+                     post_mosaic_value = post_mosaic_SNR[fid]
+                     mosaic_value_NF = mosaic_SNR_NF[fid]
+                     post_mosaic_value_NF = post_mosaic_SNR_NF[fid]
+
+                 field_by_field_success += [((post_mosaic_value >= mosaic_value) and (post_mosaic_value_NF >= mosaic_value_NF) and \
+                         (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_mosaic_value-mosaic_value)/mosaic_value > \
+                         -0.02) and ((post_mosaic_value_NF - mosaic_value_NF)/mosaic_value_NF > -0.02) and \
+                         (delta_beamarea < delta_beam_thresh)) for fid in selfcal_library[target][band]['sub-fields']]
 
              if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
                 selfcal_library[target][band]['SC_success']=True
@@ -1124,11 +1139,8 @@ for target in all_targets:
                 selfcal_library[target][band]['final_solint_mode']=solmode[band][iteration]
                 selfcal_library[target][band]['iteration']=iteration
 
-                for fid in selfcal_library[target][band]['sub-fields']:
-                    if ((post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NF[fid] >= mosaic_SNR_NF[fid]) and \
-                            (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_mosaic_SNR[fid]-mosaic_SNR[fid])/ \
-                            mosaic_SNR[fid] > -0.02) and ((post_mosaic_SNR_NF[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02) and \
-                            (delta_beamarea < delta_beam_thresh)):
+                for ind, fid in enumerate(selfcal_library[target][band]['sub-fields']):
+                    if field_by_field_success[ind]:
                         selfcal_library[target][band][fid]['SC_success']=True
                         selfcal_library[target][band][fid]['Stop_Reason']='None'
                         for vis in vislist:
@@ -1210,13 +1222,28 @@ for target in all_targets:
          mosaic_reason = {}
          for fid in selfcal_library[target][band]['sub-fields']:
              if not selfcal_library[target][band][fid][vislist[0]][solint]['Pass']:
+                 if selfcal_library[target][band][fid][vislist[0]][solint]['intflux_post'] == 0:
+                     # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
+                     # signs go the right direction. Might be good to fix this terminology to be less confusing...
+                     mosaic_value = post_mosaic_RMS[fid]
+                     post_mosaic_value = mosaic_RMS[fid]
+                     mosaic_value_NF = post_mosaic_RMS_NF[fid]
+                     post_mosaic_value_NF = post_mosaic_RMS_NF[fid]
+                     metric = "RMS"
+                 else:
+                     mosaic_value = mosaic_SNR[fid]
+                     post_mosaic_value = post_mosaic_SNR[fid]
+                     mosaic_value_NF = mosaic_SNR_NF[fid]
+                     post_mosaic_value_NF = post_mosaic_SNR_NF[fid]
+                     metric = "S/N"
+
                  mosaic_reason[fid]=''
-                 if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
-                    mosaic_reason[fid]=mosaic_reason[fid]+' S/N decrease'
-                 if (post_mosaic_SNR_NF[fid] < mosaic_SNR_NF[fid]):
+                 if (post_mosaic_value <= mosaic_value):
+                    mosaic_reason[fid]=mosaic_reason[fid]+' '+metric+' decrease'
+                 if (post_mosaic_value_NF < mosaic_value_NF):
                     if mosaic_reason[fid] != '':
                         mosaic_reason[fid] += '; '
-                    mosaic_reason[fid] = mosaic_reason[fid] + ' NF S/N decrease'
+                    mosaic_reason[fid] = mosaic_reason[fid] + ' NF '+metric+' decrease'
                  if (delta_beamarea > delta_beam_thresh):
                     if mosaic_reason[fid] !='':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
