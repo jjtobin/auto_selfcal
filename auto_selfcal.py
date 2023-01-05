@@ -1102,7 +1102,9 @@ for target in all_targets:
              ## if S/N improvement, and beamarea is changing by < delta_beam_thresh, accept solutions to main calibration dictionary
              ## allow to proceed if solint was inf_EB and SNR decrease was less than 2%
              ##
-             field_by_field_success = []
+             strict_field_by_field_success = []
+             loose_field_by_field_success = []
+             beam_field_by_field_success = []
              for fid in selfcal_library[target][band]['sub-fields']:
                  if selfcal_library[target][band][fid][vis][solint]['intflux_post'] == 0:
                      # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
@@ -1117,10 +1119,17 @@ for target in all_targets:
                      mosaic_value_NF = mosaic_SNR_NF[fid]
                      post_mosaic_value_NF = post_mosaic_SNR_NF[fid]
 
-                 field_by_field_success += [((post_mosaic_value >= mosaic_value) and (post_mosaic_value_NF >= mosaic_value_NF) and \
-                         (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_mosaic_value-mosaic_value)/mosaic_value > \
-                         -0.02) and ((post_mosaic_value_NF - mosaic_value_NF)/mosaic_value_NF > -0.02) and \
-                         (delta_beamarea < delta_beam_thresh)) for fid in selfcal_library[target][band]['sub-fields']]
+                 strict_field_by_field_success += [(post_mosaic_value >= mosaic_value) and (post_mosaic_value_NF >= mosaic_value_NF)]
+                 loose_field_by_field_success += [((post_mosaic_value-mosaic_value)/mosaic_value > -0.02) and \
+                         ((post_mosaic_value_NF - mosaic_value_NF)/mosaic_value_NF > -0.02)]
+                 beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
+
+             if solint == 'inf_EB' or np.any(strict_field_by_field_success):
+                 # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
+                 # fields because there's a good chance that those are just noise being pushed around.
+                 field_by_field_success = numpy.logical_and(loose_field_by_field_success, beam_field_by_field_success)
+             else:
+                 field_by_field_success = numpy.logical_and(strict_field_by_field_success, beam_field_by_field_success)
 
              if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
                 selfcal_library[target][band]['SC_success']=True
