@@ -209,6 +209,7 @@ for target in all_targets:
    else:
       selfcal_library[target][band]['obstype']='single-point'
    selfcal_library[target][band]['sub-fields'] = mosaic_field[band][target]['field_ids']
+   selfcal_library[target][band]['sub-fields-to-selfcal'] = mosaic_field[band][target]['field_ids']
    allscantimes=np.array([])
    allscannfields=np.array([])
    for vis in vislist:
@@ -688,7 +689,7 @@ for target in all_targets:
              for vis in vislist:
                 # Record gaincal details.
                 selfcal_library[target][band][vis][solint]={}
-                for fid in selfcal_library[target][band]['sub-fields']:
+                for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                     selfcal_library[target][band][fid][vis][solint]={}
 
                 applycal_gaintable[vis]=[]
@@ -746,7 +747,7 @@ for target in all_targets:
                     selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
                     selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                     selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
-                    for fid in selfcal_library[target][band]['sub-fields']:
+                    for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                         selfcal_library[target][band][fid][vis][solint]['gaintable']=applycal_gaintable[vis]
                         selfcal_library[target][band][fid][vis][solint]['iteration']=iteration+0
                         selfcal_library[target][band][fid][vis][solint]['spwmap']=applycal_spwmap[vis]
@@ -775,7 +776,7 @@ for target in all_targets:
                          field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                          interp=gaincal_interpolate[vis], solmode=gaincal_solmode)
                 else:
-                    for fid in selfcal_library[target][band]['sub-fields']:
+                    for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                         gaincal_spwmap[vis]=[]
                         gaincal_preapply_gaintable[vis]=selfcal_library[target][band][fid][vis][selfcal_library[target][band][fid]['final_phase_solint']]['gaintable']
                         gaincal_interpolate[vis]=[applycal_interp[band]]*len(gaincal_preapply_gaintable[vis])
@@ -947,12 +948,21 @@ for target in all_targets:
                 ## Apply gain solutions per MS, target, solint, and band
                 ##
                 for fid in selfcal_library[target][band]['sub-fields']:
-                    applycal(vis=vis,\
-                             gaintable=selfcal_library[target][band][fid][vis][solint]['gaintable'],\
-                             interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=True,\
-                             spwmap=selfcal_library[target][band][fid][vis][solint]['spwmap'],\
-                             #applymode=applymode,field=target,spw=selfcal_library[target][band][vis]['spws'])
-                             applymode='calflag',field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
+                    if fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
+                        applycal(vis=vis,\
+                                 gaintable=selfcal_library[target][band][fid][vis][solint]['gaintable'],\
+                                 interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=True,\
+                                 spwmap=selfcal_library[target][band][fid][vis][solint]['spwmap'],\
+                                 #applymode=applymode,field=target,spw=selfcal_library[target][band][vis]['spws'])
+                                 applymode='calflag',field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
+                    else:
+                        if selfcal_library[target][band][fid]['SC_success']:
+                            applycal(vis=vis,\
+                                    gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
+                                    interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
+                                    calwt=True,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
+                                    applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
+                                    field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
 
              ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
              ##
@@ -987,7 +997,7 @@ for target in all_targets:
 
              mosaic_SNR, mosaic_RMS, mosaic_SNR_NF, mosaic_RMS_NF = {}, {}, {}, {}
              post_mosaic_SNR, post_mosaic_RMS, post_mosaic_SNR_NF, post_mosaic_RMS_NF = {}, {}, {}, {}
-             for fid in selfcal_library[target][band]['sub-fields']:
+             for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                  print()
                  print('Pre selfcal assessemnt: '+target+', field '+str(fid))
                  mosaic_SNR[fid], mosaic_RMS[fid] = estimate_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+\
@@ -1050,7 +1060,7 @@ for target in all_targets:
                 selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
                 selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
 
-                for fid in selfcal_library[target][band]['sub-fields']:
+                for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                     #selfcal_library[target][band][fid][vis][solint]={}
                     selfcal_library[target][band][fid][vis][solint]['SNR_pre']=mosaic_SNR[fid].copy()
                     selfcal_library[target][band][fid][vis][solint]['RMS_pre']=mosaic_RMS[fid].copy()
@@ -1105,7 +1115,7 @@ for target in all_targets:
              strict_field_by_field_success = []
              loose_field_by_field_success = []
              beam_field_by_field_success = []
-             for fid in selfcal_library[target][band]['sub-fields']:
+             for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                  if selfcal_library[target][band][fid][vis][solint]['intflux_post'] == 0:
                      # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
                      # signs go the right direction. Might be good to fix this terminology to be less confusing...
@@ -1148,7 +1158,7 @@ for target in all_targets:
                 selfcal_library[target][band]['final_solint_mode']=solmode[band][iteration]
                 selfcal_library[target][band]['iteration']=iteration
 
-                for ind, fid in enumerate(selfcal_library[target][band]['sub-fields']):
+                for ind, fid in enumerate(selfcal_library[target][band]['sub-fields-to-selfcal']):
                     if field_by_field_success[ind]:
                         selfcal_library[target][band][fid]['SC_success']=True
                         selfcal_library[target][band][fid]['Stop_Reason']='None'
@@ -1187,17 +1197,17 @@ for target in all_targets:
                                print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+\
                                        ' field '+str(fid)+' '+band+'*************')
                                applycal(vis=vis,\
-                                       gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
-                                       interp=selfcal_library[target][band][vis]['applycal_interpolate_final'],\
-                                       calwt=True,spwmap=selfcal_library[target][band][vis]['spwmap_final'],\
-                                       applymode=selfcal_library[target][band][vis]['applycal_mode_final'],\
+                                       gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
+                                       interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
+                                       calwt=True,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
+                                       applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
                                        field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
                  print('****************Attempting applymode="calonly" fallback*************')
              else:
                 for vis in vislist:
                    selfcal_library[target][band][vis][solint]['Pass']=False
 
-                for fid in selfcal_library[target][band]['sub-fields']:
+                for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                     for vis in vislist:
                         selfcal_library[target][band][fid][vis][solint]['Pass']=False
                 break
@@ -1229,7 +1239,8 @@ for target in all_targets:
                selfcal_library[target][band][vis][solint]['Fail_Reason']=reason
 
          mosaic_reason = {}
-         for fid in selfcal_library[target][band]['sub-fields']:
+         new_fields_to_selfcal = []
+         for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
              if not selfcal_library[target][band][fid][vislist[0]][solint]['Pass']:
                  if selfcal_library[target][band][fid][vislist[0]][solint]['intflux_post'] == 0:
                      # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
@@ -1263,15 +1274,21 @@ for target in all_targets:
                  for vis in vislist:
                     selfcal_library[target][band][fid][vis][solint]['Pass']=False
                     selfcal_library[target][band][fid][vis][solint]['Fail_Reason']=mosaic_reason[fid]
+             else:
+                 new_fields_to_selfcal.append(fid)
 
          # If any of the fields failed self-calibration, we need to re-apply calibrations for all fields because we need to revert flagging back
          # to the starting point.
          if np.any([selfcal_library[target][band][fid][vislist[0]][solint]['Pass'] == False for fid in \
-                 selfcal_library[target][band]['sub-fields']]):
+                 selfcal_library[target][band]['sub-fields-to-selfcal']]) or len(selfcal_library[target][band]['sub-fields-to-selfcal']) < \
+                 len(selfcal_library[target][band]['sub-fields']):
              print('****************Selfcal failed for some sub-fields:*************')
              for fid in selfcal_library[target][band]['sub-fields']:
-                 if selfcal_library[target][band][fid][vis][solint]['Pass'] == False:
-                     print('FIELD: '+str(fid)+', REASON: '+mosaic_reason[fid])
+                 if fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
+                     if selfcal_library[target][band][fid][vis][solint]['Pass'] == False:
+                         print('FIELD: '+str(fid)+', REASON: '+mosaic_reason[fid])
+                 else:
+                     print('FIELD: '+str(fid)+', REASON: Failed earlier solint')
              print('****************Reapplying previous solint solutions where available*************')
              for vis in vislist:
                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
@@ -1280,10 +1297,10 @@ for target in all_targets:
                          print('****************Applying '+str(selfcal_library[target][band][fid][vis]['gaintable_final'])+' to '+target+' field '+\
                                  str(fid)+' '+band+'*************')
                          applycal(vis=vis,\
-                                 gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
-                                 interp=selfcal_library[target][band][vis]['applycal_interpolate_final'],\
-                                 calwt=True,spwmap=selfcal_library[target][band][vis]['spwmap_final'],\
-                                 applymode=selfcal_library[target][band][vis]['applycal_mode_final'],\
+                                 gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
+                                 interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
+                                 calwt=True,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
+                                 applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
                                  field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
                      else:
                          print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
@@ -1298,7 +1315,7 @@ for target in all_targets:
          # If any of the sub-fields passed, and the whole mosaic passed, then we can move on to the next solint, otherwise we have to back out.
          if selfcal_library[target][band][vislist[0]][solint]['Pass'] == True and \
                  np.any([selfcal_library[target][band][fid][vislist[0]][solint]['Pass'] == True for fid in \
-                 selfcal_library[target][band]['sub-fields']]):
+                 selfcal_library[target][band]['sub-fields-to-selfcal']]):
              if (iteration < len(solints[band])-1) and (selfcal_library[target][band][vis][solint]['SNR_post'] > \
                      selfcal_library[target][band]['SNR_orig']): #(iteration == 0) and 
                 print('Updating solint = '+solints[band][iteration+1]+' SNR')
@@ -1308,8 +1325,9 @@ for target in all_targets:
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
-             if iteration <= 1 and not np.all([selfcal_library[target][band][fid][vislist[0]][solint]['Pass'] == True for fid in \
-                    selfcal_library[target][band]['sub-fields']]) and do_amp_selfcal:
+             if iteration <= 1 and (not np.all([selfcal_library[target][band][fid][vislist[0]][solint]['Pass'] == True for fid in \
+                    selfcal_library[target][band]['sub-fields-to-selfcal']]) or len(selfcal_library[target][band]['sub-fields-to-selfcal']) < \
+                    len(selfcal_library[target][band]['sub-fields'])) and do_amp_selfcal:
                  print("***** NOTE: Amplitude self-calibration turned off because not all fields succeeded at non-inf_EB phase self-calibration")
                  do_amp_selfcal = False
                 
@@ -1322,11 +1340,15 @@ for target in all_targets:
             print('REASON: '+reason)
             if iteration > 1 and solmode[band][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
                iterjump=solmode[band].index('ap') 
+               selfcal_library[target][band]['sub-fields-to-selfcal'] = selfcal_library[target][band]['sub-fields']
                print('****************Selfcal halted for phase, attempting amplitude*************')
                continue
             else:
                print('****************Aborting further self-calibration attempts for '+target+' '+band+'**************')
                break # breakout of loops of successive solints since solutions are getting worse
+
+         # Finally, update the list of fields to be self-calibrated now that we don't need to know the list at the beginning of this solint.
+         selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
 
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
