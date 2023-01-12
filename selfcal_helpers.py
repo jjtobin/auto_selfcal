@@ -137,11 +137,15 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                 region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(phasecenters[field_id]['m0']['value'], \
                         phasecenters[field_id]['m1']['value'], fov)
 
-                for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0", ".pb.tt0"]:
+                for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0"]:
                     target = sanitize_string(field)
                     os.system('rm -rf '+ imagename.replace(target,target+"_field_"+str(field_id)) + ext)
 
-                    imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+ext, region=region, overwrite=True)
+                    if ext == ".psf.tt0":
+                        os.system("cp -r "+imagename+ext+" "+imagename.replace(target,target+"_field_"+str(field_id))+ext)
+                    else:
+                        imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+ext, region=region, \
+                                overwrite=True)
 
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
@@ -751,9 +755,21 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
 
     # Check the extent of the beam as well.
     psfImage = imagename.replace('image','psf')
-    pbImage = imagename.replace('image','pb')
 
-    immath(imagename=[psfImage,pbImage], mode="evalexpr", expr="iif(IM0 > 0.1,1/IM1,0.0)", outfile="temp.beam.extent.image")
+    immath(psfImage, mode="evalexpr", expr="iif(IM0==1,IM0,0)", outfile="temp.delta")
+    npix = imhead("temp.delta", mode="get", hdkey="shape")[0]
+    imsmooth("temp.delta", major=str(npix/2)+"pix", minor=str(npix/2)+"pix", pa="0deg", \
+            outfile="temp.radius", overwrite=True)
+
+    bmin = imhead(imagename, mode="get", hdkey="BMIN")['value']
+    bmaj = imhead(imagename, mode="get", hdkey="BMAJ")['value']
+    bpa = imhead(imagename, mode="get", hdkey="BPA")['value']
+
+    imhead(imagename="temp.radius", mode="put", hdkey="BMIN", hdvalue=str(bmin)+"arcsec")
+    imhead(imagename="temp.radius", mode="put", hdkey="BMAJ", hdvalue=str(bmaj)+"arcsec")
+    imhead(imagename="temp.radius", mode="put", hdkey="BPA", hdvalue=str(bpa)+"deg")
+
+    immath(imagename=[psfImage,"temp.radius"], mode="evalexpr", expr="iif(IM0 > 0.1,1/IM1,0.0)", outfile="temp.beam.extent.image")
 
     centerpos = imhead(psfImage, mode="get", hdkey="maxpixpos")
     maxpos = imhead("temp.beam.extent.image", mode="get", hdkey="maxpixpos")
@@ -769,9 +785,8 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(outer_major)+'arcsec',minor=str(outer_major)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
 
     immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
-    #immath(imagename=['temp.smooth.ceiling.mask','temp.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.border.mask')
     immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.prepb.mask')
-    immath(imagename=['temp.nearfield.prepb.mask',imagename.replace("image","pb")], expr='iif(VALUE(IM1) > 0.1,IM0,1.0)',outfile='temp.nearfield.mask')
+    immath(imagename=[imagename,'temp.nearfield.prepb.mask'], expr='iif(MASK(IM0),IM1,1.0)',outfile='temp.nearfield.mask')
     maskImage='temp.nearfield.mask'
     ia.close()
     ia.done()
@@ -793,7 +808,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     ia.close()
     ia.done()
     os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius')
     return SNR,rms
 
 
