@@ -899,6 +899,14 @@ for target in all_targets:
                                calwt=True,spwmap=selfcal_library[target][band][vis]['spwmap_final'],\
                                applymode=selfcal_library[target][band][vis]['applycal_mode_final'],\
                                field=target,spw=selfcal_library[target][band][vis]['spws'])    
+
+                 else:
+                    for vis in vislist:
+                       inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
+                       if selfcal_library[target][band]['obstype']=='mosaic':
+                          inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
+                       inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
+                       inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
                  print('****************Attempting applymode="calonly" fallback*************')
              else:
                 for vis in vislist:
