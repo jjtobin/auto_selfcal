@@ -2638,6 +2638,9 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # might be negative because you have a shallow gap at the intersection of the two. So we need to do a check, and if there's no
     # peaks that satisfy this condition, ignore the velocity criterion.
     maxima = maxima[second_derivative[maxima] > 0]
+    # If we have enough peaks (i.e. the whole thing isn't flagged, then take only the peaks outside the inner 5%.
+    if len(maxima) > 1:
+        maxima = maxima[test_r[maxima] > test_r.max()*0.05]
     # Pick the shortest baseline "significant" maximum.
     good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
     m = maxima[good].min()
