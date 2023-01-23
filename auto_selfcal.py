@@ -324,10 +324,14 @@ for target in all_targets:
 
    mosaic_dirty_SNR, mosaic_dirty_RMS, mosaic_dirty_NF_SNR, mosaic_dirty_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
-       mosaic_dirty_SNR[fid], mosaic_dirty_RMS[fid] = estimate_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_dirty.image.tt0')
+       if selfcal_library[target][band]['obstype'] == 'mosaic':
+           imagename = sani_target+'_field_'+str(fid)+'_'+band+'_dirty.image.tt0'
+       else:
+           imagename = sani_target+'_'+band+'_dirty.image.tt0'
+
+       mosaic_dirty_SNR[fid], mosaic_dirty_RMS[fid] = estimate_SNR(imagename)
        if telescope !='ACA':
-          mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_dirty.image.tt0',\
-                  las=selfcal_library[target][band]['LAS'])
+          mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'])
        else:
           mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=mosaic_dirty_SNR[fid],mosaic_dirty_RMS[fid]
 
@@ -357,10 +361,14 @@ for target in all_targets:
 
    mosaic_initial_SNR, mosaic_initial_RMS, mosaic_initial_NF_SNR, mosaic_initial_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
-       mosaic_initial_SNR[fid], mosaic_initial_RMS[fid] = estimate_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0')
+       if selfcal_library[target][band]['obstype'] == 'mosaic':
+           imagename = sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0'
+       else:
+           imagename = sani_target+'_'+band+'_initial.image.tt0'
+
+       mosaic_initial_SNR[fid], mosaic_initial_RMS[fid] = estimate_SNR(imagename)
        if telescope !='ACA':
-          mosaic_initial_NF_SNR[fid],mosaic_initial_NF_RMS[fid]=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+\
-                  '_initial.image.tt0', las=selfcal_library[target][band]['LAS'])
+          mosaic_initial_NF_SNR[fid],mosaic_initial_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'])
        else:
           mosaic_initial_NF_SNR[fid],mosaic_initial_NF_RMS[fid]=mosaic_initial_SNR[fid],mosaic_initial_RMS[fid]
 
@@ -389,7 +397,12 @@ for target in all_targets:
       selfcal_library[target][band]['intflux_orig'],selfcal_library[target][band]['e_intflux_orig']=-99.0,-99.0
 
    for fid in selfcal_library[target][band]['sub-fields']:
-       header=imhead(imagename=sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0')
+       if selfcal_library[target][band]['obstype'] == 'mosaic':
+           imagename = sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0'
+       else:
+           imagename = sani_target+'_'+band+'_initial.image.tt0'
+
+       header=imhead(imagename=imagename)
        if telescope =='ALMA' or telescope == 'ACA':
           selfcal_library[target][band][fid]['theoretical_sensitivity']=sensitivity_nomod
        if 'VLA' in telescope:
@@ -407,10 +420,10 @@ for target in all_targets:
        selfcal_library[target][band][fid]['Beam_major_orig']=header['restoringbeam']['major']['value']
        selfcal_library[target][band][fid]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
        selfcal_library[target][band][fid]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
-       goodMask=checkmask(imagename=sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0')
+       goodMask=checkmask(imagename=imagename)
        if goodMask:
-          selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=get_intflux(sani_target+\
-                  '_field_'+str(fid)+'_'+band+'_initial.image.tt0',mosaic_initial_RMS[fid])
+          selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=get_intflux(imagename,\
+                  mosaic_initial_RMS[fid])
        else:
           selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=-99.0,-99.0
 
@@ -998,23 +1011,25 @@ for target in all_targets:
              mosaic_SNR, mosaic_RMS, mosaic_SNR_NF, mosaic_RMS_NF = {}, {}, {}, {}
              post_mosaic_SNR, post_mosaic_RMS, post_mosaic_SNR_NF, post_mosaic_RMS_NF = {}, {}, {}, {}
              for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
+                 if selfcal_library[target][band]['obstype'] == 'mosaic':
+                     imagename = sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)
+                 else:
+                     imagename = sani_target+'_'+band+'_'+solint+'_'+str(iteration)
+
                  print()
                  print('Pre selfcal assessemnt: '+target+', field '+str(fid))
-                 mosaic_SNR[fid], mosaic_RMS[fid] = estimate_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+\
-                         '.image.tt0', maskname=sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+                 mosaic_SNR[fid], mosaic_RMS[fid] = estimate_SNR(imagename+'.image.tt0', maskname=imagename+'_post.mask')
                  if telescope !='ACA':
-                    mosaic_SNR_NF[fid],mosaic_RMS_NF[fid]=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+\
-                            str(iteration)+'.image.tt0', maskname=sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+\
-                            str(iteration)+'_post.mask', las=selfcal_library[target][band]['LAS'])
+                    mosaic_SNR_NF[fid],mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'.image.tt0', maskname=imagename+'_post.mask', \
+                            las=selfcal_library[target][band]['LAS'])
                  else:
                     mosaic_SNR_NF[fid],mosaic_RMS_NF[fid]=mosaic_SNR[fid],mosaic_RMS[fid]
 
                  print('Post selfcal assessemnt: '+target+', field '+str(fid))
-                 post_mosaic_SNR[fid], post_mosaic_RMS[fid] = estimate_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+\
-                         str(iteration)+'_post.image.tt0')
+                 post_mosaic_SNR[fid], post_mosaic_RMS[fid] = estimate_SNR(imagename+'_post.image.tt0')
                  if telescope !='ACA':
-                    post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+\
-                            '_'+str(iteration)+'_post.image.tt0', las=selfcal_library[target][band]['LAS'])
+                    post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'_post.image.tt0', \
+                            las=selfcal_library[target][band]['LAS'])
                  else:
                     post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=mosaic_SNR[fid],mosaic_RMS[fid]
                  print()
@@ -1061,12 +1076,17 @@ for target in all_targets:
                 selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
 
                 for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
+                    if selfcal_library[target][band]['obstype'] == 'mosaic':
+                        imagename = sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)
+                    else:
+                        imagename = sani_target+'_'+band+'_'+solint+'_'+str(iteration)
+
                     #selfcal_library[target][band][fid][vis][solint]={}
                     selfcal_library[target][band][fid][vis][solint]['SNR_pre']=mosaic_SNR[fid].copy()
                     selfcal_library[target][band][fid][vis][solint]['RMS_pre']=mosaic_RMS[fid].copy()
                     selfcal_library[target][band][fid][vis][solint]['SNR_NF_pre']=mosaic_SNR_NF[fid].copy()
                     selfcal_library[target][band][fid][vis][solint]['RMS_NF_pre']=mosaic_RMS_NF[fid].copy()
-                    header=imhead(imagename=sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
+                    header=imhead(imagename=imagename+'.image.tt0')
                     selfcal_library[target][band][fid][vis][solint]['Beam_major_pre']=header['restoringbeam']['major']['value']
                     selfcal_library[target][band][fid][vis][solint]['Beam_minor_pre']=header['restoringbeam']['minor']['value']
                     selfcal_library[target][band][fid][vis][solint]['Beam_PA_pre']=header['restoringbeam']['positionangle']['value'] 
@@ -1077,7 +1097,7 @@ for target in all_targets:
                     #selfcal_library[target][band][fid][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                     #selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
                     selfcal_library[target][band][fid][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
-                    selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',mosaic_RMS[fid])
+                    selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid])
                     selfcal_library[target][band][fid][vis][solint]['fallback']=fallback[vis]+''
                     selfcal_library[target][band][fid][vis][solint]['solmode']=solmode[band][iteration]+''
                     selfcal_library[target][band][fid][vis][solint]['SNR_post']=post_mosaic_SNR[fid].copy()
@@ -1091,11 +1111,11 @@ for target in all_targets:
                     if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr']:
                        selfcal_library[target][band]['RMS_NF_curr']=selfcal_library[target][band][vis][solint]['RMS_NF_post'].copy()
                     """
-                    header=imhead(imagename=sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
+                    header=imhead(imagename=imagename+'_post.image.tt0')
                     selfcal_library[target][band][fid][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
                     selfcal_library[target][band][fid][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
                     selfcal_library[target][band][fid][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
-                    selfcal_library[target][band][fid][vis][solint]['intflux_post'],selfcal_library[target][band][fid][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
+                    selfcal_library[target][band][fid][vis][solint]['intflux_post'],selfcal_library[target][band][fid][vis][solint]['e_intflux_post']=get_intflux(imagename+'_post.image.tt0',post_RMS)
 
              ##
              ## compare beam relative to original image to ensure we are not incrementally changing the beam in each iteration
@@ -1390,10 +1410,14 @@ for target in all_targets:
 
    mosaic_final_SNR, mosaic_final_RMS, mosaic_final_NF_SNR, mosaic_final_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
-       mosaic_final_SNR[fid], mosaic_final_RMS[fid] = estimate_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_final.image.tt0')
+       if selfcal_library[target][band]['obstype'] == 'mosaic':
+           imagename = sani_target+'_field_'+str(fid)+'_'+band+'_final.image.tt0'
+       else:
+           imagename = sani_target+'_'+band+'_final.image.tt0'
+
+       mosaic_final_SNR[fid], mosaic_final_RMS[fid] = estimate_SNR(imagename)
        if telescope !='ACA':
-          mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid]=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_final.image.tt0',\
-                  las=selfcal_library[target][band]['LAS'])
+          mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'])
        else:
           mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid]=mosaic_final_SNR[fid],mosaic_final_RMS[fid]
 
@@ -1423,28 +1447,43 @@ for target in all_targets:
       selfcal_library[target][band]['intflux_final'],selfcal_library[target][band]['e_intflux_final']=-99.0,-99.0
 
    for fid in selfcal_library[target][band]['sub-fields']:
+       if selfcal_library[target][band]['obstype'] == 'mosaic':
+           imagename = sani_target+'_field_'+str(fid)+'_'+band
+       else:
+           imagename = sani_target+'_'+band
+
        selfcal_library[target][band][fid]['SNR_final']=mosaic_final_SNR[fid]
        selfcal_library[target][band][fid]['RMS_final']=mosaic_final_RMS[fid]
        selfcal_library[target][band][fid]['SNR_NF_final']=mosaic_final_NF_SNR[fid]
        selfcal_library[target][band][fid]['RMS_NF_final']=mosaic_final_NF_RMS[fid]
-       header=imhead(imagename=sani_target+'_field_'+str(fid)+'_'+band+'_final.image.tt0')
+       header=imhead(imagename=imagename+'_final.image.tt0')
        selfcal_library[target][band][fid]['Beam_major_final']=header['restoringbeam']['major']['value']
        selfcal_library[target][band][fid]['Beam_minor_final']=header['restoringbeam']['minor']['value']
        selfcal_library[target][band][fid]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
        #recalc inital stats using final mask
-       mosaic_initial_final_SNR,mosaic_initial_final_RMS=estimate_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0',maskname=sani_target+'_field_'+str(fid)+'_'+band+'_final.mask')
+       mosaic_initial_final_SNR,mosaic_initial_final_RMS=estimate_SNR(imagename+'_initial.image.tt0',maskname=imagename+'_final.mask')
        if telescope!='ACA':
-          mosaic_initial_final_NF_SNR,mosaic_initial_final_NF_RMS=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0',maskname=sani_target+'_field_'+str(fid)+'_'+band+'_final.mask', las=selfcal_library[target][band]['LAS'])
+          mosaic_initial_final_NF_SNR,mosaic_initial_final_NF_RMS=estimate_near_field_SNR(imagename+'_initial.image.tt0', \
+                  maskname=imagename+'_final.mask', las=selfcal_library[target][band]['LAS'])
        else:
           mosaic_initial_final_NF_SNR,mosaic_initial_final_NF_RMS=mosaic_initial_final_SNR,mosaic_initial_final_RMS
        selfcal_library[target][band][fid]['SNR_orig']=mosaic_initial_final_SNR
        selfcal_library[target][band][fid]['RMS_orig']=mosaic_initial_final_RMS
        selfcal_library[target][band][fid]['SNR_NF_orig']=mosaic_initial_final_NF_SNR
        selfcal_library[target][band][fid]['RMS_NF_orig']=mosaic_initial_final_NF_RMS
-       goodMask=checkmask(imagename=sani_target+'_field_'+str(fid)+'_'+band+'_final.image.tt0')
+
+       if selfcal_library[target][band]['obstype'] == 'mosaic':
+           imagename = sani_target+'_field_'+str(fid)+'_'+band
+       else:
+           imagename = sani_target+'_'+band
+
+       goodMask=checkmask(imagename=imagename+'_final.image.tt0')
        if goodMask:
-          selfcal_library[target][band][fid]['intflux_final'],selfcal_library[target][band][fid]['e_intflux_final']=get_intflux(sani_target+'_field_'+str(fid)+'_'+band+'_final.image.tt0',mosaic_final_RMS[fid])
-          selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=get_intflux(sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0',selfcal_library[target][band][fid]['RMS_orig'],maskname=sani_target+'_field_'+str(fid)+'_'+band+'_final.mask')
+          selfcal_library[target][band][fid]['intflux_final'],selfcal_library[target][band][fid]['e_intflux_final']=\
+                  get_intflux(imagename+'_final.image.tt0', mosaic_final_RMS[fid])
+          selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=\
+                  get_intflux(imagename+'_initial.image.tt0', selfcal_library[target][band][fid]['RMS_orig'], \
+                  maskname=imagename+'_final.mask')
        else:
           selfcal_library[target][band][fid]['intflux_final'],selfcal_library[target][band][fid]['e_intflux_final']=-99.0,-99.0
 
@@ -1646,9 +1685,10 @@ for target in all_targets:
     for band in selfcal_library[target].keys():
         new_selfcal_library[target][band] = selfcal_library[target][band]
 
-        for fid in selfcal_library[target][band]['sub-fields']:
-            new_selfcal_library[target+'_field_'+str(fid)] = {}
-            new_selfcal_library[target+'_field_'+str(fid)][band] = selfcal_library[target][band][fid]
+        if selfcal_library[target][band]['obstype'] == 'mosaic':
+            for fid in selfcal_library[target][band]['sub-fields']:
+                new_selfcal_library[target+'_field_'+str(fid)] = {}
+                new_selfcal_library[target+'_field_'+str(fid)][band] = selfcal_library[target][band][fid]
 
 generate_weblog(new_selfcal_library,solints,bands)
 
