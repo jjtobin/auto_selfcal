@@ -89,7 +89,7 @@ if os.path.exists("cont.dat"):
 ##
 ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
 ##
-#split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
+split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
 
 ##
 ## put flagging back at original state for originally input ms for when they are used next time
