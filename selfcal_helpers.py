@@ -2225,10 +2225,13 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                if solint in vis_keys:
                   vis_solint_keys=sclib[target][band][vislist[len(vislist)-1]][solint].keys()
                   if key=='Pass':
+                    if key in sclib[target][band][vislist[len(vislist)-1]][solint]:
                      if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
                         line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
+                    else:
+                        line+='    <td><font color="green">{}</font></td>\n'.format('None')
                   if key=='intflux_final':
                      line+='    <td>{:0.2f} +/- {:0.2f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
                   if key=='intflux_improvement':
@@ -2391,7 +2394,11 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
 
             #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
-            passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass']
+            if "Pass" in sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]:
+                passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass']
+            else:
+                passed = 'None'
+
             '''
             if (i > final_solint_index) or ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
                htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
@@ -2401,7 +2408,9 @@ def render_per_solint_QA_pages(sclib,solints,bands):
             else:
                htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
             '''
-            if passed:
+            if passed == 'None':
+               htmlOutSolint.writelines('<h4>Passed: <font color="green">N/A</font></h4>\n')
+            elif passed:
                htmlOutSolint.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
             else:
                htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
@@ -2421,7 +2430,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
             htmlOutSolint.writelines('Pre Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
 
 
-            if solints[band][i] =='inf_EB':
+            if 'inf_EB' in solints[band][i]:
                htmlOutSolint.writelines('<h3>Phase vs. Frequency Plots:</h3>\n')
             else:
                htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
@@ -2437,7 +2446,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
-               if solints[band][i] =='inf_EB':
+               if 'inf_EB' in solints[band][i]:
                   if 'fallback' in sclib[target][band][vis][solints[band][i]].keys():
                      if sclib[target][band][vis][solints[band][i]]['fallback'] == '':
                         fallback_mode='None'
@@ -2450,7 +2459,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
                for ant in ant_list:
                   sani_target=sanitize_string(target)
-                  if solints[band][i] =='inf_EB':
+                  if 'inf_EB' in solints[band][i]:
                      xaxis='frequency'
                   else:
                      xaxis='time'
@@ -2896,3 +2905,323 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
         tb.flush()
         tb.close()
         subt.close()
+
+
+
+def triage_calibrators(vis, target, potential_calibrators, max_distance=10.0, max_time=600.):
+    gaincalibrator_dict = {}
+
+    if os.path.exists(vis.replace("_target.selfcal.ms",".ms")):
+        msmd.open(vis.replace("_target.selfcal.ms",".ms"))
+
+        for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
+            scans_for_field = msmd.scansforfield(field)
+            scans_for_gaincal = msmd.scansforintent("*CALIBRATE_PHASE*")
+            field_name = msmd.fieldnames()[field]
+            gaincalibrator_dict[field_name] = {}
+            gaincalibrator_dict[field_name]["scans"] = np.intersect1d(scans_for_field, scans_for_gaincal)
+            gaincalibrator_dict[field_name]["phasecenter"] = msmd.phasecenter(field)
+            gaincalibrator_dict[field_name]["intent"] = "phase"
+            gaincalibrator_dict[field_name]["times"] = np.array([np.mean(msmd.timesforscan(scan)) for scan in \
+                    gaincalibrator_dict[field_name]["scans"]])
+
+        gaincal_info_found = len(gaincalibrator_dict) > 0
+
+        msmd.close()
+    else:
+        gaincal_info_found = False
+
+    all_targets = potential_calibrators + [target]
+
+    msmd.open(vis)
+    targets_ids = [msmd.fieldsforname(field)[0] for field in all_targets]
+    for i, field in enumerate(targets_ids):
+        scans_for_field = msmd.scansforfield(field)
+        scans_for_science = msmd.scansforintent("*OBSERVE_TARGET*")
+        field_name = all_targets[i]
+        gaincalibrator_dict[field_name] = {}
+        gaincalibrator_dict[field_name]["scans"] = np.intersect1d(scans_for_field, scans_for_science)
+        gaincalibrator_dict[field_name]["phasecenter"] = msmd.phasecenter(field)
+        gaincalibrator_dict[field_name]["intent"] = "target" if field_name == target else "science"
+        gaincalibrator_dict[field_name]["times"] = np.array([np.mean(msmd.timesforscan(scan)) for scan in gaincalibrator_dict[field_name]["scans"]])
+
+    msmd.close()
+
+    fields = []
+    scans = []
+    distances = []
+    intents = []
+    times = []
+    import matplotlib.pyplot as plt
+    for t in gaincalibrator_dict.keys():
+        dRA = (gaincalibrator_dict[t]["phasecenter"]["m0"]["value"] - gaincalibrator_dict[target]["phasecenter"]["m0"]["value"]) * 360/(2*np.pi)
+        dDec = (gaincalibrator_dict[t]["phasecenter"]["m1"]["value"] - gaincalibrator_dict[target]["phasecenter"]["m1"]["value"]) * 360/(2*np.pi)
+        plt.plot(dRA, dDec, "ko")
+        plt.annotate(t, (dRA, dDec))
+        d = (dRA**2 + dDec**2)**0.5
+
+        scans += [gaincalibrator_dict[t]["scans"]]
+        distances += [np.repeat(d,gaincalibrator_dict[t]["scans"].size)]
+        intents += [np.repeat(gaincalibrator_dict[t]["intent"],gaincalibrator_dict[t]["scans"].size)]
+        fields += [np.repeat(t,gaincalibrator_dict[t]["scans"].size)]
+        times += [gaincalibrator_dict[t]["times"]]
+
+    times = np.concatenate(times)
+    order = np.argsort(times)
+    times = times[order]
+
+    scans = np.concatenate(scans)[order]
+    distances = np.concatenate(distances)[order]
+    intents = np.concatenate(intents)[order]
+    fields = np.concatenate(fields)[order]
+    good = np.repeat(False, scans.size)
+    case = np.repeat(0, scans.size)
+
+    if gaincal_info_found:
+        is_gaincalibrator = intents == "phase"
+        gaincal_interval = np.median(times[is_gaincalibrator][1:] - times[is_gaincalibrator][0:-1])
+        print(times[is_gaincalibrator] - times[is_gaincalibrator][0])
+    else:
+        gaincal_interval = np.inf
+    print("gaincal_interval = ", gaincal_interval)
+
+    prev_target = -1
+    prev_calibrator = -2
+    for i in range(scans.size):
+        if gaincal_info_found:
+            next_calibrator = np.where(intents[i:] == "phase")[0][0] + i
+        else:
+            next_calibrator = np.inf
+
+        if "target" in intents[i:]:
+            next_target = np.where(intents[i:] == "target")[0][0] + i
+        else:
+            next_target = scans.size
+
+        if next_calibrator == i:
+            prev_calibrator = i
+        elif next_target == i:
+            prev_target = i
+
+        """
+        if distances[i] < distances[current_calibrator] and ((current_calibrator < next_calibrator and next_calibrator > next_target) \
+                or (current_calibrator == next_calibrator)):
+            good[i] = True
+        """
+
+        #print(prev_target, prev_calibrator, next_target, next_calibrator)
+        next_target_time = times[next_target] if next_target < times.size else np.inf
+        prev_target_time = times[prev_target] if prev_target > 0 else 0
+
+        next_calibrator_distance = distances[next_calibrator] if next_calibrator < distances.size else np.inf
+        prev_calibrator_distance = distances[prev_calibrator] if prev_calibrator >= 0 else np.inf
+
+        if prev_target < prev_calibrator < next_target < next_calibrator:
+            good[i] = distances[i] < min(prev_calibrator_distance,max_distance) and \
+                    (abs(times[i] - next_target_time) < min(gaincal_interval,max_time) or \
+                    abs(times[i] - prev_target_time) < min(gaincal_interval,max_time))
+            case[i] = 1
+        elif prev_calibrator < prev_target < next_calibrator < next_target:
+            good[i] = distances[i] < min(next_calibrator_distance,max_distance) and \
+                    (abs(times[i] - prev_target_time) < min(gaincal_interval,max_time) or \
+                    abs(times[i] - next_target_time) < min(gaincal_interval,max_time))
+            case[i] = 2
+        elif prev_target < prev_calibrator < next_calibrator < next_target:
+            good[i] = (distances[i] < min(next_calibrator_distance,max_distance) and \
+                    abs(times[i] - next_target_time) < min(gaincal_interval,max_time)) or \
+                    (distances[i] < min(prev_calibrator_distance,max_distance) and \
+                    abs(times[i] - prev_target_time) < min(gaincal_interval,max_time))
+            case[i] = 3
+        elif prev_calibrator < prev_target < next_target < next_calibrator:
+            good[i] = (distances[i] < min(next_calibrator_distance,max_distance) and \
+                    abs(times[i] - next_target_time) < min(gaincal_interval,max_time)) or \
+                    (distances[i] < min(prev_calibrator_distance,max_distance) and \
+                    abs(times[i] - prev_target_time) < min(gaincal_interval,max_time))
+            case[i] = 4
+        
+
+        next_calibrator_scan = scans[next_calibrator] if gaincal_info_found else scans.size
+        prev_calibrator_scan = scans[prev_calibrator] if gaincal_info_found else -1
+        if next_target < scans.size and prev_target > 0:
+            print("{0:3d}   {1:5.2f}   {2:7s}   {3:20s}   {4:4.0f}   {5:5s}   {6:1d}   {7:3d}   {8:3d}   {9:3d}   {10:3d}".format(\
+                    scans[i], distances[i], intents[i], fields[i], times[i]-times[0], str(good[i]), case[i], prev_calibrator_scan, \
+                    next_calibrator_scan, scans[prev_target], scans[next_target]))
+        elif prev_target < 0:
+            print("{0:3d}   {1:5.2f}   {2:7s}   {3:20s}   {4:4.0f}   {5:5s}   {6:1d}   {7:3d}   {8:3d}   {9:3d}   {10:3d}".format(\
+                    scans[i], distances[i], intents[i], fields[i], times[i]-times[0], str(good[i]), case[i], prev_calibrator_scan, \
+                    next_calibrator_scan, -1, scans[next_target]))
+        else:
+            print("{0:3d}   {1:5.2f}   {2:7s}   {3:20s}   {4:4.0f}   {5:5s}   {6:1d}   {7:3d}   {8:3d}   {9:3d}   {10:3d}".format(\
+                    scans[i], distances[i], intents[i], fields[i], times[i]-times[0], str(good[i]), case[i], prev_calibrator_scan, \
+                    next_calibrator_scan, scans[prev_target], scans.max()+1))
+
+    #good = intents == "science"
+    print(scans[good].astype(str))
+    print(np.unique(fields[good]))
+
+    return ",".join(np.unique(fields[good])), ",".join(scans[good].astype(str))
+
+
+
+def make_distance_time_phaseerr_plots(vislist):
+
+    time_collection = []
+    distance_collection = []
+    rms_collection = []
+
+    for vis in vislist:
+        msmd.open(vis.replace("_target.selfcal.ms",".ms"))
+
+        gaincalibrator_dict = {}
+        for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
+            scans_for_field = msmd.scansforfield(field)
+            scans_for_gaincal = msmd.scansforintent("*CALIBRATE_PHASE*")
+            field_name = msmd.fieldnames()[field]
+            gaincalibrator_dict[field_name] = {}
+            gaincalibrator_dict[field_name]["scans"] = np.intersect1d(scans_for_field, scans_for_gaincal)
+            gaincalibrator_dict[field_name]["phasecenter"] = msmd.phasecenter(field)
+            gaincalibrator_dict[field_name]["intent"] = "phase"
+            gaincalibrator_dict[field_name]["times"] = np.array([np.mean(msmd.timesforscan(scan)) for scan in gaincalibrator_dict[field_name]["scans"]])
+
+        #print(gaincalibrator_dict.keys())
+        gaincalibrator = list(gaincalibrator_dict.keys())[0]
+
+        msmd.close()
+
+        msmd.open(vis)
+        all_targets = [msmd.fieldnames()[i] for i in msmd.fieldsforintent("*OBSERVE_TARGET*")]
+        msmd.close()
+        #print(all_targets)
+
+        for target in all_targets:
+            #print(target)
+            if not os.path.exists(sanitize_string(target)+'_'+vis+'_Band_7_inf_1_p.g'):
+                continue
+
+            msmd.open(vis)
+            targets_ids = [msmd.fieldsforname(field)[0] for field in [target]]
+            for i, field in enumerate(targets_ids):
+                scans_for_field = msmd.scansforfield(field)
+                scans_for_science = msmd.scansforintent("*OBSERVE_TARGET*")
+                field_name = [target][i]
+                gaincalibrator_dict[field_name] = {}
+                gaincalibrator_dict[field_name]["scans"] = np.intersect1d(scans_for_field, scans_for_science)
+                gaincalibrator_dict[field_name]["phasecenter"] = msmd.phasecenter(field)
+                gaincalibrator_dict[field_name]["intent"] = "target" if field_name == target else "science"
+                gaincalibrator_dict[field_name]["times"] = np.array([np.mean(msmd.timesforscan(scan)) for scan in gaincalibrator_dict[field_name]["scans"]])
+
+            msmd.close()
+
+            fields = []
+            scans = []
+            distances = []
+            intents = []
+            times = []
+            import matplotlib.pyplot as plt
+            for t in gaincalibrator_dict.keys():
+                dRA = (gaincalibrator_dict[t]["phasecenter"]["m0"]["value"] - gaincalibrator_dict[gaincalibrator]["phasecenter"]["m0"]["value"]) * 360/(2*np.pi)
+                dDec = (gaincalibrator_dict[t]["phasecenter"]["m1"]["value"] - gaincalibrator_dict[gaincalibrator]["phasecenter"]["m1"]["value"]) * 360/(2*np.pi)
+                #plt.plot(dRA, dDec, "ko")
+                #plt.annotate(t, (dRA, dDec))
+                d = (dRA**2 + dDec**2)**0.5
+
+                scans += [gaincalibrator_dict[t]["scans"]]
+                distances += [np.repeat(d,gaincalibrator_dict[t]["scans"].size)]
+                intents += [np.repeat(gaincalibrator_dict[t]["intent"],gaincalibrator_dict[t]["scans"].size)]
+                fields += [np.repeat(t,gaincalibrator_dict[t]["scans"].size)]
+                times += [gaincalibrator_dict[t]["times"]]
+
+            times = np.concatenate(times)
+            order = np.argsort(times)
+            times = times[order]
+
+            scans = np.concatenate(scans)[order]
+            distances = np.concatenate(distances)[order]
+            intents = np.concatenate(intents)[order]
+            fields = np.concatenate(fields)[order]
+
+            nearest_calibrator_scan = np.repeat(0, scans.size)
+            time_to_calibrator = np.repeat(0.0, scans.size)
+
+            for i in range(scans.size):
+                nearest_calibrator = np.where(np.abs(times - times[i]) == np.abs(times[intents == "phase"] - times[i]).min())[0][0]
+                nearest_calibrator_scan[i] = scans[nearest_calibrator]
+
+                time_to_calibrator[i] = np.abs(times[i] - times[nearest_calibrator])
+
+                #print("{0:3d}   {1:5.2f}   {2:7s}   {3:20s}   {4:4.0f}   {5:3d}   {6:4.0f}".format(\
+                #        scans[i], distances[i], intents[i], fields[i], times[i]-times[0], nearest_calibrator_scan[i], \
+                #        time_to_calibrator[i]))
+
+
+            tb.open(sanitize_string(target)+'_'+vis+'_Band_7_inf_1_p.g')
+            cals = tb.getcol("CPARAM").flatten()
+            flags = tb.getcol("FLAG").flatten()
+            scan_numbers = tb.getcol("SCAN_NUMBER")
+            #print(scan_numbers.shape)
+            tb.close()
+
+            cals = cals[flags == False]
+            scan_numbers = scan_numbers[flags == False]
+
+            phase = np.angle(cals) * 180./np.pi
+
+            #plt.hist(phase.flatten(), 20)
+
+            for scan in np.unique(scans[intents == "target"]):
+                #time_arr = np.repeat(time_to_calibrator[scans == scan][0], (scan_numbers == scan).sum())
+                time_collection += [time_to_calibrator[scans == scan][0]]
+                distance_collection += [distances[scans == scan][0]] 
+                rms_collection += [np.std(phase[scan_numbers == scan])]
+                #plt.plot(time_arr, phase[scan_numbers == scan], "o")
+
+            del gaincalibrator_dict[target]
+
+    plt.scatter(distance_collection, time_collection, c=rms_collection)
+
+def plotcals(source):
+    import glob
+    import matplotlib.pyplot as plt
+
+    vislist = glob.glob("*.selfcal.ms")
+
+    runs = glob.glob("inf_fb*full_tclean*")
+    print(runs)
+    runs = np.array(runs)[np.array([3,0,2])]
+    #runs = np.concatenate((runs, ["original"]))
+
+    nants = 0
+    for vis in vislist:
+        msmd.open(vis)
+        if len(msmd.antennanames()) > nants:
+            nants = len(msmd.antennanames())
+    print(nants)
+
+    for ant in range(nants):
+        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15,5))
+
+        for run in runs:
+            for i, ax in enumerate(axes.flatten()):
+                if run == "original":
+                    tb.open(run+"/Target_"+source+"_"+vislist[i]+"_Band_7_inf_1_p.g")
+                else:
+                    tb.open(run+"/Target_"+source+"_"+vislist[i]+"_Band_7_inf_fb_6_p.g")
+
+                times = tb.getcol("TIME")
+                cals = tb.getcol("CPARAM")
+                flags = tb.getcol("FLAG")
+                antennas = tb.getcol("ANTENNA1")
+                tb.close()
+
+                phase = np.angle(cals) * 180./np.pi
+
+                good = np.logical_and(antennas == ant,  flags[0,0,:] == False)
+
+                ax.plot(times[good], phase[0,0,good], "o")
+
+        fig.tight_layout()
+
+        plt.savefig("Target_"+source+"ANT"+str(ant)+"_phase.png")
+
+        plt.clf()
+        plt.close(fig)
