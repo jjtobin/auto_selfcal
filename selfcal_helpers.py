@@ -3,7 +3,22 @@ import numpy
 import scipy.stats
 import scipy.signal
 import math
+import os
+
+import casatools
+from casaplotms import plotms
+from casatasks import *
+from casatools import image, imager
+from casatools import msmetadata as msmdtool
+from casatools import table as tbtool
+from casaviewer import imview
 from PIL import Image
+
+tb = tbtool()
+msmd = msmdtool()
+ia = image()
+im = imager()
+
 def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
