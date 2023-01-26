@@ -829,12 +829,20 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
       solint_snr[target][band]={}
       solint_snr_per_spw[target][band]={}
       for solint in solints[band]:
+         #code to work around some VLA data not having the same number of spws due to missing BlBPs
+         #selects spwlist from the visibilities with the greates number of spws
+         maxspws=0
+         maxspwvis=''
+         for vis in vislist:
+            if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
+               maxspws=selfcal_library[target][band][vis]['n_spws']
+               maxspwvis=vis+''
          solint_snr[target][band][solint]=0.0
          solint_snr_per_spw[target][band][solint]={}       
          if solint == 'inf_EB':
             SNR_self_EB=np.zeros(len(vislist))
-            SNR_self_EB_spw=np.zeros([len(vislist),len(selfcal_library[target][band][vislist[0]]['spwsarray'])])
-            SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[target][band][vislist[0]]['spwsarray'])])
+            SNR_self_EB_spw=np.zeros([len(vislist),len(selfcal_library[target][band][maxspwvis]['spwsarray'])])
+            SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[target][band][maxspwvis]['spwsarray'])])
             SNR_self_EB_spw={}
             for i in range(len(vislist)):
                SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
@@ -842,7 +850,7 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                for spw in selfcal_library[target][band][vislist[i]]['spwsarray']:
                   if spw in SNR_self_EB_spw[vislist[i]].keys():
                      SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
-            for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
+            for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(vislist)):
                   if spw in SNR_self_EB_spw[vislist[j]].keys():
@@ -854,18 +862,17 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
          elif solint =='inf' or solint == 'inf_ap':
                selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
                solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
-               for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
+               for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
                   solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
-               for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
-                  if spw in solint_snr_per_spw[target][band][solint].keys():
-                     solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+               for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
+                  solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
          else:
                solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
-               for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
-                  if spw in solint_snr_per_spw[target][band][solint].keys():
+               for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
+                  if spw in solint_snr_per_spw[target][band][solint].keys() and spw in selfcal_library[target][band]['per_spw_stats'].keys():
                      solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
    return solint_snr,solint_snr_per_spw
 
