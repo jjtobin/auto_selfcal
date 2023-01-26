@@ -325,10 +325,11 @@ for target in all_targets:
          if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
             maxspws=selfcal_library[target][band][vis]['n_spws']
             maxspwvis=vis+''
-      selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
+         selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
       spwlist=selfcal_library[target][band][maxspwvis]['spwlist']
        
       spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][maxspwvis]['spwsarray'],target)
+
       selfcal_library[target][band]['total_bandwidth']=0.0
       selfcal_library[target][band]['total_effective_bandwidth']=0.0
       if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
@@ -352,7 +353,8 @@ if check_all_spws:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          vislist=selfcal_library[target][band]['vislist'].copy()
-         spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
+         #potential place where diff spws for different VLA EBs could cause problems
+         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
          for spw in spwlist:
             keylist=selfcal_library[target][band]['per_spw_stats'].keys()
             if spw not in keylist:
