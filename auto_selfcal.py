@@ -24,8 +24,10 @@ parallel=MPIEnvironment.is_mpi_enabled
 ##
 vislist=glob.glob('*_target.ms')
 if len(vislist) == 0:
-   vislist=glob.glob('*_cont.ms')   # adaptation for PL2022 output
+   vislist=glob.glob('*_targets.ms')   # adaptation for PL2022 output
    if len(vislist)==0:
+      vislist=glob.glob('*_cont.ms')   # adaptation for PL2022 output
+   elif len(vislist)==0:
       sys.exit('No Measurement sets found in current working directory, exiting')
 
 ##
@@ -315,8 +317,19 @@ for target in all_targets:
    for band in selfcal_library[target].keys():
       selfcal_library[target][band]['per_spw_stats']={}
       vislist=selfcal_library[target][band]['vislist'].copy()
-      spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
-      spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][vis]['spwsarray'],target)
+      #code to work around some VLA data not having the same number of spws due to missing BlBPs
+      #selects spwlist from the visibilities with the greates number of spws
+      maxspws=0
+      maxspwvis=''
+      for vis in vislist:
+         if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
+            maxspws=selfcal_library[target][band][vis]['n_spws']
+            maxspwvis=vis+''
+         selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
+      spwlist=selfcal_library[target][band][maxspwvis]['spwlist']
+       
+      spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][maxspwvis]['spwsarray'],target)
+
       selfcal_library[target][band]['total_bandwidth']=0.0
       selfcal_library[target][band]['total_effective_bandwidth']=0.0
       if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
@@ -324,10 +337,12 @@ for target in all_targets:
          for spw in spw_bandwidths.keys():
             if spw not in spw_effective_bandwidths.keys():
                spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+
       for spw in spwlist:
          keylist=selfcal_library[target][band]['per_spw_stats'].keys()
          if spw not in keylist:
             selfcal_library[target][band]['per_spw_stats'][spw]={}
+
          selfcal_library[target][band]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
          selfcal_library[target][band]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
          selfcal_library[target][band]['total_bandwidth']+=spw_bandwidths[spw]
@@ -338,7 +353,8 @@ if check_all_spws:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          vislist=selfcal_library[target][band]['vislist'].copy()
-         spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
+         #potential place where diff spws for different VLA EBs could cause problems
+         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
          for spw in spwlist:
             keylist=selfcal_library[target][band]['per_spw_stats'].keys()
             if spw not in keylist:
@@ -716,7 +732,7 @@ for target in all_targets:
                      refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                      solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,5.0), minblperant=4,combine=test_gaincal_combine,
                      field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
-                   spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
+                   spwlist=selfcal_library[target][band][vis]['spws'].split(',')
                    fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g')
 
                    inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
