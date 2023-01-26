@@ -310,7 +310,7 @@ for target in all_targets:
          if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
             maxspws=selfcal_library[target][band][vis]['n_spws']
             maxspwvis=vis+''
-      selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
+         selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
       spwlist=selfcal_library[target][band][maxspwvis]['spwlist']
        
       spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][maxspwvis]['spwsarray'],target)
