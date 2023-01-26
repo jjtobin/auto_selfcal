@@ -56,6 +56,7 @@ inf_EB_gaincal_combine='scan'
 inf_EB_gaintype='G'
 inf_EB_override=False
 gaincal_minsnr=2.0
+gaincal_unflag_minsnr=5.0
 minsnr_to_proceed=3.0
 delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
@@ -452,10 +453,11 @@ for target in all_targets:
          if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
             maxspws=selfcal_library[target][band][vis]['n_spws']
             maxspwvis=vis+''
-      selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
+         selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
       spwlist=selfcal_library[target][band][maxspwvis]['spwlist']
        
       spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][maxspwvis]['spwsarray'],target)
+
       selfcal_library[target][band]['total_bandwidth']=0.0
       selfcal_library[target][band]['total_effective_bandwidth']=0.0
       if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
@@ -479,7 +481,8 @@ if check_all_spws:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          vislist=selfcal_library[target][band]['vislist'].copy()
-         spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
+         #potential place where diff spws for different VLA EBs could cause problems
+         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
          for spw in spwlist:
             keylist=selfcal_library[target][band]['per_spw_stats'].keys()
             if spw not in keylist:
@@ -632,7 +635,7 @@ for target in all_targets:
  for band in selfcal_library[target].keys():
    run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize, imsize, \
            inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, \
-           gaincal_minsnr=gaincal_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
+           gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants)

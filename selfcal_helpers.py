@@ -2523,6 +2523,7 @@ def importdata(vislist,all_targets,telescope):
               band_properties[vis]['bands'].remove(band)
               print('Removing '+band+' bands from list due to no observations')
            bands_to_remove.append(band)
+        loopcount=0
         for vis in vislist:
            for target in all_targets:
               check_target=len(integrationsdict[band][vis][target])
@@ -2533,8 +2534,10 @@ def importdata(vislist,all_targets,telescope):
                  scannfieldsdict[band][vis].pop(target)
                  scanstartsdict[band][vis].pop(target)
                  scanendsdict[band][vis].pop(target) 
-                           
-                 mosaic_field_dict[band].pop(target)           
+                 #handle case of multiMS mosaic data; assumes mosaic info is the same for MSes
+                 if loopcount == 0:
+                    mosaic_field_dict[band].pop(target)
+           loopcount+=1        
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:
          bands.remove(delband)
