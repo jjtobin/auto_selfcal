@@ -74,7 +74,7 @@ if 'VLA' in telescope:
 ##
 ## Import inital MS files to get relevant meta data
 ##
-listdict,bands,band_properties,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
+listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
 integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
 
 ##
@@ -106,7 +106,7 @@ spwstring_orig=spwstring+''
 spwsarray_orig =spwsarray.copy()
 
 vislist=glob.glob('*selfcal.ms')
-listdict,bands,band_properties,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
+listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
 integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
 
 ##
@@ -253,13 +253,14 @@ for target in all_targets:
        allscantimes=np.array([])
        allscannfields=np.array([])
        for vis in vislist:
+          good = np.array([str(fid) in scan_fields for scan_fields in scanfieldsdict[band][vis][target]])
           selfcal_library[target][band][fid][vis]['gaintable']=[]
-          selfcal_library[target][band][fid][vis]['TOS']=np.sum(scantimesdict[band][vis][target])
-          selfcal_library[target][band][fid][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target])
-          selfcal_library[target][band][fid][vis]['Median_fields_per_scan']=np.median(scannfieldsdict[band][vis][target])
-          allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
-          allscannfields=np.append(allscannfields,scannfieldsdict[band][vis][target])
-          selfcal_library[target][band][fid][vis]['refant'] = rank_refants(vis)
+          selfcal_library[target][band][fid][vis]['TOS']=np.sum(scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
+          selfcal_library[target][band][fid][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
+          selfcal_library[target][band][fid][vis]['Median_fields_per_scan']=1
+          allscantimes=np.append(allscantimes,scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
+          allscannfields=np.append(allscannfields,[1])
+          selfcal_library[target][band][fid][vis]['refant'] = selfcal_library[target][band][vis]['refant']
           n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
           spwslist=spwsarray.tolist()
           spwstring=','.join(str(spw) for spw in spwslist)
@@ -444,6 +445,27 @@ for target in all_targets:
          selfcal_library[target][band]['total_bandwidth']+=spw_bandwidths[spw]
          selfcal_library[target][band]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
 
+      for fid in selfcal_library[target][band]['sub-fields']:
+          selfcal_library[target][band][fid]['per_spw_stats']={}
+          vislist=selfcal_library[target][band][fid]['vislist'].copy()
+          spwlist=selfcal_library[target][band][fid][vislist[0]]['spws'].split(',')
+          spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][fid][vis]['spwsarray'],target)
+          selfcal_library[target][band][fid]['total_bandwidth']=0.0
+          selfcal_library[target][band][fid]['total_effective_bandwidth']=0.0
+          if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+             print('cont.dat does not contain all spws; falling back to total bandwidth')
+             for spw in spw_bandwidths.keys():
+                if spw not in spw_effective_bandwidths.keys():
+                   spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+          for spw in spwlist:
+             keylist=selfcal_library[target][band][fid]['per_spw_stats'].keys()
+             if spw not in keylist:
+                selfcal_library[target][band][fid]['per_spw_stats'][spw]={}
+             selfcal_library[target][band][fid]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
+             selfcal_library[target][band][fid]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
+             selfcal_library[target][band][fid]['total_bandwidth']+=spw_bandwidths[spw]
+             selfcal_library[target][band][fid]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+
 if check_all_spws:
    for target in all_targets:
       sani_target=sanitize_string(target)
@@ -513,7 +535,7 @@ inf_EB_gaincal_combine_dict={} #'scan'
 inf_EB_gaintype_dict={} #'G'
 inf_EB_fallback_mode_dict={} #'scan'
 
-solint_snr,solint_snr_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype)
+solint_snr,solint_snr_per_spw,solint_snr_per_field,solint_snr_per_field_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype)
 minsolint_spw=100.0
 for target in all_targets:
  inf_EB_gaincal_combine_dict[target]={} #'scan'
@@ -548,6 +570,27 @@ for target in all_targets:
          '''
       else:
          print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
+
+    for fid in selfcal_library[target][band]['sub-fields']:
+        print('Estimated SNR per solint:')
+        print(target,band,"field "+str(fid))
+        for solint in solints[band]:
+          if solint == 'inf_EB':
+             print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
+             ''' 
+             for spw in solint_snr_per_spw[target][band][solint].keys():
+                print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+                if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
+                   minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
+             if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
+                print('Switching Gaintype to T for: '+target)
+                inf_EB_gaintype_dict[target][band]='T'
+             elif minsolint_spw < 2.5 and inf_EB_override==False:
+                print('Switching Gaincal combine to spw,scan for: '+target)
+                inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
+             '''
+          else:
+             print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
 
 ##
 ## Set clean selfcal thresholds
@@ -609,7 +652,7 @@ for target in all_targets:
          continue
       elif iteration == iterjump:
          iterjump=-1
-      if solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed:
+      if solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
          print('*********** estimated SNR for solint='+solints[band][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
          if iteration > 1 and solmode[band][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
             iterjump=solmode[band].index('ap') 
@@ -1320,8 +1363,13 @@ for target in all_targets:
                      selfcal_library[target][band]['SNR_orig']): #(iteration == 0) and 
                 print('Updating solint = '+solints[band][iteration+1]+' SNR')
                 print('Was: ',solint_snr[target][band][solints[band][iteration+1]])
-                get_SNR_self_update([target],band,vislist,selfcal_library,n_ants,solint,solints[band][iteration+1],integration_time,solint_snr)
+                get_SNR_self_update([target],band,vislist,selfcal_library[target][band],n_ants,solint,solints[band][iteration+1],integration_time,solint_snr[target][band])
                 print('Now: ',solint_snr[target][band][solints[band][iteration+1]])
+
+                for fid in selfcal_library[target][band]['sub-fields']:
+                    print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][solints[band][iteration+1]])
+                    get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
+                    print('FIeld '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][iteration+1]])
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
