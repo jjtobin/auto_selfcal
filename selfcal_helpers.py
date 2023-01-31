@@ -3,7 +3,22 @@ import numpy
 import scipy.stats
 import scipy.signal
 import math
+import os
+
+import casatools
+from casaplotms import plotms
+from casatasks import *
+from casatools import image, imager
+from casatools import msmetadata as msmdtool
+from casatools import table as tbtool
+from casaviewer import imview
 from PIL import Image
+
+tb = tbtool()
+msmd = msmdtool()
+ia = image()
+im = imager()
+
 def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
@@ -955,22 +970,32 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
       solint_snr = {}
       solint_snr_per_spw = {}
       for solint in solints:
+         #code to work around some VLA data not having the same number of spws due to missing BlBPs
+         #selects spwlist from the visibilities with the greates number of spws
+         maxspws=0
+         maxspwvis=''
+         for vis in vislist:
+            if selfcal_library[vis]['n_spws'] >= maxspws:
+               maxspws=selfcal_library[vis]['n_spws']
+               maxspwvis=vis+''
          solint_snr[solint]=0.0
          solint_snr_per_spw[solint]={}       
          if solint == 'inf_EB':
             SNR_self_EB=np.zeros(len(vislist))
-            SNR_self_EB_spw=np.zeros([len(vislist),len(selfcal_library[vislist[0]]['spwsarray'])])
-            SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[vislist[0]]['spwsarray'])])
+            SNR_self_EB_spw=np.zeros([len(vislist),len(selfcal_library[maxspwvis]['spwsarray'])])
+            SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[maxspwvis]['spwsarray'])])
             SNR_self_EB_spw={}
             for i in range(len(vislist)):
                SNR_self_EB[i]=SNR/((n_ant)**0.5*(selfcal_library['Total_TOS']/selfcal_library[vislist[i]]['TOS'])**0.5)
                SNR_self_EB_spw[vislist[i]]={}
                for spw in selfcal_library[vislist[i]]['spwsarray']:
-                  SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[vislist[i]]['TOS'])**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
-            for spw in selfcal_library[vislist[0]]['spwsarray']:
+                  if spw in SNR_self_EB_spw[vislist[i]].keys():
+                     SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[vislist[i]]['TOS'])**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+            for spw in selfcal_library[maxspwvis]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(vislist)):
-                  mean_SNR+=SNR_self_EB_spw[vislist[j]][str(spw)]
+                  if spw in SNR_self_EB_spw[vislist[j]].keys():
+                     mean_SNR+=SNR_self_EB_spw[vislist[j]][str(spw)]
                mean_SNR=mean_SNR/len(vislist) 
                solint_snr_per_spw[solint][str(spw)]=mean_SNR
             solint_snr[solint]=np.mean(SNR_self_EB)
@@ -978,22 +1003,22 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
          elif solint =='scan_inf':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
-               for spw in selfcal_library[vislist[0]]['spwsarray']:
+               for spw in selfcal_library[maxspwvis]['spwsarray']:
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
          elif solint =='inf' or solint == 'inf_ap':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
-               for spw in selfcal_library[vislist[0]]['spwsarray']:
+               for spw in selfcal_library[maxspwvis]['spwsarray']:
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
-               for spw in selfcal_library[vislist[0]]['spwsarray']:
-                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+               for spw in selfcal_library[maxspwvis]['spwsarray']:
+                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
          else:
                solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
-               for spw in selfcal_library[vislist[0]]['spwsarray']:
-                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+               for spw in selfcal_library[maxspwvis]['spwsarray']:
+                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
       return solint_snr,solint_snr_per_spw
 
 def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
@@ -2229,7 +2254,10 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                   if key=='intflux_final':
                      line+='    <td>{:0.2f} +/- {:0.2f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
                   if key=='intflux_improvement':
-                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
+                     if sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'] == 0:
+                        line+='    <td>{:0.2f}</td>\n'.format(1.0)
+                     else:
+                        line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
                   if key=='SNR_final':
                      line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
                   if key=='SNR_Improvement':
@@ -2513,6 +2541,7 @@ def importdata(vislist,all_targets,telescope):
               band_properties[vis]['bands'].remove(band)
               print('Removing '+band+' bands from list due to no observations')
            bands_to_remove.append(band)
+        loopcount=0
         for vis in vislist:
            for target in all_targets:
               check_target=len(integrationsdict[band][vis][target])
@@ -2524,8 +2553,10 @@ def importdata(vislist,all_targets,telescope):
                  scannfieldsdict[band][vis].pop(target)
                  scanstartsdict[band][vis].pop(target)
                  scanendsdict[band][vis].pop(target) 
-                           
-                 mosaic_field_dict[band].pop(target)           
+                 #handle case of multiMS mosaic data; assumes mosaic info is the same for MSes
+                 if loopcount == 0:
+                    mosaic_field_dict[band].pop(target)
+           loopcount+=1        
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:
          bands.remove(delband)
@@ -2628,9 +2659,10 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw(spwlist[0],spw_combine_test_gaintable)
    eff_bws=np.zeros(len(spwlist))
    total_bws=np.zeros(len(spwlist))
+   keylist=list(selfcal_library[target][band]['per_spw_stats'].keys())
    for i in range(len(spwlist)):
-      eff_bws[i]=selfcal_library[target][band]['per_spw_stats'][spwlist[i]]['effective_bandwidth']
-      total_bws[i]=selfcal_library[target][band]['per_spw_stats'][spwlist[i]]['bandwidth']
+      eff_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['bandwidth']
    minimum_flagged_ants_per_spw=np.min(nflags)/2.0
    minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
                                                            # the impression of a lot of flagging
@@ -2751,9 +2783,10 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # case of a significantly flagged short baseline antenna and a lot of minimally flagged long baseline antennas, the velocity
     # might be negative because you have a shallow gap at the intersection of the two. So we need to do a check, and if there's no
     # peaks that satisfy this condition, ignore the velocity criterion.
-    good= np.logical_and(second_derivative[maxima] > 0, derivative[maxima] > 0 )
-    if good.sum() > 0:
-        maxima = maxima[good]
+    maxima = maxima[second_derivative[maxima] > 0]
+    # If we have enough peaks (i.e. the whole thing isn't flagged, then take only the peaks outside the inner 5%.
+    if len(maxima) > 1:
+        maxima = maxima[test_r[maxima] > test_r.max()*0.1]
     # Pick the shortest baseline "significant" maximum.
     good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
     m = maxima[good].min()
