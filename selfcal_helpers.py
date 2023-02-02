@@ -863,7 +863,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     return SNR,rms
 
 
-def get_intflux(imagename,rms,maskname=None):
+def get_intflux(imagename,rms,maskname=None,mosaic_sub_field=False):
    headerlist = imhead(imagename, mode = 'list')
    beammajor = headerlist['beammajor']['value']
    beamminor = headerlist['beamminor']['value']
@@ -873,7 +873,14 @@ def get_intflux(imagename,rms,maskname=None):
    pix_per_beam=beamarea/(cell**2)
    if maskname is None:
       maskname=imagename.replace('image.tt0','mask')
-   imagestats=imstat(imagename=imagename,mask=maskname)
+
+   if mosaic_sub_field:
+       immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+       imagestats= imstat(imagename = "temp.image", mask=maskname)
+       os.system("rm -rf temp.image")
+   else:
+       imagestats= imstat(imagename = imagename, mask=maskname)
+
    if len(imagestats['flux']) > 0:
        flux=imagestats['flux'][0]
        n_beams=imagestats['npts'][0]/pix_per_beam

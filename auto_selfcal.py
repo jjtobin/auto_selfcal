@@ -432,7 +432,7 @@ for target in all_targets:
        goodMask=checkmask(imagename=imagename)
        if goodMask:
           selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=get_intflux(imagename,\
-                  mosaic_initial_RMS[fid])
+                  mosaic_initial_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
        else:
           selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=-99.0,-99.0
 
@@ -798,10 +798,10 @@ for target in all_targets:
        goodMask=checkmask(imagename=imagename+'_final.image.tt0')
        if goodMask:
           selfcal_library[target][band][fid]['intflux_final'],selfcal_library[target][band][fid]['e_intflux_final']=\
-                  get_intflux(imagename+'_final.image.tt0', mosaic_final_RMS[fid])
+                  get_intflux(imagename+'_final.image.tt0', mosaic_final_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
           selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=\
                   get_intflux(imagename+'_initial.image.tt0', selfcal_library[target][band][fid]['RMS_orig'], \
-                  maskname=imagename+'_final.mask')
+                  maskname=imagename+'_final.mask', mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
        else:
           selfcal_library[target][band][fid]['intflux_final'],selfcal_library[target][band][fid]['e_intflux_final']=-99.0,-99.0
 
