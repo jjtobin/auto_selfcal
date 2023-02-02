@@ -135,7 +135,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
 
         if image_mosaic_fields_separately:
             msmd.open(vis[0]) 
-            field_ids = msmd.fieldsforname(field)
+            field_ids = np.intersect1d(msmd.fieldsforname(field), msmd.fieldsforintent("*OBSERVE_TARGET*"))
             phasecenters = dict(zip(field_ids, [msmd.phasecenter(field_id) for field_id in field_ids]))
             msmd.close()
 
@@ -161,6 +161,20 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                     else:
                         imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+ext, region=region, \
                                 overwrite=True)
+
+                # Make an image of the primary beam for each sub-field.
+                if type(vis) == list:
+                    im.open(vis[0])
+                else:
+                    im.open(vis)
+
+                nx, ny, nfreq, npol = imhead(imagename=imagename.replace(target,target+"_field_"+str(field_id))+".image.tt0", mode="get", \
+                        hdkey="shape")
+
+                im.selectvis(field=str(field_id), spw=spw)
+                im.defineimage(nx=nx, ny=ny, cellx=cellsize, celly=cellsize, phasecenter=field_id, mode="mfs", spw=spw)
+                im.setvp(dovp=True)
+                im.makeimage(type="pb", image=imagename.replace(target,target+"_field_"+str(field_id)) + ".pb.tt0")
 
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
@@ -697,13 +711,20 @@ def checkmask(imagename):
    else:
       return True
 
-def estimate_SNR(imagename,maskname=None,verbose=True):
+def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
     beamminor = headerlist['beamminor']['value']
     beampa = headerlist['beampa']['value']
-    image_stats= imstat(imagename = imagename)
+
+    if mosaic_sub_field:
+        immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+        image_stats= imstat(imagename = "temp.image")
+        os.system("rm -rf temp.image")
+    else:
+        image_stats= imstat(imagename = imagename)
+
     if maskname is None:
        maskImage=imagename.replace('image','mask').replace('.tt0','')
     else:
@@ -742,18 +763,27 @@ def estimate_SNR(imagename,maskname=None,verbose=True):
            print("#Peak SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
+    if mosaic_sub_field:
+        os.system("rm -rf temp.image")
     os.system('rm -rf temp.mask temp.residual')
     return SNR,rms
 
 
 
-def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
+def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosaic_sub_field=False):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
     beamminor = headerlist['beamminor']['value']
     beampa = headerlist['beampa']['value']
-    image_stats= imstat(imagename = imagename)
+
+    if mosaic_sub_field:
+        immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+        image_stats= imstat(imagename = "temp.image")
+        os.system("rm -rf temp.image")
+    else:
+        image_stats= imstat(imagename = imagename)
+
     if maskname is None:
        maskImage=imagename.replace('image','mask').replace('.tt0','')
     else:
@@ -766,7 +796,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
        print('checkmask')
        return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.beam.extent.mask')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.beam.extent.mask temp.image')
     os.system('cp -r '+maskImage+ ' temp.mask')
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
@@ -829,7 +859,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     ia.close()
     ia.done()
     os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     return SNR,rms
 
 
@@ -1877,7 +1907,7 @@ def plot_image(filename,outname,min=None,max=None):
    else:
       remainder=width-height
       trim_amount=int(remainder/2.0)
-      im1=im.crop((trim_amount,height-1,width,width-trim_amount-1,0))
+      im1=im.crop((trim_amount,0,width-trim_amount-1,height-1))
    im1.save(outname)
 
 def get_flagged_solns_per_ant(gaintable,vis):
