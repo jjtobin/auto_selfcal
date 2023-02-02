@@ -81,7 +81,7 @@ if 'VLA' in telescope:
 ## Import inital MS files to get relevant meta data
 ##
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict=importdata(vislist,all_targets,telescope)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
@@ -113,7 +113,7 @@ spwsarray_orig =spwsarray.copy()
 
 vislist=glob.glob('*selfcal.ms')
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict=importdata(vislist,all_targets,telescope)
 
 ##
 ## Save/restore starting flags
@@ -681,7 +681,8 @@ for target in all_targets:
            gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
-           second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants)
+           second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
+           gaincalibrator_dict=gaincalibrator_dict)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##

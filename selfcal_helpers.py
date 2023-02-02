@@ -584,9 +584,9 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
    if mosaic and median_scans_per_obs > 1:
        solints_list.append('scan_inf')
        if spwcombine:
-           gaincal_combine.append('spw,field')
+           gaincal_combine.append('spw,field,scan')
        else:
-           gaincal_combine.append('field')
+           gaincal_combine.append('field,scan')
 
    #insert solint = inf
    if (not mosaic and median_scans_per_obs > 1) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
@@ -2561,7 +2561,29 @@ def importdata(vislist,all_targets,telescope):
       for delband in bands_to_remove:
          bands.remove(delband)
    
-   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict
+   ## Load the gain calibrator information.
+
+   gaincalibrator_dict = {}
+   for vis in vislist:
+       viskey = vis.replace("_target.ms","_target.selfcal.ms")
+       gaincalibrator_dict[viskey] = {}
+       if os.path.exists(vis.replace("_target.ms",".ms")):
+           msmd.open(vis.replace("_target.ms",".ms").replace("_target.selfcal.ms",".ms"))
+   
+           for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
+               scans_for_field = msmd.scansforfield(field)
+               scans_for_gaincal = msmd.scansforintent("*CALIBRATE_PHASE*")
+               field_name = msmd.fieldnames()[field]
+               gaincalibrator_dict[viskey][field_name] = {}
+               gaincalibrator_dict[viskey][field_name]["scans"] = np.intersect1d(scans_for_field, scans_for_gaincal)
+               gaincalibrator_dict[viskey][field_name]["phasecenter"] = msmd.phasecenter(field)
+               gaincalibrator_dict[viskey][field_name]["intent"] = "phase"
+               gaincalibrator_dict[viskey][field_name]["times"] = np.array([np.mean(msmd.timesforscan(scan)) for scan in \
+                       gaincalibrator_dict[viskey][field_name]["scans"]])
+   
+           msmd.close()
+
+   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,gaincalibrator_dict
 
 def flag_spectral_lines(vislist,all_targets,spwsarray):
    print("# cont.dat file found, flagging lines identified by the pipeline.")

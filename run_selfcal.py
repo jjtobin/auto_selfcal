@@ -12,7 +12,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
         inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, \
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
-        rerank_refants=False):
+        rerank_refants=False, gaincalibrator_dict={}):
    iterjump=-1   # useful if we want to jump iterations
    sani_target=sanitize_string(target)
    vislist=selfcal_library[target][band]['vislist'].copy()
@@ -181,13 +181,60 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         else:
                             splinetime = float(splinetime[0:-1])
 
-                    gaincal(vis=vis,\
-                         caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
-                         gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
-                         refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                         solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
-                         field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
-                         interp=gaincal_interpolate[vis], solmode=gaincal_solmode)
+                    if solint == "scan_inf":
+                        if len(gaincalibrator_dict) > 0:
+                            scans = []
+                            intents = []
+                            times = []
+                            for t in gaincalibrator_dict[vis].keys():
+                                scans += [gaincalibrator_dict[vis][t]["scans"]]
+                                intents += [np.repeat(gaincalibrator_dict[vis][t]["intent"],gaincalibrator_dict[vis][t]["scans"].size)]
+                                times += [gaincalibrator_dict[vis][t]["times"]]
+                            
+                            times = np.concatenate(times)
+                            order = np.argsort(times)
+                            times = times[order]
+                            
+                            scans = np.concatenate(scans)[order]
+                            intents = np.concatenate(intents)[order]
+
+                            is_gaincalibrator = intents == "phase"
+                            scans = scans[is_gaincalibrator]
+
+                            include_scans = []
+                            for iscan in range(scans.size-1):
+                                include_scans.append(",".join(np.array(list(range(scans[iscan]+1,scans[iscan+1]))).astype(str)))
+                        else:
+                            msmd.open(vis)
+                            
+                            scans = msmd.scansforfield(target)
+
+                            include_scans = []
+                            for iscan in range(scans.size):
+                                if len(scans_list) > 0:
+                                    if str(scans[iscan]) in scans_list[-1]:
+                                        continue
+
+                                scan_group = str(scans[iscan])
+
+                                if iscan < scans.size-1:
+                                    if msmd.fieldsforscan(scans[iscan+1]).size < msmd.fieldsforscan(scans[iscan]).size/3:
+                                        scan_group += ","+str(scans[iscan+1])
+
+                                include_scans.append(scan_group)
+
+                            msmd.close()
+                    else:
+                        include_scans = ['']
+
+                    for incl_scans in include_scans:
+                        gaincal(vis=vis,\
+                             caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
+                             gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
+                             refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
+                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
+                             field=target,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
+                             interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
                 else:
                     for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                         gaincal_spwmap[vis]=[]
