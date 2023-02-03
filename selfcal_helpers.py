@@ -854,7 +854,7 @@ def get_n_ants(vislist):
    n_ants=50.0
    for vis in vislist:
       msmd.open(vis)
-      names = msmd.antennanames()
+      names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
       msmd.close()
       n_ant_vis=len(names)
       if n_ant_vis < n_ants:
@@ -867,7 +867,7 @@ def get_ant_list(vis):
    tb = casatools.table()
    n_ants=50.0
    msmd.open(vis)
-   names = msmd.antennanames()
+   names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
    msmd.close()
    return names
 
@@ -878,7 +878,7 @@ def rank_refants(vis, caltable=None):
      tb = casatools.table()
 
      msmd.open(vis)
-     names = msmd.antennanames()
+     names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
      offset = [msmd.antennaoffset(name) for name in names]
      msmd.close()
 
@@ -1521,7 +1521,7 @@ def get_baseline_dist(vis):
      msmd = casatools.msmetadata()
 
      msmd.open(vis)
-     names = msmd.antennanames()
+     names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
      offset = [msmd.antennaoffset(name) for name in names]
      msmd.close()
      baselines=np.array([])
@@ -1865,7 +1865,7 @@ def get_flagged_solns_per_ant(gaintable,vis):
      tb = casatools.table()
 
      msmd.open(vis)
-     names = msmd.antennanames()
+     names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
      offset = [msmd.antennaoffset(name) for name in names]
      msmd.close()
 
@@ -2235,7 +2235,10 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                   if key=='intflux_final':
                      line+='    <td>{:0.2f} +/- {:0.2f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
                   if key=='intflux_improvement':
-                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
+                     if sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'] == 0:
+                         line+='   <td>{:0.2f}</td>\n'.format(1.0)
+                     else:
+                         line+='   <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])
                   if key=='SNR_final':
                      line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
                   if key=='SNR_Improvement':
@@ -2355,7 +2358,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
          vislist=sclib[target][band]['vislist']
          index_addition=1
-         if sclib[target][band]['final_solint'] != 'inf_ap' and sclib[target][band]['final_solint'] != 'None':
+         if sclib[target][band]['final_solint'] != solints[band][-1] and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
 
          final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
@@ -3193,8 +3196,8 @@ def plotcals(source):
     nants = 0
     for vis in vislist:
         msmd.open(vis)
-        if len(msmd.antennanames()) > nants:
-            nants = len(msmd.antennanames())
+        if len(msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))) > nants:
+            nants = len(msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])))
     print(nants)
 
     for ant in range(nants):

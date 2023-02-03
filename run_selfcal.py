@@ -12,7 +12,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mod
         inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, \
         gaincal_minsnr=2.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
-        rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False):
+        rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False):
    iterjump=-1   # useful if we want to jump iterations
    sani_target=sanitize_string(target)
 
@@ -25,7 +25,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mod
 
    if mode == "cocal":
        # Check whether there are suitable calibrators, otherwise skip this target/band.
-       include_targets, include_scans = triage_calibrators(vis, target, calibrators[band][0])
+       include_targets, include_scans = triage_calibrators(vislist[0], target, calibrators[band][0])
        if include_targets == "":
            print("No suitable calibrators found, skipping "+target)
            return
@@ -226,7 +226,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mod
 
                     if mode == "cocal":
                         # Check which targets are acceptable to use as calibrators.
-                        targets = calibrators[band][len(solints[band] - iteration)]
+                        targets = calibrators[band][iteration - len(solints[band])]
 
                         include_targets, include_scans = triage_calibrators(vis, target, targets)
                     else:
@@ -859,7 +859,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mod
                                  field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
                      else:
                          print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
-                         clearcal(vis=vis,field=fid,spw=selfcal_library[target][band][vis]['spws'])
+                         clearcal(vis=vis,field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
                          selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                          selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
 

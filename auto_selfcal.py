@@ -643,14 +643,12 @@ print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
 ## Save the flags following the main iteration of self-calibration since we will need to revert to the beginning for the fallback mode.
 ##
-"""
 # PS: I don't need this anymore?
 for vis in vislist:
    if not os.path.exists(vis+'.flagversions/flags.fb_selfcal_starting_flags'):
       flagmanager(vis=vis,mode='save',versionname='fb_selfcal_starting_flags')
    else:
       flagmanager(vis=vis,mode='restore',versionname='fb_selfcal_starting_flags')
-"""
 
 ##
 ## For sources that self-calibration failed, try to use the inf_EB and the inf solutions from the sources that
@@ -662,6 +660,7 @@ for source in selfcal_library.keys():
 inf_EB_fields = {}
 inf_fields = {}
 fallback_fields = {}
+calibrators = {}
 for band in bands:
     # Initialize the lists for this band.
     inf_EB_fields[band] = []
@@ -757,7 +756,8 @@ for target in all_targets:
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
-           mode="cocal", calibrators=calibrators)
+           mode="cocal", calibrators=calibrators, calculate_inf_EB_fb_anyways=calculate_inf_EB_fb_anyways, \
+           preapply_targets_own_inf_EB=preapply_targets_own_inf_EB)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
