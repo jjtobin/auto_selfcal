@@ -10,7 +10,7 @@ parallel=MPIEnvironment.is_mpi_enabled
 
 def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize, imsize, \
         inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, \
-        gaincal_minsnr=2.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
+        gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False):
    iterjump=-1   # useful if we want to jump iterations
@@ -266,7 +266,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mod
                              caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,5.0), minblperant=4,combine=gaincal_combine[band][iteration],
+                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
                              field=include_targets,scan=include_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              interp=gaincal_interpolate[vis], solmode=gaincal_solmode)
 
@@ -350,7 +350,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mod
                              caltable="temp.g",\
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][fid][vis]['spws'],
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,5.0), minblperant=4,combine=gaincal_combine[band][iteration],
+                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
                              field=str(fid),gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              #interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+
                              #solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
@@ -418,7 +418,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, applycal_mod
                      caltable='test_inf_EB.g',\
                      gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                      refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                     solint=solint.replace('_EB','').replace('_ap','').replace('_fb',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,5.0), minblperant=4,combine=test_gaincal_combine,
+                     solint=solint.replace('_EB','').replace('_ap','').replace('_fb',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
                      field=include_targets,scan=include_scans,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
                    spwlist=selfcal_library[target][band][vis]['spws'].split(',')
                    fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g')
