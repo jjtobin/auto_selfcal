@@ -1924,7 +1924,8 @@ def get_flagged_solns_per_ant(gaintable,vis):
      tb = casatools.table()
 
      msmd.open(vis)
-     names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
+     ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+     names = msmd.antennanames(ids)
      offset = [msmd.antennaoffset(name) for name in names]
      msmd.close()
 
@@ -1950,11 +1951,9 @@ def get_flagged_solns_per_ant(gaintable,vis):
      os.system('cp -r '+gaintable.replace(' ','\ ')+' tempgaintable.g')
      gaintable='tempgaintable.g'
      nflags = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
-             str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
-             range(len(names))]
+             str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in ids]
      nunflagged = [tb.calc('[select from '+gaintable+' where ANTENNA1=='+\
-             str(i)+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
-             range(len(names))]
+             str(i)+' giving  [nfalse(FLAG)]]')['0'].sum() for i in ids]
      os.system('rm -rf tempgaintable.g')
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
      # Calculate a score based on those two.
