@@ -498,6 +498,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan'
                          gaincal_combine[band][iteration]='scan'
                          applycal_spwmap[vis]=[applycal_spwmap_inf_EB]
+
+                      # Update the appropriate selfcal_library entries.
+                      selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
+                      selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                      for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
+                          selfcal_library[target][band][fid][vis][solint]['spwmap']=applycal_spwmap[vis]
+                          selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+
                    os.system('rm -rf test_inf_EB.g')               
 
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
