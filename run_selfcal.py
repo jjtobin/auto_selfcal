@@ -194,7 +194,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             splinetime = float(splinetime[0:-1])
 
                     if solint == "scan_inf":
-                        if len(gaincalibrator_dict) > 0:
+                        if len(gaincalibrator_dict[vis]) > 0:
                             scans = []
                             intents = []
                             times = []
@@ -223,8 +223,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                             include_scans = []
                             for iscan in range(scans.size):
-                                if len(scans_list) > 0:
-                                    if str(scans[iscan]) in scans_list[-1]:
+                                if len(include_scans) > 0:
+                                    if str(scans[iscan]) in include_scans[-1]:
                                         continue
 
                                 scan_group = str(scans[iscan])
@@ -819,7 +819,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 get_SNR_self_update([target],band,vislist,selfcal_library[target][band],n_ants,solint,solints[band][iteration+1],integration_time,solint_snr[target][band])
                 print('Now: ',solint_snr[target][band][solints[band][iteration+1]])
 
-                for fid in selfcal_library[target][band]['sub-fields']:
+                for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                     print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][solints[band][iteration+1]])
                     get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
                     print('FIeld '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][iteration+1]])
