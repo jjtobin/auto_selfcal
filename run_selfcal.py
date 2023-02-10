@@ -344,7 +344,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         # Flag all of the scans that failed the triage above.
                         if preapply_targets_own_inf_EB and solint == "inf_fb":
                             good_scans = np.repeat(False, antennas.size)
-                            for scan in include_scans.split(","):
+                            for scan in include_scans[0].split(","):
                                 good_scans[scans == int(scan)] = True
                             print("# of good scans data:", good_scans.sum())
                             print("# of scans data:", good_scans.size)
