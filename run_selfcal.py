@@ -808,7 +808,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round
                     print('****************Reapplying previous solint solutions*************')
                     for vis in vislist:
-                       flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
+                       versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target
+                       flagmanager(vis=vis,mode='restore',versionname=versionname)
                        for fid in selfcal_library[target][band]['sub-fields']:
                            if selfcal_library[target][band][fid]['SC_success']:
                                print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+\

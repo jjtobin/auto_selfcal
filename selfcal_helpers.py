@@ -1585,8 +1585,9 @@ def get_baseline_dist(vis):
      msmd = casatools.msmetadata()
 
      msmd.open(vis)
-     names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
-     offset = [msmd.antennaoffset(name) for name in names]
+     ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+     names = msmd.antennanames(ids)
+     offset = [msmd.antennaoffset(id) for id in ids]
      msmd.close()
      baselines=np.array([])
      for i in range(len(offset)):
