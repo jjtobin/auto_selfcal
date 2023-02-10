@@ -482,8 +482,10 @@ for target in all_targets:
       for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid]['per_spw_stats']={}
           vislist=selfcal_library[target][band][fid]['vislist'].copy()
-          spwlist=selfcal_library[target][band][fid][vislist[0]]['spws'].split(',')
-          spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][fid][vis]['spwsarray'],target)
+          for vis in vislist:
+              selfcal_library[target][band][fid][vis]['spwlist']=selfcal_library[target][band][fid][vis]['spws'].split(',')
+          spwlist=selfcal_library[target][band][fid][maxspwvis]['spwlist']
+          spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][fid][maxspwvis]['spwsarray'],target)
           selfcal_library[target][band][fid]['total_bandwidth']=0.0
           selfcal_library[target][band][fid]['total_effective_bandwidth']=0.0
           if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
