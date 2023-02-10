@@ -298,6 +298,8 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          integrations=np.array([])
          scanstarts=np.array([])
          scanends=np.array([])
+         store_ids = np.any(['scan' in key and np.all([listdict[vis][key][subscan_id]['FieldName']==target for subscan_id in \
+                 listdict[vis][key].keys()]) and len(listdict[vis][key]) > 1 for key in keylist])
          for key in keylist:
             if ('scan' in key) and (listdict[vis][key]['0']['FieldName']==target) and np.all(np.in1d(np.array(listdict[vis][key]['0']['SpwIds']),band_properties[vis][band]['spwarray'])):
                countscans+=1
@@ -318,7 +320,10 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
                spwslist=np.append(listdict[vis][key]['0']['SpwIds'],spwslist)
                subscanlist=listdict[vis][key].keys()
                for subscan in subscanlist:
-                  mosaic_field[target]['field_ids'].append(listdict[vis][key][subscan]['FieldId'])
+                  if store_ids:
+                      mosaic_field[target]['field_ids'].append(listdict[vis][key][subscan]['FieldId'])
+                  else:
+                      mosaic_field[target]['field_ids'].append(listdict[vis][key][subscan]['FieldName'])
 
                mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
                if len(mosaic_field[target]['field_ids']) > 1:
