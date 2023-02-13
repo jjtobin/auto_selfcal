@@ -706,7 +706,7 @@ for vis in vislist:
 ## were successful.
 
 for target in selfcal_library.keys():
-    for band in selfcal_library[target].keys()
+    for band in selfcal_library[target].keys():
         print(target, selfcal_library[target][band]["final_solint"])
 
 inf_EB_fields = {}
