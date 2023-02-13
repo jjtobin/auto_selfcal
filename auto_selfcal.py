@@ -706,7 +706,7 @@ for vis in vislist:
 ## were successful.
 
 for source in selfcal_library.keys():
-    print(source, selfcal_library[source]["Band_7"]["final_solint"])
+    print(source, selfcal_library[source][band]["final_solint"])
 
 inf_EB_fields = {}
 inf_fields = {}
@@ -720,9 +720,9 @@ for band in bands:
 
     # Loop through and identify which sources belong where.
     for target in selfcal_library.keys():
-        if selfcal_library[target]['Band_7']['SC_success'] and 'fb' not in selfcal_library[target]['Band_7']['final_solint']:
+        if selfcal_library[target][band]['SC_success'] and 'fb' not in selfcal_library[target][band]['final_solint']:
             inf_EB_fields[band].append(target)
-            if selfcal_library[target]['Band_7']['final_solint'] != 'inf_EB':
+            if selfcal_library[target][band]['final_solint'] != 'inf_EB':
                 inf_fields[band].append(target)
             elif 'inf' in solints[band]:
                 fallback_fields[band].append(target)
@@ -767,12 +767,12 @@ preapply_targets_own_inf_EB = False
 ## The below sets the calibrations back to what they were prior to starting the fallback mode. It should not be needed
 ## for the final version of the codue, but is used for testing.
 
-fb_list = fallback_fields["Band_7"]
 
-
-for target in fb_list:
+for target in all_targets:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
+   if target not in fallback_fields[band]:
+       continue
    if 'gaintable_final' in selfcal_library[target][band][vislist[0]]:
       print('****************Reapplying previous solint solutions*************')
       for vis in vislist:
