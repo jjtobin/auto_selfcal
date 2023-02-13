@@ -705,8 +705,9 @@ for vis in vislist:
 ## For sources that self-calibration failed, try to use the inf_EB and the inf solutions from the sources that
 ## were successful.
 
-for source in selfcal_library.keys():
-    print(source, selfcal_library[source][band]["final_solint"])
+for target in selfcal_library.keys():
+    for band in selfcal_library[target].keys()
+        print(target, selfcal_library[target][band]["final_solint"])
 
 inf_EB_fields = {}
 inf_fields = {}
