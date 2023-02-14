@@ -21,6 +21,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
        gaincal_minsnr = 10.0
        rerank_refants = True
        refantmode = "strict"
+   elif mode == "cocal":
+       refantmode = "strict"
    else:
        refantmode = "flex"
 
@@ -304,7 +306,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             #t_iteration = selfcal_library[t][band][vislist[0]][t_final_solint]["iteration"]
                             #table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+t_final_solint+'_'+str(t_iteration)+'_'+solmode[band][iteration]+'.g'
 
-                            tb.open(table_name)
+                            rerefant(vis, table_name, caltable="tmp0.g", refantmode="strict", refant=selfcal_library[target][band][vis]['refant'])
+
+                            tb.open("tmp0.g")
                             if not os.path.exists("tmp1.g"):
                                 tb.copy("tmp1.g", deep=True)
                             else:
@@ -319,7 +323,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         tb.copy(destination_table, deep=True)
                         tb.close()
 
-                        os.system("rm -rf tmp1.g tmp2.g")
+                        os.system("rm -rf tmp0.g tmp1.g tmp2.g")
                     else:
                         for incl_scans in include_scans:
                             gaincal(vis=vis,\
@@ -328,7 +332,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
                                  solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
                                  field=include_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
-                                 interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode=refantmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
+                                 interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode=refantmode if 'inf_EB' not in solint else 'flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
 
                     if mode == "cocal":
                         ##
@@ -414,7 +418,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              field=str(fid),gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              #interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+
                              #solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
-                             interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists('temp.g'), refantmode=refantmode)
+                             interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists('temp.g'), refantmode=refantmode if 'inf_EB' not in solint else 'flex')
 
                     tb.open("temp.g")
                     subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
@@ -442,7 +446,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             # computing time isn't significant so it's easy just to run through again.
                             if os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g'):
                                 rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g', \
-                                        refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode)
+                                        refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' in sint else 'flex')
 
                                 os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g')
                                 os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g '+\
@@ -460,10 +464,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                         spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=it)
                             else:
                                 rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
-                                        refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode)
+                                        refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' in sint else 'flex')
                     else:
                         rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', \
-                                refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode)
+                                refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' in sint else 'flex')
 
                 ##
                 ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
@@ -472,14 +476,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 if 'inf_EB' in solint and fallback[vis]=='':
                    os.system('rm -rf test_inf_EB.g')
                    test_gaincal_combine='scan,spw'
-                   if selfcal_library[target][band]['obstype']=='mosaic':
+                   if selfcal_library[target][band]['obstype']=='mosaic' or mode=="cocal":
                       test_gaincal_combine+=',field'   
                    gaincal(vis=vis,\
                      caltable='test_inf_EB.g',\
                      gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                      refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                      solint=solint.replace('_EB','').replace('_ap','').replace('_fb',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
-                     field=include_targets,scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'], refantmode=refantmode) 
+                     field=include_targets,scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'], refantmode='flex') 
                    spwlist=selfcal_library[target][band][vis]['spws'].split(',')
                    fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g')
 
