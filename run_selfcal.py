@@ -315,15 +315,28 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                 tb.copyrows("tmp1.g")
                             tb.close()
 
+                            os.system("rm -rf tmp0.g")
+
                         tb.open("tmp1.g")
-                        tb.query("OBSERVATION_ID==0", name="tmp2.g", sortlist="TIME,ANTENNA1")
+                        subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
+                        copyt = subt.copy(destination_table, deep=True)
                         tb.close()
+                        subt.close()
+                        copyt.close()
 
-                        tb.open("tmp2.g")
-                        tb.copy(destination_table, deep=True)
+                        os.system("rm -rf tmp1.g")
+
+                        # Remove all of the scans that failed the triage above.
+                        tb.open(destination_table, nomodify=False)
+                        scans = tb.getcol("SCAN_NUMBER")
+
+                        bad_scans = np.repeat(True, scans.size)
+                        for scan in include_scans[0].split(","):
+                            bad_scans[scans == int(scan)] = False
+
+                        tb.removerows(rownrs=np.where(bad_scans)[0])
+                        tb.flush()
                         tb.close()
-
-                        os.system("rm -rf tmp0.g tmp1.g tmp2.g")
                     else:
                         for incl_scans in include_scans:
                             gaincal(vis=vis,\
@@ -334,36 +347,6 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  field=include_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                                  interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode=refantmode if 'inf_EB' not in solint else 'flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
 
-                    if mode == "cocal":
-                        ##
-                        ## Do some post gaincal cleanup.
-                        ##
-                        tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', nomodify=False)
-                        antennas = tb.getcol("ANTENNA1")
-                        flags = tb.getcol("FLAG")
-                        cals = tb.getcol("CPARAM")
-                        snr = tb.getcol("SNR")
-                        scans = tb.getcol("SCAN_NUMBER")
-
-                        # Flag all of the scans that failed the triage above.
-                        if preapply_targets_own_inf_EB and solint == "inf_fb":
-                            good_scans = np.repeat(False, antennas.size)
-                            for scan in include_scans[0].split(","):
-                                good_scans[scans == int(scan)] = True
-                            print("# of good scans data:", good_scans.sum())
-                            print("# of scans data:", good_scans.size)
-                            flags[:,:,np.logical_not(good_scans)] = True
-
-                        """
-                        # Flag any solutions whose S/N ratio is too small.
-                        flags[snr < 5.] = True
-                        """
-
-                        # Finally, write this out.
-                        bad = np.where(flags[0,0,:])[0]
-                        tb.removerows(rownrs=bad)
-                        tb.flush()
-                        tb.close()
                 else:
                     for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                         gaincal_spwmap[vis]=[]
@@ -532,9 +515,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=iteration)
 
                 # Do some post-gaincal cleanup for mosaics.
-                if selfcal_library[target][band]['obstype'] == 'mosaic':
+                if selfcal_library[target][band]['obstype'] == 'mosaic' or mode == "cocal":
                     tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', nomodify=False)
                     flags = tb.getcol("FLAG")
+                    """
+                    # Flag any solutions whose S/N ratio is too small.
+                    snr = tb.getcol("SNR")
+                    flags[snr < 5.] = True
+                    """
                     bad = np.where(flags[0,0,:])[0]
                     tb.removerows(rownrs=bad)
                     tb.flush()
