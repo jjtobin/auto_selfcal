@@ -926,7 +926,8 @@ def rank_refants(vis, caltable=None):
      tb = casatools.table()
 
      msmd.open(vis)
-     names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
+     ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+     names = msmd.antennanames(ids)
      offset = [msmd.antennaoffset(name) for name in names]
      msmd.close()
 
@@ -947,19 +948,13 @@ def rank_refants(vis, caltable=None):
      # Calculate the number of flags for each antenna.
 
      nflags = [tb.calc('[select from '+vis+' where ANTENNA1=='+\
-             str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
-             range(len(names))]
+             str(i)+' giving  [ntrue(FLAG)]]')['0'].sum() for i in ids]
 
      # Calculate the median SNR for each antenna.
 
      if caltable != None:
-         tb.open(caltable)
-         snr = tb.getcol("SNR")
-         tb.close()
-
-         nants = len(names)
-         ordered_snr = snr.reshape(snr.shape[0:2] + (snr.shape[2]//nants, nants))
-         total_snr = ordered_snr.sum(axis=2).sum(axis=0).sum(axis=0)
+         total_snr = [tb.calc('[select from '+caltable+' where ANTENNA1=='+\
+                 str(i)+' giving  [sum(SNR)]]')['0'].sum() for i in ids]
 
      # Calculate a score based on those two.
 
