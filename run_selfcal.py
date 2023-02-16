@@ -22,6 +22,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
        rerank_refants = True
        refantmode = "strict"
    elif mode == "cocal":
+       rerank_refants = True
        refantmode = "strict"
    else:
        refantmode = "flex"
@@ -455,7 +456,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                         refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' in sint else 'flex')
                     else:
                         rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', \
-                                refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' in sint else 'flex')
+                                refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' in solint else 'flex')
 
                 ##
                 ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
