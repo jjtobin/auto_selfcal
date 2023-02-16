@@ -301,7 +301,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         ##
                         destination_table = sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'
                         for t in include_targets.split(","):
-                            table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb','')+'_'+str(1)+'_'+solmode[band][iteration]+'.g'
+                            if os.path.exists(sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb','')+'_'+str(1)+'_'+solmode[band][iteration]+\
+                                    '.pre-pass.g'):
+                                table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb','')+'_'+str(1)+'_'+solmode[band][iteration]+\
+                                        '.pre-pass.g'
+                            else:
+                                table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb','')+'_'+str(1)+'_'+solmode[band][iteration]+'.g'
                             #t_final_solint = selfcal_library[t][band]["final_phase_solint"]
                             #t_iteration = selfcal_library[t][band][vislist[0]][t_final_solint]["iteration"]
                             #table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+t_final_solint+'_'+str(t_iteration)+'_'+solmode[band][iteration]+'.g'
