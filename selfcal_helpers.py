@@ -1125,7 +1125,7 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
     fieldnames = tb.getcol('NAME')
     tb.close()
     tb.open(msfile+'/OBSERVATION')
-    obstime = np.squeeze(tb.getcol('TIME_RANGE', startrow = obsid, nrow = 1))[0]
+    obstime = np.squeeze(tb.getcol('TIME_RANGE', startrow = obsid[0], nrow = 1))[0]
     tb.close()
     nchan = len(chanfreqs)
     ms.open(msfile)
