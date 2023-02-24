@@ -145,22 +145,22 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    if band_properties[vis[0]][band]['meanfreq'] < 12.0e9:
                       fov=fov*2.0
                 if telescope=='ALMA':
-                   fov=63.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
+                   fov=63.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5*1.15
                 if telescope=='ACA':
                    fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
 
                 region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(phasecenters[field_id]['m0']['value'], \
                         phasecenters[field_id]['m1']['value'], fov)
 
-                for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0"]:
+                for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
                     target = sanitize_string(field)
                     os.system('rm -rf '+ imagename.replace(target,target+"_field_"+str(field_id)) + ext)
 
                     if ext == ".psf.tt0":
                         os.system("cp -r "+imagename+ext+" "+imagename.replace(target,target+"_field_"+str(field_id))+ext)
                     else:
-                        imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+ext, region=region, \
-                                overwrite=True)
+                        imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+\
+                                ext.replace("pb","mospb"), region=region, overwrite=True)
 
                 # Make an image of the primary beam for each sub-field.
                 if type(vis) == list:
@@ -719,7 +719,8 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
     beampa = headerlist['beampa']['value']
 
     if mosaic_sub_field:
-        immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+        immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
+                expr="IM0*IM1/IM2")
         image_stats= imstat(imagename = "temp.image")
         os.system("rm -rf temp.image")
     else:
@@ -778,7 +779,8 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     beampa = headerlist['beampa']['value']
 
     if mosaic_sub_field:
-        immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+        immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
+                expr="IM0*IM1/IM2")
         image_stats= imstat(imagename = "temp.image")
         os.system("rm -rf temp.image")
     else:
@@ -875,7 +877,8 @@ def get_intflux(imagename,rms,maskname=None,mosaic_sub_field=False):
       maskname=imagename.replace('image.tt0','mask')
 
    if mosaic_sub_field:
-       immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+       immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
+               expr="IM0*IM1/IM2")
        imagestats= imstat(imagename = "temp.image", mask=maskname)
        os.system("rm -rf temp.image")
    else:
