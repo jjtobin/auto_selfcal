@@ -156,7 +156,8 @@ def collect_listobs_per_vis(vislist):
       listdict[vis]=listobs(vis)
    return listdict
 
-def fetch_scan_times(vislist,targets,listdict):
+#listobs version of function, marked for removal
+def fetch_scan_times_old(vislist,targets,listdict):
    scantimesdict={}
    integrationsdict={}
    integrationtimesdict={}
@@ -192,13 +193,62 @@ def fetch_scan_times(vislist,targets,listdict):
          integrationtimesdict[vis][target]=np.median(integrationtime)
          integrationsdict[vis][target]=integrations.copy()
    if np.mean(n_spws) != np.max(n_spws):
-      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    if np.max(min_spws) != np.min(min_spws):
-      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    spwslist=np.unique(spwslist).astype(int)
    return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
 
-def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
+def fetch_scan_times(vislist,targets):
+   scantimesdict={}
+   integrationsdict={}
+   integrationtimesdict={}
+   integrationtimes=np.array([])
+   n_spws=np.array([])
+   min_spws=np.array([])
+   spwslist=np.array([])
+   scansdict={}
+   for vis in vislist:
+      scantimesdict[vis]={}
+      integrationsdict[vis]={}
+      integrationtimesdict[vis]={}
+      scansdict[vis]={}
+      msmd.open(vis)
+      for target in targets:
+         scansdict[vis][target]=msmd.scansforfield(target)
+
+      for target in targets:
+         scantimes=np.array([])
+         integrations=np.array([])
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+            integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
+            integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
+            times=msmd.timesforscan(scan)
+            scantime=np.max(times)+integrationtime-np.min(times)
+            ints_per_scan=np.round(scantime/integrationtimes[0])
+            scantimes=np.append(scantimes,np.array([scantime]))
+            integrations=np.append(integrations,np.array([ints_per_scan]))
+
+
+
+         scantimesdict[vis][target]=scantimes.copy()
+         #assume each band only has a single integration time
+         integrationtimesdict[vis][target]=np.median(integrationtimes)
+         integrationsdict[vis][target]=integrations.copy()
+      msmd.close()
+   if np.mean(n_spws) != np.max(n_spws):
+      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+   if np.max(min_spws) != np.min(min_spws):
+      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+   spwslist=np.unique(spwslist).astype(int)
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist
+
+#listobs version of function, marked for removal
+def fetch_scan_times_band_aware_old(vislist,targets,listdict,band_properties,band):
    scantimesdict={}
    scanstartsdict={}
    scanendsdict={}
@@ -257,16 +307,86 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          integrationsdict[vis][target]=integrations.copy()
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       spwslist=np.unique(spwslist).astype(int)
    else:
      return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
    return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
 
+def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
+   scantimesdict={}
+   scanstartsdict={}
+   scanendsdict={}
+   integrationsdict={}
+   integrationtimesdict={}
+   integrationtimes=np.array([])
+   n_spws=np.array([])
+   min_spws=np.array([])
+   spwslist=np.array([])
+   mosaic_field={}
+   scansdict={}
+   for vis in vislist:
+      scantimesdict[vis]={}
+      scanstartsdict[vis]={}
+      scanendsdict[vis]={}
+      integrationsdict[vis]={}
+      integrationtimesdict[vis]={}
+      scansdict[vis]={}
+      msmd.open(vis)
+      for target in targets:
+         scansforfield=msmd.scansforfield(target)
+         scansforspw=msmd.scansforspw(band_properties[vis][band]['spwarray'][0])
+         scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
+         scansdict[vis][target].sort
+      for target in targets:
+         mosaic_field[target]={}
+         mosaic_field[target]['field_ids']=[]
+         mosaic_field[target]['mosaic']=False
+         mosaic_field[target]['field_ids']=msmd.fieldsforname(target)
+         mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
+         if len(mosaic_field[target]['field_ids']) > 1:
+            mosaic_field[target]['mosaic']=True
+         scantimes=np.array([])
+         integrations=np.array([])
+         scanstarts=np.array([])
+         scanends=np.array([])
 
-def fetch_spws(vislist,targets,listdict):
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+            integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
+            integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
+            times=msmd.timesforscan(scan)
+            scantime=np.max(times)+integrationtime-np.min(times)
+            scanstarts=np.append(scanstarts,np.array([np.min(times)/86400.0]))
+            scanends=np.append(scanends,np.array([(np.max(times)+integrationtime)/86400.0]))
+            ints_per_scan=np.round(scantime/integrationtimes[0])
+            scantimes=np.append(scantimes,np.array([scantime]))
+            integrations=np.append(integrations,np.array([ints_per_scan]))
+
+               
+         scantimesdict[vis][target]=scantimes.copy()
+         scanstartsdict[vis][target]=scanstarts.copy()
+         scanendsdict[vis][target]=scanends.copy()
+         #assume each band only has a single integration time
+         integrationtimesdict[vis][target]=np.median(integrationtimes)
+         integrationsdict[vis][target]=integrations.copy()
+   if len(n_spws) > 0:
+      if np.mean(n_spws) != np.max(n_spws):
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      if np.max(min_spws) != np.min(min_spws):
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      spwslist=np.unique(spwslist).astype(int)
+   else:
+     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
+   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
+
+#deprecated function marked for removal
+def fetch_spws_old(vislist,targets,listdict):
    scantimesdict={}
    n_spws=np.array([])
    min_spws=np.array([])
@@ -275,19 +395,17 @@ def fetch_spws(vislist,targets,listdict):
       listdict[vis]=listobs(vis)
       keylist=list(listdict[vis].keys())  
       for target in targets:
-         countscans=0
          for key in keylist:
             if 'scan' in key and listdict[vis][key]['0']['FieldName']==target:
-               countscans+=1
                n_spws=np.append(len(listdict[vis][key]['0']['SpwIds']),n_spws)
                min_spws=np.append(np.min(listdict[vis][key]['0']['SpwIds']),min_spws)
                spwslist=np.append(listdict[vis][key]['0']['SpwIds'],spwslist)
                #print(scantimes)
    if len(n_spws) > 1:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    spwslist=np.unique(spwslist).astype(int)
    if len(n_spws) == 1:
       return n_spws,min_spws,spwslist
@@ -295,6 +413,37 @@ def fetch_spws(vislist,targets,listdict):
       return np.max(n_spws),np.min(min_spws),spwslist
 
 
+def fetch_spws(vislist,targets):
+   scantimesdict={}
+   n_spws=np.array([])
+   min_spws=np.array([])
+   spwslist=np.array([])
+   scansdict={}
+   for vis in vislist:
+      scansdict[vis]={}
+      msmd.open(vis)
+      for target in targets:
+         scansdict[vis][target]=msmd.scansforfield(target)
+         scansdict[vis][target].sort
+      for target in targets:
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+   if len(n_spws) > 1:
+      if np.mean(n_spws) != np.max(n_spws):
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      if np.max(min_spws) != np.min(min_spws):
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+   spwslist=np.unique(spwslist).astype(int)
+   if len(n_spws) == 1:
+      return n_spws,min_spws,spwslist
+   else:
+      return np.max(n_spws),np.min(min_spws),spwslist
+
+
+#unused function
 def fetch_scan_times_target(vislist,target,listdict):
    scantimesdict={}
    integrationsdict={}
@@ -602,7 +751,7 @@ def fetch_targets_old(vis):
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
-def fetch_targets(vis):
+def fetch_targets_previous(vis):
       fields=[]
       tb.open(vis+'/FIELD')
       names=list(tb.getcol('NAME'))
@@ -614,6 +763,17 @@ def fetch_targets(vis):
             fieldnum=int(listobskey.split('_')[1])
             fields.append(names[fieldnum])
       fields=list(set(fields)) # convert to set to only get unique items
+      return fields
+
+def fetch_targets(vis):
+      fields=[]
+      msmd.open(vis)
+      fieldnames=msmd.fieldnames()
+      for fieldname in fieldnames:
+         scans=msmd.scansforfield(fieldname)
+         if len(scans) > 0:
+            fields.append(fieldname)
+      msmd.close()
       return fields
 
 def checkmask(imagename):
@@ -2325,7 +2485,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
 def importdata(vislist,all_targets,telescope):
    listdict=collect_listobs_per_vis(vislist)
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
    spwslist=spwsarray.tolist()
    spwstring=','.join(str(spw) for spw in spwslist)
 
@@ -2346,7 +2506,7 @@ def importdata(vislist,all_targets,telescope):
    for band in bands:
         print(band)
         scantimesdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
 
         scantimesdict[band]=scantimesdict_temp.copy()
         scanstartsdict[band]=scanstartsdict_temp.copy()

@@ -202,7 +202,7 @@ for target in all_targets:
       selfcal_library[target][band][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target])
       allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
       selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
-      n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
+      n_spws,minspw,spwsarray=fetch_spws([vis],[target])
       spwslist=spwsarray.tolist()
       spwstring=','.join(str(spw) for spw in spwslist)
       selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
