@@ -1863,7 +1863,7 @@ def plot_image(filename,outname,min=None,max=None):
    else:
       remainder=width-height
       trim_amount=int(remainder/2.0)
-      im1=im.crop((trim_amount,height-1,width,width-trim_amount-1,0))
+      im1=im.crop((trim_amount,0,width-trim_amount-1,height-1))
    im1.save(outname)
 
 def get_flagged_solns_per_ant(gaintable,vis):
