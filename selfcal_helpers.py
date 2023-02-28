@@ -2862,12 +2862,16 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # case of a significantly flagged short baseline antenna and a lot of minimally flagged long baseline antennas, the velocity
     # might be negative because you have a shallow gap at the intersection of the two. So we need to do a check, and if there's no
     # peaks that satisfy this condition, ignore the velocity criterion.
+    positive_velocity_maxima = maxima[np.logical_and(second_derivative[maxima] > 0, derivative[maxima] > 0)]
     maxima = maxima[second_derivative[maxima] > 0]
     # If we have enough peaks (i.e. the whole thing isn't flagged, then take only the peaks outside the inner 5%.
     if len(maxima) > 1:
         maxima = maxima[test_r[maxima] > test_r.max()*0.1]
     # Pick the shortest baseline "significant" maximum.
-    good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
+    if len(positive_velocity_maxima) > 0:
+        good = second_derivative[maxima] / second_derivative[positive_velocity_maxima].max() > 0.5
+    else:
+        good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
     m = maxima[good].min()
     # If thats not the shortest baseline maximum, we can go one lower as long as the velocity doesn't go below 0.
     if m != maxima.min():
@@ -2896,7 +2900,10 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
 
     ax1.plot(test_r, fraction_flagged_antennas, "k-")
     ax2.plot(test_r, derivative / derivative.max(), "g-")
-    ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
+    if len(positive_velocity_maxima) > 0:
+        ax2.plot(test_r, second_derivative / second_derivative[positive_velocity_maxima].max(), "r-")
+    else:
+        ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
 
     for m in maxima[::-1]:
         if second_derivative[m] < 0:
