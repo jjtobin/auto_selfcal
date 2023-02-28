@@ -2800,14 +2800,23 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
         good_spws = np.repeat(False, spws.size)
         for spw in np.unique(spwmap):
             good_spws = np.logical_or(good_spws, spws == spw)
-
-        antennas = antennas[good_spws]
-        flags = flags[:,:,good_spws]
-        cals = cals[:,:,good_spws]
-        snr = snr[:,:,good_spws]
     else:
         good_spws = np.repeat(True, antennas.size)
+
+    msmd.open(vis)
+    good_antenna_ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+    good_antennas = np.repeat(False, antennas.size)
+    for ant in np.unique(antennas):
+        if ant in good_antenna_ids:
+            good_antennas[antennas == ant] = True
+
+    good_spws = np.logical_and(good_spws, good_antennas)
  
+    antennas = antennas[good_spws]
+    flags = flags[:,:,good_spws]
+    cals = cals[:,:,good_spws]
+    snr = snr[:,:,good_spws]
+
     # Get the percentage of flagged solutions for each antenna.
     unique_antennas = np.unique(antennas)
     nants = unique_antennas.size
@@ -2835,6 +2844,10 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     flagged_offsets = offsets[np.any(flags, axis=(0,1))]
     if len(np.unique(flagged_offsets)) == 1:
         flagged_offsets = np.concatenate((flagged_offsets, flagged_offsets*1.05))
+    elif len(flagged_offsets) == 0:
+        tb.close()
+        print("Not unflagging any antennas because there are no flags! The beam size probably changed because of calwt=True.")
+        return
     kernel = scipy.stats.gaussian_kde(flagged_offsets,
             bw_method=kernal2.factor*offsets.std()/flagged_offsets.std())
     normalized = kernel(test_r) * len(flagged_offsets) / np.trapz(kernel(test_r), test_r)
