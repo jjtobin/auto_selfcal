@@ -239,13 +239,43 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     else:
                         include_scans = ['']
 
-                    for incl_scans in include_scans:
+                    # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
+                    if selfcal_library[target][band]['obstype'] == 'mosaic':
+                        msmd.open(vis)
+                        include_targets = []
+                        remove = []
+                        for incl_scan in include_scans:
+                            scan_targets = []
+                            for fid in selfcal_library[target][band]['sub-fields'] if incl_scan == '' else \
+                                    msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)):
+                                if not checkmask(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
+                                    print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                                            solmode[band][iteration]+'.g'+" because there is no signal within the primary beam.")
+                                #elif solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed:
+                                #    print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                                #            solmode[band][iteration]+'.g'+' because the estimated solint snr is too low.')
+                                else:
+                                    scan_targets.append(fid)
+
+                            if len(scan_targets) > 0:
+                                include_targets.append(','.join(np.array(scan_targets).astype(str)))
+                            else:
+                                remove.append(incl_scan)
+
+                        for incl_scan in remove:
+                            include_scans.remove(incl_scan)
+
+                        msmd.close()
+                    else:
+                        include_targets = ['']
+
+                    for incl_scans, incl_targets in zip(include_scans, include_targets):
                         gaincal(vis=vis,\
                              caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
                              solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
-                             field=target,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
+                             field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode=refantmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
                 else:
                     for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
