@@ -562,6 +562,25 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     bad = np.where(flags[0,0,:])[0]
                     tb.removerows(rownrs=bad)
                     tb.flush()
+
+                    # Once we get beyond the inf solint, we dont want to let fields be significantly interpolated.
+                    fields = tb.getcol("FIELD_ID")
+                    if 'inf' not in solint:
+                        new_fields_to_selfcal = []
+                    for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
+                        if fid in fields:
+                            if 'inf' not in solint:
+                                new_fields_to_selfcal.append(fid)
+                            selfcal_library[target][band][fid][vis][solint]['interpolated_gains'] = False
+                        else:
+                            selfcal_library[target][band][fid][vis][solint]['interpolated_gains'] = True
+                            if 'inf' not in solint:
+                                selfcal_library[target][band][fid]['Stop_Reason'] = "Gaincal solutions would be interpolated beyond solint = inf"
+                                del selfcal_library[target][band][fid][vis][solint]
+
+                    if 'inf' not in solint:
+                        selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
+
                     tb.close()
 
              for vis in vislist:
