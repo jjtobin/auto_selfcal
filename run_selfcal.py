@@ -635,22 +635,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              loose_field_by_field_success = []
              beam_field_by_field_success = []
              for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
-                 if selfcal_library[target][band][fid][vis][solint]['intflux_post'] == 0:
-                     # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
-                     # signs go the right direction. Might be good to fix this terminology to be less confusing...
-                     mosaic_value = post_mosaic_RMS[fid]
-                     post_mosaic_value = mosaic_RMS[fid]
-                     mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                 else:
-                     mosaic_value = mosaic_SNR[fid]
-                     post_mosaic_value = post_mosaic_SNR[fid]
-                     mosaic_value_NF = mosaic_SNR_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_SNR_NF[fid]
-
-                 strict_field_by_field_success += [(post_mosaic_value >= mosaic_value) and (post_mosaic_value_NF >= mosaic_value_NF)]
-                 loose_field_by_field_success += [((post_mosaic_value-mosaic_value)/mosaic_value > -0.02) and \
-                         ((post_mosaic_value_NF - mosaic_value_NF)/mosaic_value_NF > -0.02)]
+                 strict_field_by_field_success += [(post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NR[fid] >= mosaic_SNR_NF[fid])]
+                 loose_field_by_field_success += [((post_mosaic_SNR[fid]-mosaic_SNR[fid])/mosaic_SNR[fid] > -0.02) and \
+                         ((post_mosaic_SNR_NR[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
                  beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
 
              if solint == 'inf_EB' or np.any(strict_field_by_field_success):
@@ -768,25 +755,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          new_fields_to_selfcal = []
          for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
              if not selfcal_library[target][band][fid][vislist[0]][solint]['Pass']:
-                 if selfcal_library[target][band][fid][vislist[0]][solint]['intflux_post'] == 0:
-                     # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
-                     # signs go the right direction. Might be good to fix this terminology to be less confusing...
-                     mosaic_value = post_mosaic_RMS[fid]
-                     post_mosaic_value = mosaic_RMS[fid]
-                     mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                     metric = "RMS"
-                 else:
-                     mosaic_value = mosaic_SNR[fid]
-                     post_mosaic_value = post_mosaic_SNR[fid]
-                     mosaic_value_NF = mosaic_SNR_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_SNR_NF[fid]
-                     metric = "S/N"
-
                  mosaic_reason[fid]=''
-                 if (post_mosaic_value <= mosaic_value):
+                 if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
                     mosaic_reason[fid]=mosaic_reason[fid]+' '+metric+' decrease'
-                 if (post_mosaic_value_NF < mosaic_value_NF):
+                 if (post_mosaic_SNR_NR[fid] < mosaic_SNR_NF[fid]):
                     if mosaic_reason[fid] != '':
                         mosaic_reason[fid] += '; '
                     mosaic_reason[fid] = mosaic_reason[fid] + ' NF '+metric+' decrease'
