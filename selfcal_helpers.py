@@ -383,7 +383,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       spwslist=np.unique(spwslist).astype(int)
    else:
-     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
+     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
    return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
 
 #deprecated function marked for removal
