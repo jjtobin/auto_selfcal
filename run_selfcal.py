@@ -239,13 +239,43 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     else:
                         include_scans = ['']
 
-                    for incl_scans in include_scans:
+                    # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
+                    if selfcal_library[target][band]['obstype'] == 'mosaic':
+                        msmd.open(vis)
+                        include_targets = []
+                        remove = []
+                        for incl_scan in include_scans:
+                            scan_targets = []
+                            for fid in selfcal_library[target][band]['sub-fields'] if incl_scan == '' else \
+                                    msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)):
+                                if not checkmask(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
+                                    print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                                            solmode[band][iteration]+'.g'+" because there is no signal within the primary beam.")
+                                #elif solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed:
+                                #    print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                                #            solmode[band][iteration]+'.g'+' because the estimated solint snr is too low.')
+                                else:
+                                    scan_targets.append(fid)
+
+                            if len(scan_targets) > 0:
+                                include_targets.append(','.join(np.array(scan_targets).astype(str)))
+                            else:
+                                remove.append(incl_scan)
+
+                        for incl_scan in remove:
+                            include_scans.remove(incl_scan)
+
+                        msmd.close()
+                    else:
+                        include_targets = ['']
+
+                    for incl_scans, incl_targets in zip(include_scans, include_targets):
                         gaincal(vis=vis,\
                              caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
                              solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
-                             field=target,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
+                             field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode=refantmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
                 else:
                     for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
@@ -624,22 +654,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              loose_field_by_field_success = []
              beam_field_by_field_success = []
              for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
-                 if selfcal_library[target][band][fid][vis][solint]['intflux_post'] == 0:
-                     # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
-                     # signs go the right direction. Might be good to fix this terminology to be less confusing...
-                     mosaic_value = post_mosaic_RMS[fid]
-                     post_mosaic_value = mosaic_RMS[fid]
-                     mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                 else:
-                     mosaic_value = mosaic_SNR[fid]
-                     post_mosaic_value = post_mosaic_SNR[fid]
-                     mosaic_value_NF = mosaic_SNR_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_SNR_NF[fid]
-
-                 strict_field_by_field_success += [(post_mosaic_value >= mosaic_value) and (post_mosaic_value_NF >= mosaic_value_NF)]
-                 loose_field_by_field_success += [((post_mosaic_value-mosaic_value)/mosaic_value > -0.02) and \
-                         ((post_mosaic_value_NF - mosaic_value_NF)/mosaic_value_NF > -0.02)]
+                 strict_field_by_field_success += [(post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NR[fid] >= mosaic_SNR_NF[fid])]
+                 loose_field_by_field_success += [((post_mosaic_SNR[fid]-mosaic_SNR[fid])/mosaic_SNR[fid] > -0.02) and \
+                         ((post_mosaic_SNR_NR[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
                  beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
 
              if solint == 'inf_EB' or np.any(strict_field_by_field_success):
@@ -757,25 +774,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          new_fields_to_selfcal = []
          for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
              if not selfcal_library[target][band][fid][vislist[0]][solint]['Pass']:
-                 if selfcal_library[target][band][fid][vislist[0]][solint]['intflux_post'] == 0:
-                     # Note that because we are comparing RMS here, we make the post RMS the "pre" RMS and vice versa so that the comparison
-                     # signs go the right direction. Might be good to fix this terminology to be less confusing...
-                     mosaic_value = post_mosaic_RMS[fid]
-                     post_mosaic_value = mosaic_RMS[fid]
-                     mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_RMS_NF[fid]
-                     metric = "RMS"
-                 else:
-                     mosaic_value = mosaic_SNR[fid]
-                     post_mosaic_value = post_mosaic_SNR[fid]
-                     mosaic_value_NF = mosaic_SNR_NF[fid]
-                     post_mosaic_value_NF = post_mosaic_SNR_NF[fid]
-                     metric = "S/N"
-
                  mosaic_reason[fid]=''
-                 if (post_mosaic_value <= mosaic_value):
+                 if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
                     mosaic_reason[fid]=mosaic_reason[fid]+' '+metric+' decrease'
-                 if (post_mosaic_value_NF < mosaic_value_NF):
+                 if (post_mosaic_SNR_NR[fid] < mosaic_SNR_NF[fid]):
                     if mosaic_reason[fid] != '':
                         mosaic_reason[fid] += '; '
                     mosaic_reason[fid] = mosaic_reason[fid] + ' NF '+metric+' decrease'

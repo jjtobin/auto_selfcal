@@ -145,22 +145,22 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    if band_properties[vis[0]][band]['meanfreq'] < 12.0e9:
                       fov=fov*2.0
                 if telescope=='ALMA':
-                   fov=63.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
+                   fov=63.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5*1.15
                 if telescope=='ACA':
                    fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
 
                 region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(phasecenters[field_id]['m0']['value'], \
                         phasecenters[field_id]['m1']['value'], fov)
 
-                for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0"]:
+                for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
                     target = sanitize_string(field)
                     os.system('rm -rf '+ imagename.replace(target,target+"_field_"+str(field_id)) + ext)
 
                     if ext == ".psf.tt0":
                         os.system("cp -r "+imagename+ext+" "+imagename.replace(target,target+"_field_"+str(field_id))+ext)
                     else:
-                        imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+ext, region=region, \
-                                overwrite=True)
+                        imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+\
+                                ext.replace("pb","mospb"), region=region, overwrite=True)
 
                 # Make an image of the primary beam for each sub-field.
                 if type(vis) == list:
@@ -726,7 +726,8 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
     beampa = headerlist['beampa']['value']
 
     if mosaic_sub_field:
-        immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+        immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
+                expr="IM0*IM1/IM2")
         image_stats= imstat(imagename = "temp.image")
         os.system("rm -rf temp.image")
     else:
@@ -785,7 +786,8 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     beampa = headerlist['beampa']['value']
 
     if mosaic_sub_field:
-        immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+        immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
+                expr="IM0*IM1/IM2")
         image_stats= imstat(imagename = "temp.image")
         os.system("rm -rf temp.image")
     else:
@@ -882,7 +884,8 @@ def get_intflux(imagename,rms,maskname=None,mosaic_sub_field=False):
       maskname=imagename.replace('image.tt0','mask')
 
    if mosaic_sub_field:
-       immath(imagename=[imagename, imagename.replace(".image",".pb")], outfile="temp.image", expr="IM0*IM1")
+       immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
+               expr="IM0*IM1/IM2")
        imagestats= imstat(imagename = "temp.image", mask=maskname)
        os.system("rm -rf temp.image")
    else:
@@ -2796,14 +2799,23 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
         good_spws = np.repeat(False, spws.size)
         for spw in np.unique(spwmap):
             good_spws = np.logical_or(good_spws, spws == spw)
-
-        antennas = antennas[good_spws]
-        flags = flags[:,:,good_spws]
-        cals = cals[:,:,good_spws]
-        snr = snr[:,:,good_spws]
     else:
         good_spws = np.repeat(True, antennas.size)
+
+    msmd.open(vis)
+    good_antenna_ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+    good_antennas = np.repeat(False, antennas.size)
+    for ant in np.unique(antennas):
+        if ant in good_antenna_ids:
+            good_antennas[antennas == ant] = True
+
+    good_spws = np.logical_and(good_spws, good_antennas)
  
+    antennas = antennas[good_spws]
+    flags = flags[:,:,good_spws]
+    cals = cals[:,:,good_spws]
+    snr = snr[:,:,good_spws]
+
     # Get the percentage of flagged solutions for each antenna.
     unique_antennas = np.unique(antennas)
     nants = unique_antennas.size
@@ -2831,6 +2843,10 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     flagged_offsets = offsets[np.any(flags, axis=(0,1))]
     if len(np.unique(flagged_offsets)) == 1:
         flagged_offsets = np.concatenate((flagged_offsets, flagged_offsets*1.05))
+    elif len(flagged_offsets) == 0:
+        tb.close()
+        print("Not unflagging any antennas because there are no flags! The beam size probably changed because of calwt=True.")
+        return
     kernel = scipy.stats.gaussian_kde(flagged_offsets,
             bw_method=kernal2.factor*offsets.std()/flagged_offsets.std())
     normalized = kernel(test_r) * len(flagged_offsets) / np.trapz(kernel(test_r), test_r)
@@ -2849,12 +2865,16 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # case of a significantly flagged short baseline antenna and a lot of minimally flagged long baseline antennas, the velocity
     # might be negative because you have a shallow gap at the intersection of the two. So we need to do a check, and if there's no
     # peaks that satisfy this condition, ignore the velocity criterion.
+    positive_velocity_maxima = maxima[np.logical_and(second_derivative[maxima] > 0, derivative[maxima] > 0)]
     maxima = maxima[second_derivative[maxima] > 0]
     # If we have enough peaks (i.e. the whole thing isn't flagged, then take only the peaks outside the inner 5%.
     if len(maxima) > 1:
         maxima = maxima[test_r[maxima] > test_r.max()*0.1]
     # Pick the shortest baseline "significant" maximum.
-    good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
+    if len(positive_velocity_maxima) > 0:
+        good = second_derivative[maxima] / second_derivative[positive_velocity_maxima].max() > 0.5
+    else:
+        good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
     m = maxima[good].min()
     # If thats not the shortest baseline maximum, we can go one lower as long as the velocity doesn't go below 0.
     if m != maxima.min():
@@ -2883,7 +2903,10 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
 
     ax1.plot(test_r, fraction_flagged_antennas, "k-")
     ax2.plot(test_r, derivative / derivative.max(), "g-")
-    ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
+    if len(positive_velocity_maxima) > 0:
+        ax2.plot(test_r, second_derivative / second_derivative[positive_velocity_maxima].max(), "r-")
+    else:
+        ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
 
     for m in maxima[::-1]:
         if second_derivative[m] < 0:
