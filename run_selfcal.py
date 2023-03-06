@@ -776,11 +776,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              if not selfcal_library[target][band][fid][vislist[0]][solint]['Pass']:
                  mosaic_reason[fid]=''
                  if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
-                    mosaic_reason[fid]=mosaic_reason[fid]+' '+metric+' decrease'
+                    mosaic_reason[fid]=mosaic_reason[fid]+' SNR decrease'
                  if (post_mosaic_SNR_NF[fid] < mosaic_SNR_NF[fid]):
                     if mosaic_reason[fid] != '':
                         mosaic_reason[fid] += '; '
-                    mosaic_reason[fid] = mosaic_reason[fid] + ' NF '+metric+' decrease'
+                    mosaic_reason[fid] = mosaic_reason[fid] + ' NF SNR decrease'
                  if (delta_beamarea > delta_beam_thresh):
                     if mosaic_reason[fid] !='':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
