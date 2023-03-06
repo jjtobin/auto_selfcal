@@ -767,9 +767,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              loose_field_by_field_success = []
              beam_field_by_field_success = []
              for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
-                 strict_field_by_field_success += [(post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NR[fid] >= mosaic_SNR_NF[fid])]
+                 strict_field_by_field_success += [(post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NF[fid] >= mosaic_SNR_NF[fid])]
                  loose_field_by_field_success += [((post_mosaic_SNR[fid]-mosaic_SNR[fid])/mosaic_SNR[fid] > -0.02) and \
-                         ((post_mosaic_SNR_NR[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
+                         ((post_mosaic_SNR_NF[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
                  beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
 
              if 'inf_EB' in solint or np.any(strict_field_by_field_success):
@@ -904,7 +904,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  mosaic_reason[fid]=''
                  if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
                     mosaic_reason[fid]=mosaic_reason[fid]+' '+metric+' decrease'
-                 if (post_mosaic_SNR_NR[fid] < mosaic_SNR_NF[fid]):
+                 if (post_mosaic_SNR_NF[fid] < mosaic_SNR_NF[fid]):
                     if mosaic_reason[fid] != '':
                         mosaic_reason[fid] += '; '
                     mosaic_reason[fid] = mosaic_reason[fid] + ' NF '+metric+' decrease'
