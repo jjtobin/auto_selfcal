@@ -2072,12 +2072,12 @@ def gaussian_norm(x, mean, sigma):
    norm_gauss_dist=gauss_dist/np.max(gauss_dist)
    return norm_gauss_dist
 
-def generate_weblog(sclib,solints,bands):
+def generate_weblog(sclib,solints,bands,directory='weblog'):
    from datetime import datetime
-   os.system('rm -rf weblog')
-   os.system('mkdir weblog')
-   os.system('mkdir weblog/images')
-   htmlOut=open('weblog/index.html','w')
+   os.system('rm -rf '+directory)
+   os.system('mkdir '+directory)
+   os.system('mkdir '+directory+'/images')
+   htmlOut=open(directory+'/index.html','w')
    htmlOut.writelines('<html>\n')
    htmlOut.writelines('<title>SelfCal Weblog</title>\n')
    htmlOut.writelines('<head>\n')
@@ -2112,17 +2112,19 @@ def generate_weblog(sclib,solints,bands):
          if 'Stop_Reason' not in keylist:
             htmlOut.writelines('Stop Reason: Estimated Selfcal S/N too low for solint<br><br>\n')
             if sclib[target][band]['SC_success']==False:
-               render_summary_table(htmlOut,sclib,target,band)
+               render_summary_table(htmlOut,sclib,target,band,directory=directory)
                continue
          else:   
             htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
             print(target,band,sclib[target][band]['Stop_Reason'])
             if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint']=='None':
-               render_summary_table(htmlOut,sclib,target,band)
+               render_summary_table(htmlOut,sclib,target,band,directory=directory)
                continue
          htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br><br>\n')
+         if sclib[target][band]['obstype'] == 'mosaic':
+             htmlOut.writelines('<a href="'+target+'_field-by-field/index.html">Field-by-Field Summary</a><br><br>\n')
          # Summary table for before/after SC
-         render_summary_table(htmlOut,sclib,target,band)
+         render_summary_table(htmlOut,sclib,target,band,directory=directory)
 
          #Noise Summary plot
          N_initial,intensity_initial,rms_inital=create_noise_histogram(sanitize_string(target)+'_'+band+'_initial.image.tt0')
@@ -2136,7 +2138,7 @@ def generate_weblog(sclib,solints,bands):
          else:
             rms_theory=0.0
          create_noise_histogram_plots(N_initial,N_final,intensity_initial,intensity_final,rms_inital,rms_final,\
-                                      'weblog/images/'+sanitize_string(target)+'_'+band+'_noise_plot.png',rms_theory)
+                                      directory+'/images/'+sanitize_string(target)+'_'+band+'_noise_plot.png',rms_theory)
          htmlOut.writelines('<br>Initial vs. Final Noise Characterization<br>')
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png"><img src="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png" ALT="Noise Characteristics" WIDTH=300 HEIGHT=300></a><br>\n')
          
@@ -2153,16 +2155,16 @@ def generate_weblog(sclib,solints,bands):
    htmlOut.close()
    
    # Pages for each solint
-   render_per_solint_QA_pages(sclib,solints,bands)
+   render_per_solint_QA_pages(sclib,solints,bands,directory=directory)
  
 
-def render_summary_table(htmlOut,sclib,target,band):
+def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
          plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
          image_stats=imstat(sanitize_string(target)+'_'+band+'_final.image.tt0')
          
          plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
          os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0 '+sanitize_string(target)+'_'+band+'_final_initial_div_final.temp.image.tt0')
 
          ### Hacky way to suppress stuff outside mask in ratio images.
@@ -2171,7 +2173,7 @@ def render_summary_table(htmlOut,sclib,target,band):
          immath(imagename=[sanitize_string(target)+'_'+band+'_final_initial_div_final.temp.image.tt0'],\
                 mode='evalexpr',expr='iif(IM0==0.0,-99.0,IM0)',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
          plot_image(sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
                        min=-1.0,max=1.0) 
          '''
          htmlOut.writelines('Initial, Final, and  Images with scales set by Final Image<br>\n')
@@ -2411,7 +2413,7 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
          if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
             htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
-def render_per_solint_QA_pages(sclib,solints,bands):
+def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
   ## Per Solint pages
    targets=list(sclib.keys())
    for target in targets:
@@ -2439,7 +2441,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
             if solints[band][i] not in keylist:
                continue
-            htmlOutSolint=open('weblog/'+target+'_'+band+'_'+solints[band][i]+'.html','w')
+            htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+solints[band][i]+'.html','w')
             htmlOutSolint.writelines('<html>\n')
             htmlOutSolint.writelines('<title>SelfCal Weblog</title>\n')
             htmlOutSolint.writelines('<head>\n')
@@ -2480,10 +2482,10 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
             htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
             plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
             image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0')
             plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
 
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
@@ -2504,7 +2506,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                print('******************'+gaintable+'***************')
                nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                frac_flagged_sols=nflagged_sols/nsols
-               plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png',vis,gaintable)
+               plot_ants_flagging_colored(directory+'/images/plot_ants_'+gaintable+'.png',vis,gaintable)
                htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a><br>\n')
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
@@ -2535,10 +2537,10 @@ def render_per_solint_QA_pages(sclib,solints,bands):
                   try:
                      plotms(gridrows=2,plotindex=0,rowindex=0,vis=gaintable,xaxis=xaxis, yaxis=yaxis,showgui=False,\
                          xselfscale=True,plotrange=plotrange, antenna=ant,customflaggedsymbol=True,title=ant+' phase',\
-                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=True)
+                         plotfile=directory+'/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=True)
                      plotms(gridrows=2,rowindex=1,plotindex=1,vis=gaintable,xaxis=xaxis, yaxis='SNR',showgui=False,\
                          xselfscale=True, antenna=ant,customflaggedsymbol=True,title=ant+' SNR',\
-                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=False)
+                         plotfile=directory+'/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=False)
                      #htmlOut.writelines('<img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200>')
                      htmlOutSolint.writelines('<a href="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'"><img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200></a>\n')
                   except:

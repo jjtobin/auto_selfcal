@@ -252,10 +252,7 @@ for target in all_targets:
        selfcal_library[target][band][fid]['spws_per_vis']=[]
        selfcal_library[target][band][fid]['nterms']=nterms[band]
        selfcal_library[target][band][fid]['vislist']=vislist.copy()
-       if mosaic_field[band][target]['mosaic']:
-          selfcal_library[target][band][fid]['obstype']='mosaic'
-       else:
-          selfcal_library[target][band][fid]['obstype']='single-point'
+       selfcal_library[target][band][fid]['obstype'] = 'single-point'
        allscantimes=np.array([])
        allscannfields=np.array([])
        for vis in vislist:
@@ -997,18 +994,20 @@ with open('solints.pickle', 'wb') as handle:
 with open('bands.pickle', 'wb') as handle:
     pickle.dump(bands, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+generate_weblog(selfcal_library,solints,bands,directory='weblog')
+
 # For simplicity, instead of redoing all of the weblog code, create a new selfcal_library dictionary where all of the sub-fields exist at the
 # same level as the main field so that they all get their own entry in the weblog, in addition to the entry for the main field.
-new_selfcal_library = {}
 for target in all_targets:
-    new_selfcal_library[target] = {}
+    new_selfcal_library = {}
     for band in selfcal_library[target].keys():
-        new_selfcal_library[target][band] = selfcal_library[target][band]
-
         if selfcal_library[target][band]['obstype'] == 'mosaic':
             for fid in selfcal_library[target][band]['sub-fields']:
-                new_selfcal_library[target+'_field_'+str(fid)] = {}
+                if target+'_field_'+str(fid) not in new_selfcal_library:
+                    new_selfcal_library[target+'_field_'+str(fid)] = {}
                 new_selfcal_library[target+'_field_'+str(fid)][band] = selfcal_library[target][band][fid]
 
-generate_weblog(new_selfcal_library,solints,bands)
+    if len(new_selfcal_library) > 0:
+        generate_weblog(new_selfcal_library,solints,bands,directory='weblog/'+target+'_field-by-field')
+
 
