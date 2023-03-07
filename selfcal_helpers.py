@@ -1332,7 +1332,7 @@ def largest_prime_factor(n):
     return n
 
 
-def get_image_parameters(vislist,telescope,band,band_properties,mosaic=False):
+def get_image_parameters(vislist,telescope,target,band,band_properties,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -1357,7 +1357,7 @@ def get_image_parameters(vislist,telescope,band,band_properties,mosaic=False):
 
    if mosaic:
        msmd.open(vislist[0])
-       fieldid=msmd.fieldsforintent("*OBSERVE_TARGET*")
+       fieldid=msmd.fieldsforname(target)
        ra_phasecenter_arr=np.zeros(len(fieldid))
        dec_phasecenter_arr=np.zeros(len(fieldid))
        for i in range(len(fieldid)):
@@ -1373,7 +1373,10 @@ def get_image_parameters(vislist,telescope,band,band_properties,mosaic=False):
 
    npixels=int(np.ceil(fov/cell / 100.0)) * 100
    if npixels > 16384:
-      npixels=16384
+      if mosaic:
+          print("WARNING: Image size = "+str(npixels)+" is excessively large. It is not being trimmed because it is needed for the mosaic, but this may not be viable for your hardware.")
+      else:
+          npixels=16384
 
    while largest_prime_factor(npixels) >= 7:
        npixels += 2
