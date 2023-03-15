@@ -1890,32 +1890,32 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
    plt.savefig(filename,dpi=200.0)
    plt.close()
 
-def plot_image(filename,outname,min=None,max=None):
+def plot_image(filename,outname,min=None,max=None,zoom=2):
    header=imhead(filename)
    size=np.max(header['shape'])
    if os.path.exists(filename.replace('image.tt0','mask')): #if mask exists draw it as a contour, else don't use contours
       if min == None:
          imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
                contour={'file': filename.replace('image.tt0','mask'), 'levels': [1] },\
-             zoom={'blc': [int(size/4),int(size/4)],\
-                   'trc': [int(size-size/4),int(size-size/4)]},\
+             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
+                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
              out={'file': outname, 'orient': 'landscape'})
       else:
          imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
                contour={'file': filename.replace('image.tt0','mask'), 'levels': [1] },\
-             zoom={'blc': [int(size/4),int(size/4)],\
-                   'trc': [int(size-size/4),int(size-size/4)]},\
+             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
+                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
              out={'file': outname, 'orient': 'landscape'})
    else:
       if min == None:
          imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
-             zoom={'blc': [int(size/4),int(size/4)],\
-                   'trc': [int(size-size/4),int(size-size/4)]},\
+             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
+                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
              out={'file': outname, 'orient': 'landscape'})
       else:
          imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
-             zoom={'blc': [int(size/4),int(size/4)],\
-                   'trc': [int(size-size/4),int(size-size/4)]},\
+             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
+                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
              out={'file': outname, 'orient': 'landscape'})
    #make image square since imview makes it a strange dimension
    im = Image.open(outname)
@@ -2163,11 +2163,11 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
 
 def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
          plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png', zoom=2 if directory=="weblog" else 1)
          image_stats=imstat(sanitize_string(target)+'_'+band+'_final.image.tt0')
          
          plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], zoom=2 if directory=="weblog" else 1) 
          os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0 '+sanitize_string(target)+'_'+band+'_final_initial_div_final.temp.image.tt0')
 
          ### Hacky way to suppress stuff outside mask in ratio images.
@@ -2177,7 +2177,7 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
                 mode='evalexpr',expr='iif(IM0==0.0,-99.0,IM0)',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
          plot_image(sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0',\
                       directory+'/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
-                       min=-1.0,max=1.0) 
+                       min=-1.0,max=1.0, zoom=2 if directory=="weblog" else 1) 
          '''
          htmlOut.writelines('Initial, Final, and  Images with scales set by Final Image<br>\n')
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
@@ -2485,10 +2485,12 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
 
             htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
             plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png', \
+                      zoom=2 if directory=="weblog" else 1) 
             image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0')
             plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
+                      zoom=2 if directory=="weblog" else 1) 
 
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
