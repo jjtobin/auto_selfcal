@@ -775,6 +775,7 @@ def fetch_targets(vis):
          if len(scans) > 0:
             fields.append(fieldname)
       msmd.close()
+      fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
 def checkmask(imagename):
