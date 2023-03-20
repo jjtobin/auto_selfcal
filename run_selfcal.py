@@ -68,6 +68,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
       elif solints[band][iteration] == "inf_fb3":
           calculate_inf_EB_fb_anyways = False
           preapply_targets_own_inf_EB = True
+          # If there was no inf solint (e.g. because each source was observed only a single time, skip this as there are no gain tables to stick together.
+          if "inf" not in solints[band]:
+              continue
 
       if mode == "selfcal" and solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
          print('*********** estimated SNR for solint='+solints[band][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
