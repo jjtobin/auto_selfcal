@@ -732,13 +732,14 @@ for band in bands:
 
     # Update the relevant lists if we are going to do a fallback mode.
     if len(fallback_fields[band]) > 0:
-        solints[band] += ["inf_EB_fb","inf_fb"]
-        solmode[band] += ["p","p"]
-        gaincal_combine[band] += gaincal_combine[band][0:2]
-        applycal_mode[band] += applycal_mode[band][0:2]
-        calibrators[band] = [inf_EB_fields[band], inf_fields[band]]
+        solints[band] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
+        solmode[band] += ["p","p","p","p"]
+        gaincal_combine[band] += [gaincal_combine[band][0], gaincal_combine[band][1], gaincal_combine[band][1], gaincal_combine[band][1]]
+        applycal_mode[band] += [applycal_mode[band][0], applycal_mode[band][1], applycal_mode[band][1], applycal_mode[band][1]]
+        calibrators[band] = [inf_EB_fields[band], inf_fields[band], inf_fields[band], inf_fields[band]]
         for target in all_targets:
-            selfcal_library[target][band]["nsigma"] = np.concatenate((selfcal_library[target][band]["nsigma"],selfcal_library[target][band]["nsigma"][0:2]))
+            selfcal_library[target][band]["nsigma"] = np.concatenate((selfcal_library[target][band]["nsigma"],[selfcal_library[target][band]["nsigma"][0], \
+                    selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1]]))
 
 print(inf_EB_fields)
 print(inf_fields)
@@ -762,7 +763,7 @@ for target in all_targets:
     inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
 
 
-calculate_inf_EB_fb_anyways = False
+calculate_inf_EB_fb_anyways = True
 preapply_targets_own_inf_EB = False
 
 ## The below sets the calibrations back to what they were prior to starting the fallback mode. It should not be needed
