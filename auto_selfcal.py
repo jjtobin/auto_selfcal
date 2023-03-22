@@ -207,6 +207,7 @@ for target in all_targets:
       spwstring=','.join(str(spw) for spw in spwslist)
       selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
       selfcal_library[target][band][vis]['spwsarray']=band_properties[vis][band]['spwarray']
+
       selfcal_library[target][band][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
@@ -216,6 +217,7 @@ for target in all_targets:
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
    selfcal_library[target][band]['uvrange']=get_uv_range(band,band_properties,vislist)
    selfcal_library[target][band]['75thpct_uv']=band_properties[vislist[0]][band]['75thpct_uv']
+   selfcal_library[target][band]['fracbw']=band_properties[vislist[0]][band]['fracbw']
    print(selfcal_library[target][band]['uvrange'])
 
 ##
@@ -273,8 +275,8 @@ for target in all_targets:
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
    selfcal_library[target][band]['SNR_orig']=initial_SNR
-   if selfcal_library[target][band]['SNR_orig'] > 500.0:
-      selfcal_library[target][band]['nterms']=2
+   if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
+      selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
    selfcal_library[target][band]['RMS_orig']=initial_RMS
    selfcal_library[target][band]['SNR_NF_orig']=initial_NF_SNR
    selfcal_library[target][band]['RMS_NF_orig']=initial_NF_RMS
@@ -714,8 +716,9 @@ for target in all_targets:
          else:
             post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
 
-         if post_SNR > 500.0: # if S/N > 500, change nterms to 2 for best performance
-            selfcal_library[target][band]['nterms']=2
+         # change nterms to 2 if needed based on fracbw and SNR
+         if selfcal_library[target][band]['nterms'] == 1:
+             selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],post_SNR)
 
          for vis in vislist:
             ##

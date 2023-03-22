@@ -1326,6 +1326,30 @@ def get_image_parameters(vislist,telescope,band,band_properties):
    return cellsize,npixels,nterms
 
 
+def check_image_nterms(fracbw, SNR):
+   if fracbw >=0.1:
+      nterms=2
+   elif (SNR > 10.0) and (fracbw < 0.1):   # estimate the gain of going to nterms=2 based on nterms=1 S/N and fracbw
+      #coefficients come from a empirical fit using simulated data with a spectral index of 3
+      X=[fracbw,np.log10(SNR)]
+      A = 2336.415
+      B = 0.051
+      C = -306.590
+      D = 5.654
+      E = 28.220
+      F = -23.598
+      G = -0.594
+      H = -3.413 
+      Z=10**(A*X[0]**3+B*X[1]**3+C*X[0]**2*X[1]+D*X[1]**2*X[0] +E*X[0]*X[1]+ F*X[0]+ G*X[1] +H)
+      if Z > 0.01:
+         print('SWITCHING TO NTERMS=2')
+         nterms=2
+      else:
+         nterms=1
+   else:
+      nterms=1
+   return nterms
+
 def get_mean_freq(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')
    freqarray=tb.getcol('REF_FREQUENCY')
