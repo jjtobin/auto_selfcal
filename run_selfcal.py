@@ -248,12 +248,44 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             scan_targets = []
                             for fid in selfcal_library[target][band]['sub-fields'] if incl_scan == '' else \
                                     msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)):
+                                os.system('rm -rf test*.mask')
+                                SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                                        las=selfcal_library[target][band]['LAS'], mosaic_sub_field=True)
+
+                                immath(imagename=[sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0",\
+                                        sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".pb.tt0",\
+                                        sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".mospb.tt0"], outfile="test.mask", \
+                                        expr="IIF(IM0*IM1/IM2 > "+str(5*RMS_NF)+", 1., 0.)")
+
+                                bmaj = ''.join(np.array(list(imhead(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
+                                        mode="get", hdkey="bmaj").values())[::-1]).astype(str))
+                                bmin = ''.join(np.array(list(imhead(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
+                                        mode="get", hdkey="bmin").values())[::-1]).astype(str))
+                                bpa = ''.join(np.array(list(imhead(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
+                                        mode="get", hdkey="bpa").values())[::-1]).astype(str))
+
+                                imsmooth("test.mask", kernel="gauss", major=bmaj, minor=bmin, pa=bpa, outfile="test.smoothed.mask")
+
+                                immath(imagename=["test.smoothed.mask",sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".mask"], \
+                                        outfile="test.smoothed.truncated.mask", expr="IIF(IM0 > 0.01 || IM1 > 0., 1., 0.)")
+
+                                original_intflux = get_intflux(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
+                                        rms=RMS_NF, maskname=sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".mask", \
+                                        mosaic_sub_field=True)[0]
+                                updated_intflux = get_intflux(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
+                                        rms=RMS_NF, maskname="test.smoothed.truncated.mask", mosaic_sub_field=True)[0]
+                                os.system('rm -rf test*.mask')
+
+
                                 if not checkmask(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
                                     print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
                                             solmode[band][iteration]+'.g'+" because there is no signal within the primary beam.")
-                                #elif solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed:
-                                #    print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                                #            solmode[band][iteration]+'.g'+' because the estimated solint snr is too low.')
+                                elif solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed and solint not in ['inf_EB','scan_inf']:
+                                    print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                                            solmode[band][iteration]+'.g'+' because the estimated solint snr is too low.')
+                                elif updated_intflux > 1.25 * original_intflux:
+                                    print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                                            solmode[band][iteration]+'.g'+" because there appears to be significant flux missing from the model.")
                                 else:
                                     scan_targets.append(fid)
 
