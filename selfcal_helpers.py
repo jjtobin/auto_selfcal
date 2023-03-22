@@ -160,7 +160,13 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                         os.system("cp -r "+imagename+ext+" "+imagename.replace(target,target+"_field_"+str(field_id))+ext)
                     else:
                         imsubimage(imagename+ext, outfile=imagename.replace(target,target+"_field_"+str(field_id))+\
-                                ext.replace("pb","mospb"), region=region, overwrite=True)
+                                ext.replace("pb","mospb.tmp"), region=region, overwrite=True)
+
+                        if ext == ".pb.tt0":
+                            immath(imagename=[imagename.replace(target,target+"_field_"+str(field_id))+ext.replace("pb","mospb.tmp")], \
+                                    outfile=imagename.replace(target,target+"_field_"+str(field_id))+ext.replace("pb","mospb"), \
+                                    expr="IIF(IM0 == 0, 0.1, IM0)")
+                            os.system("rm -rf "+imagename.replace(target,target+"_field_"+str(field_id))+ext.replace("pb","mospb.tmp"))
 
                 # Make an image of the primary beam for each sub-field.
                 if type(vis) == list:
