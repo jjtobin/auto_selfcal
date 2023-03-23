@@ -984,10 +984,10 @@ def rank_refants(vis, caltable=None):
      print("Refant list for "+vis)
      #for i in numpy.argsort(score):
      #    print(names[i], score[i])
-     print(','.join(numpy.array(names)[numpy.argsort(score)]))
+     print(','.join(numpy.array(ids)[numpy.argsort(score)].astype(str)))
      # Return the antenna names sorted by score.
 
-     return ','.join(numpy.array(names)[numpy.argsort(score)])
+     return ','.join(numpy.array(ids)[numpy.argsort(score)].astype(str))
 
 
 def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype):
