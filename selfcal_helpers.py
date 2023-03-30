@@ -1049,47 +1049,40 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
          solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
-def get_sensitivity(vislist,selfcal_library,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
-   sensitivities=np.zeros(len(vislist))
-   TOS=np.zeros(len(vislist))
-   counter=0
+def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
    scalefactor=1.0
+   maxspws=0
+   maxspwvis=''
    for vis in vislist:
-      im.open(vis)
-      im.selectvis(field='',spw=spwstring)
-      im.defineimage(mode=specmode,stokes='I',spw=spw,cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
-      im.weight(type='briggs',robust=robust)  
-      if uvtaper != '':
-         if 'klambda' in uvtaper:
-            uvtaper=uvtaper.replace('klambda','')
-            uvtaperflt=float(uvtaper)
-            bmaj=str(206.0/uvtaperflt)+'arcsec'
-            bmin=bmaj
-            bpa='0.0deg'
-         if 'arcsec' in uvtaper:
-            bmaj=uvtaper
-            bmin=uvtaper
-            bpa='0.0deg'
-         print('uvtaper: '+bmaj+' '+bmin+' '+bpa)
-         im.filter(type='gaussian', bmaj=bmaj, bmin=bmin, bpa=bpa)
-      try:
-          sens=im.apparentsens()
-      except:
-          print('#')
-          print('# Sensisitivity Calculation failed for '+vis)
-          print('# Continuing to next MS') 
-          print('# Data in this spw/MS may be flagged')
-          print('#')
-          continue
-      #print(sens)
-      #print(vis,'Briggs Sensitivity = ', sens[1])
-      #print(vis,'Relative to Natural Weighting = ', sens[2])  
-      sensitivities[counter]=sens[1]*scalefactor
-      TOS[counter]=selfcal_library[vis]['TOS']
-      counter+=1
-   #estsens=np.sum(sensitivities)/float(counter)/(float(counter))**0.5
-   #print(estsens)
-   estsens=np.sum(sensitivities*TOS)/np.sum(TOS)
+      im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
+      # Also figure out which vis has the max # of spws
+      if selfcal_library[vis]['n_spws'] >= maxspws:
+          maxspws=selfcal_library[vis]['n_spws']
+          maxspwvis=vis+''
+   im.defineimage(mode=specmode,stokes='I',spw=selfcal_library[maxspwvis]['spwsarray'],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
+   im.weight(type='briggs',robust=robust)  
+   if uvtaper != '':
+      if 'klambda' in uvtaper:
+         uvtaper=uvtaper.replace('klambda','')
+         uvtaperflt=float(uvtaper)
+         bmaj=str(206.0/uvtaperflt)+'arcsec'
+         bmin=bmaj
+         bpa='0.0deg'
+      if 'arcsec' in uvtaper:
+         bmaj=uvtaper
+         bmin=uvtaper
+         bpa='0.0deg'
+      print('uvtaper: '+bmaj+' '+bmin+' '+bpa)
+      im.filter(type='gaussian', bmaj=bmaj, bmin=bmin, bpa=bpa)
+   try:
+       estsens=np.float64(im.apparentsens()[1])
+   except:
+       print('#')
+       print('# Sensisitivity Calculation failed for '+vis)
+       print('# Continuing to next MS') 
+       print('# Data in this spw/MS may be flagged')
+       print('#')
+       sys.exit(0)
    print('Estimated Sensitivity: ',estsens)
    return estsens
 
