@@ -1051,9 +1051,15 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
 
 def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
    scalefactor=1.0
+   maxspws=0
+   maxspwvis=''
    for vis in vislist:
       im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
-   im.defineimage(mode=specmode,stokes='I',spw=selfcal_library[vis]['spwsarray'],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
+      # Also figure out which vis has the max # of spws
+      if selfcal_library[vis]['n_spws'] >= maxspws:
+          maxspws=selfcal_library[vis]['n_spws']
+          maxspwvis=vis+''
+   im.defineimage(mode=specmode,stokes='I',spw=selfcal_library[maxspwvis]['spwsarray'],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
    im.weight(type='briggs',robust=robust)  
    if uvtaper != '':
       if 'klambda' in uvtaper:
