@@ -586,8 +586,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=mosaic_SNR[fid],mosaic_RMS[fid]
                  print()
 
-             if post_SNR > 500.0: # if S/N > 500, change nterms to 2 for best performance
-                selfcal_library[target][band]['nterms']=2
+             # change nterms to 2 if needed based on fracbw and SNR
+             if selfcal_library[target][band]['nterms'] == 1:
+                 selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],post_SNR)
 
              for vis in vislist:
                 ##

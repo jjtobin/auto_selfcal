@@ -229,49 +229,55 @@ def collect_listobs_per_vis(vislist):
       listdict[vis]=listobs(vis)
    return listdict
 
-def fetch_scan_times(vislist,targets,listdict):
+def fetch_scan_times(vislist,targets):
    scantimesdict={}
    integrationsdict={}
    integrationtimesdict={}
-   integrationtime=np.array([])
+   integrationtimes=np.array([])
    n_spws=np.array([])
    min_spws=np.array([])
    spwslist=np.array([])
+   scansdict={}
    for vis in vislist:
       scantimesdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
-      keylist=list(listdict[vis].keys())  
+      scansdict[vis]={}
+      msmd.open(vis)
       for target in targets:
-         countscans=0
+         scansdict[vis][target]=msmd.scansforfield(target)
+
+      for target in targets:
          scantimes=np.array([])
          integrations=np.array([])
-         for key in keylist:
-            if 'scan' in key and listdict[vis][key]['0']['FieldName']==target:
-               countscans+=1
-               scantime=(listdict[vis][key]['0']['EndTime']- listdict[vis][key]['0']['BeginTime'])*86400.0
-               ints_per_scan=np.round(scantime/listdict[vis][key]['0']['IntegrationTime'])
-               integrationtime=np.append(integrationtime,np.array([listdict[vis][key]['0']['IntegrationTime']]))
-               #print('Key:', key,scantime)
-               scantimes=np.append(scantimes,np.array([scantime]))
-               integrations=np.append(integrations,np.array([ints_per_scan]))
-               n_spws=np.append(len(listdict[vis][key]['0']['SpwIds']),n_spws)
-               min_spws=np.append(np.min(listdict[vis][key]['0']['SpwIds']),min_spws)
-               spwslist=np.append(listdict[vis][key]['0']['SpwIds'],spwslist)
-               #print(scantimes)
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+            integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
+            integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
+            times=msmd.timesforscan(scan)
+            scantime=np.max(times)+integrationtime-np.min(times)
+            ints_per_scan=np.round(scantime/integrationtimes[0])
+            scantimes=np.append(scantimes,np.array([scantime]))
+            integrations=np.append(integrations,np.array([ints_per_scan]))
+
+
 
          scantimesdict[vis][target]=scantimes.copy()
          #assume each band only has a single integration time
-         integrationtimesdict[vis][target]=np.median(integrationtime)
+         integrationtimesdict[vis][target]=np.median(integrationtimes)
          integrationsdict[vis][target]=integrations.copy()
+      msmd.close()
    if np.mean(n_spws) != np.max(n_spws):
-      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    if np.max(min_spws) != np.min(min_spws):
-      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    spwslist=np.unique(spwslist).astype(int)
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist
 
-def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
+def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    scantimesdict={}
    scanfieldsdict={}
    scannfieldsdict={}
@@ -279,11 +285,12 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
    scanendsdict={}
    integrationsdict={}
    integrationtimesdict={}
-   integrationtime=np.array([])
+   integrationtimes=np.array([])
    n_spws=np.array([])
    min_spws=np.array([])
    spwslist=np.array([])
    mosaic_field={}
+   scansdict={}
    for vis in vislist:
       scantimesdict[vis]={}
       scanfieldsdict[vis]={}
@@ -292,94 +299,89 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
       scanendsdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
-      keylist=list(listdict[vis].keys())  
+      scansdict[vis]={}
+      msmd.open(vis)
+      for target in targets:
+         scansforfield=msmd.scansforfield(target)
+         scansforspw=msmd.scansforspw(band_properties[vis][band]['spwarray'][0])
+         scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
+         scansdict[vis][target].sort
       for target in targets:
          mosaic_field[target]={}
          mosaic_field[target]['field_ids']=[]
          mosaic_field[target]['mosaic']=False
-         countscans=0
+         #mosaic_field[target]['field_ids']=msmd.fieldsforname(target)
+         store_names = not (msmd.fieldsforscans(scansdict[vis][target]).size > 1 and np.unique(msmd.fieldsforscans(scansdict[vis][target], True)).size == 1)
+         mosaic_field[target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names)
+         mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
+         if len(mosaic_field[target]['field_ids']) > 1:
+            mosaic_field[target]['mosaic']=True
          scantimes=np.array([])
          scanfields=np.array([])
          scannfields=np.array([])
          integrations=np.array([])
          scanstarts=np.array([])
          scanends=np.array([])
-         if np.any(['scan' in key and np.all([listdict[vis][key][subscan_id]['FieldName']==target for subscan_id in \
-                 listdict[vis][key].keys()]) and len(listdict[vis][key]) > 1 for key in keylist]):
-             id_store_str = "FieldId"
-         else:
-             id_store_str = "FieldName"
 
-         for key in keylist:
-            if ('scan' in key) and (listdict[vis][key]['0']['FieldName']==target) and np.all(np.in1d(np.array(listdict[vis][key]['0']['SpwIds']),band_properties[vis][band]['spwarray'])):
-               countscans+=1
-               scantime=(listdict[vis][key]['0']['EndTime']- listdict[vis][key]['0']['BeginTime'])*86400.0
-               scanfield = ','.join([str(listdict[vis][key][fid][id_store_str]) for fid in listdict[vis][key].keys()])
-               scannfield = len(listdict[vis][key].keys())
-               ints_per_scan=np.round(scantime/listdict[vis][key]['0']['IntegrationTime'])
-               integrationtime=np.append(integrationtime,np.array([listdict[vis][key]['0']['IntegrationTime']]))
-               #print('Key:', key,scantime)
-               scanstarts=np.append(scanstarts,np.array([listdict[vis][key]['0']['BeginTime']]))
-               scanends=np.append(scanends,np.array([listdict[vis][key]['0']['EndTime']]))
-               scantimes=np.append(scantimes,np.array([scantime]))
-               scanfields=np.append(scanfields,np.array([scanfield]))
-               scannfields=np.append(scannfields,np.array([scannfield]))
-               integrations=np.append(integrations,np.array([ints_per_scan]))
-               n_spws=np.append(len(listdict[vis][key]['0']['SpwIds']),n_spws)
-               min_spws=np.append(np.min(listdict[vis][key]['0']['SpwIds']),min_spws)
-               spwslist=np.append(listdict[vis][key]['0']['SpwIds'],spwslist)
-               subscanlist=listdict[vis][key].keys()
-               for subscan in subscanlist:
-                   mosaic_field[target]['field_ids'].append(listdict[vis][key][subscan][id_store_str])
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+            integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
+            integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
+            times=msmd.timesforscan(scan)
+            scantime=np.max(times)+integrationtime-np.min(times)
+            scanstarts=np.append(scanstarts,np.array([np.min(times)/86400.0]))
+            scanends=np.append(scanends,np.array([(np.max(times)+integrationtime)/86400.0]))
+            ints_per_scan=np.round(scantime/integrationtimes[0])
+            scantimes=np.append(scantimes,np.array([scantime]))
+            integrations=np.append(integrations,np.array([ints_per_scan]))
+            scanfields = np.append(scanfields,np.array([','.join(msmd.fieldsforscan(scan, store_names).astype(str))]))
+            scannfields = np.append(scannfields,np.array([msmd.fieldsforscan(scan, store_names).size]))
 
-
-               mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
-               if len(mosaic_field[target]['field_ids']) > 1:
-                  mosaic_field[target]['mosaic']=True
                
-               #print(scantimes)
-
          scantimesdict[vis][target]=scantimes.copy()
          scanfieldsdict[vis][target]=scanfields.copy()
          scannfieldsdict[vis][target]=scannfields.copy()
          scanstartsdict[vis][target]=scanstarts.copy()
          scanendsdict[vis][target]=scanends.copy()
          #assume each band only has a single integration time
-         integrationtimesdict[vis][target]=np.median(integrationtime)
+         integrationtimesdict[vis][target]=np.median(integrationtimes)
          integrationsdict[vis][target]=integrations.copy()
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       spwslist=np.unique(spwslist).astype(int)
    else:
-     return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
-   return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
+     return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
+   return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
 
-
-def fetch_spws(vislist,targets,listdict):
+def fetch_spws(vislist,targets):
    scantimesdict={}
    n_spws=np.array([])
    min_spws=np.array([])
    spwslist=np.array([])
+   scansdict={}
    for vis in vislist:
-      listdict[vis]=listobs(vis)
-      keylist=list(listdict[vis].keys())  
+      scansdict[vis]={}
+      msmd.open(vis)
       for target in targets:
-         countscans=0
-         for key in keylist:
-            if 'scan' in key and listdict[vis][key]['0']['FieldName']==target:
-               countscans+=1
-               n_spws=np.append(len(listdict[vis][key]['0']['SpwIds']),n_spws)
-               min_spws=np.append(np.min(listdict[vis][key]['0']['SpwIds']),min_spws)
-               spwslist=np.append(listdict[vis][key]['0']['SpwIds'],spwslist)
-               #print(scantimes)
+         scansdict[vis][target]=msmd.scansforfield(target)
+         scansdict[vis][target].sort
+      for target in targets:
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
    if len(n_spws) > 1:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    spwslist=np.unique(spwslist).astype(int)
    if len(n_spws) == 1:
       return n_spws,min_spws,spwslist
@@ -387,6 +389,7 @@ def fetch_spws(vislist,targets,listdict):
       return np.max(n_spws),np.min(min_spws),spwslist
 
 
+#unused function
 def fetch_scan_times_target(vislist,target,listdict):
    scantimesdict={}
    integrationsdict={}
@@ -702,7 +705,7 @@ def fetch_targets_old(vis):
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
-def fetch_targets(vis):
+def fetch_targets_previous(vis):
       fields=[]
       tb.open(vis+'/FIELD')
       names=list(tb.getcol('NAME'))
@@ -713,6 +716,18 @@ def fetch_targets(vis):
          if 'field_' in listobskey:
             fieldnum=int(listobskey.split('_')[1])
             fields.append(names[fieldnum])
+      fields=list(set(fields)) # convert to set to only get unique items
+      return fields
+
+def fetch_targets(vis):
+      fields=[]
+      msmd.open(vis)
+      fieldnames=msmd.fieldnames()
+      for fieldname in fieldnames:
+         scans=msmd.scansforfield(fieldname)
+         if len(scans) > 0:
+            fields.append(fieldname)
+      msmd.close()
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
@@ -1092,47 +1107,40 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
          solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
 
 
-def get_sensitivity(vislist,selfcal_library,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
-   sensitivities=np.zeros(len(vislist))
-   TOS=np.zeros(len(vislist))
-   counter=0
+def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
    scalefactor=1.0
+   maxspws=0
+   maxspwvis=''
    for vis in vislist:
-      im.open(vis)
-      im.selectvis(field=selfcal_library['sub-fields'][0],spw=spwstring)
-      im.defineimage(mode=specmode,stokes='I',spw=spw,cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
-      im.weight(type='briggs',robust=robust)  
-      if uvtaper != '':
-         if 'klambda' in uvtaper:
-            uvtaper=uvtaper.replace('klambda','')
-            uvtaperflt=float(uvtaper)
-            bmaj=str(206.0/uvtaperflt)+'arcsec'
-            bmin=bmaj
-            bpa='0.0deg'
-         if 'arcsec' in uvtaper:
-            bmaj=uvtaper
-            bmin=uvtaper
-            bpa='0.0deg'
-         print('uvtaper: '+bmaj+' '+bmin+' '+bpa)
-         im.filter(type='gaussian', bmaj=bmaj, bmin=bmin, bpa=bpa)
-      try:
-          sens=im.apparentsens()
-      except:
-          print('#')
-          print('# Sensisitivity Calculation failed for '+vis)
-          print('# Continuing to next MS') 
-          print('# Data in this spw/MS may be flagged')
-          print('#')
-          continue
-      #print(sens)
-      #print(vis,'Briggs Sensitivity = ', sens[1])
-      #print(vis,'Relative to Natural Weighting = ', sens[2])  
-      sensitivities[counter]=sens[1]*scalefactor
-      TOS[counter]=selfcal_library[vis]['TOS']
-      counter+=1
-   #estsens=np.sum(sensitivities)/float(counter)/(float(counter))**0.5
-   #print(estsens)
-   estsens=np.sum(sensitivities*TOS)/np.sum(TOS)
+      im.selectvis(vis=vis,field=selfcal_library['sub-fields'][0],spw=selfcal_library[vis]['spws'])
+      # Also figure out which vis has the max # of spws
+      if selfcal_library[vis]['n_spws'] >= maxspws:
+          maxspws=selfcal_library[vis]['n_spws']
+          maxspwvis=vis+''
+   im.defineimage(mode=specmode,stokes='I',spw=selfcal_library[maxspwvis]['spwsarray'],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
+   im.weight(type='briggs',robust=robust)  
+   if uvtaper != '':
+      if 'klambda' in uvtaper:
+         uvtaper=uvtaper.replace('klambda','')
+         uvtaperflt=float(uvtaper)
+         bmaj=str(206.0/uvtaperflt)+'arcsec'
+         bmin=bmaj
+         bpa='0.0deg'
+      if 'arcsec' in uvtaper:
+         bmaj=uvtaper
+         bmin=uvtaper
+         bpa='0.0deg'
+      print('uvtaper: '+bmaj+' '+bmin+' '+bpa)
+      im.filter(type='gaussian', bmaj=bmaj, bmin=bmin, bpa=bpa)
+   try:
+       estsens=np.float64(im.apparentsens()[1])
+   except:
+       print('#')
+       print('# Sensisitivity Calculation failed for '+vis)
+       print('# Continuing to next MS') 
+       print('# Data in this spw/MS may be flagged')
+       print('#')
+       sys.exit(0)
    print('Estimated Sensitivity: ',estsens)
    return estsens
 
@@ -1170,7 +1178,7 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
     fieldnames = tb.getcol('NAME')
     tb.close()
     tb.open(msfile+'/OBSERVATION')
-    obstime = np.squeeze(tb.getcol('TIME_RANGE', startrow = obsid, nrow = 1))[0]
+    obstime = np.squeeze(tb.getcol('TIME_RANGE', startrow = obsid[0], nrow = 1))[0]
     tb.close()
     nchan = len(chanfreqs)
     ms.open(msfile)
@@ -1389,6 +1397,30 @@ def get_image_parameters(vislist,telescope,target,band,band_properties,mosaic=Fa
 
    return cellsize,npixels,nterms
 
+
+def check_image_nterms(fracbw, SNR):
+   if fracbw >=0.1:
+      nterms=2
+   elif (SNR > 10.0) and (fracbw < 0.1):   # estimate the gain of going to nterms=2 based on nterms=1 S/N and fracbw
+      #coefficients come from a empirical fit using simulated data with a spectral index of 3
+      X=[fracbw,np.log10(SNR)]
+      A = 2336.415
+      B = 0.051
+      C = -306.590
+      D = 5.654
+      E = 28.220
+      F = -23.598
+      G = -0.594
+      H = -3.413 
+      Z=10**(A*X[0]**3+B*X[1]**3+C*X[0]**2*X[1]+D*X[1]**2*X[0] +E*X[0]*X[1]+ F*X[0]+ G*X[1] +H)
+      if Z > 0.01:
+         print('SWITCHING TO NTERMS=2')
+         nterms=2
+      else:
+         nterms=1
+   else:
+      nterms=1
+   return nterms
 
 def get_mean_freq(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')
@@ -2562,7 +2594,7 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
 
 def importdata(vislist,all_targets,telescope):
    listdict=collect_listobs_per_vis(vislist)
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
    spwslist=spwsarray.tolist()
    spwstring=','.join(str(spw) for spw in spwslist)
 
@@ -2585,7 +2617,7 @@ def importdata(vislist,all_targets,telescope):
    for band in bands:
         print(band)
         scantimesdict_temp,scanfieldsdict_temp,scannfieldsdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
 
         scantimesdict[band]=scantimesdict_temp.copy()
         scanfieldsdict[band]=scanfieldsdict_temp.copy()
