@@ -250,7 +250,6 @@ for target in all_targets:
       dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
       sensitivity_nomod=sensitivity.copy()
       print('DR modifier: ',dr_mod)
-      sys.exit(0)
    if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0'):
       if telescope=='ALMA' or telescope =='ACA':
          sensitivity=sensitivity*dr_mod   # apply DR modifier
