@@ -272,7 +272,7 @@ for target in all_targets:
           allscantimes=np.append(allscantimes,scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
           allscannfields=np.append(allscannfields,[1])
           selfcal_library[target][band][fid][vis]['refant'] = selfcal_library[target][band][vis]['refant']
-          n_spws,minspw,spwsarray=fetch_spws([vis],[target],listdict)
+          n_spws,minspw,spwsarray=fetch_spws([vis],[target])
           spwslist=spwsarray.tolist()
           spwstring=','.join(str(spw) for spw in spwslist)
           selfcal_library[target][band][fid][vis]['spws']=band_properties[vis][band]['spwstring']
