@@ -1056,6 +1056,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 print('****************Selfcal passed, shortening solint*************')
              else:
                 print('****************Selfcal passed for Minimum solint*************')
+         elif mode == "cocal" and solint == "inf_EB_fb" and (selfcal_library[target][band][vislist[0]]["inf_EB"]['Pass'] if "inf_EB" in \
+                 selfcal_library[target][band][vislist[0]] else False):
+            print('****************Selfcal failed for inf_EB_fb, skipping inf_fb1*****************')
+            iterjump = solints[band].index('inf_fb2')
+            continue
          else:   
             print('****************Selfcal failed*************')
             print('REASON: '+reason)
