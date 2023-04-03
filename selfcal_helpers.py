@@ -312,7 +312,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          mosaic_field[target]['mosaic']=False
          #mosaic_field[target]['field_ids']=msmd.fieldsforname(target)
          store_names = not (msmd.fieldsforscans(scansdict[vis][target]).size > 1 and np.unique(msmd.fieldsforscans(scansdict[vis][target], True)).size == 1)
-         mosaic_field[target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names)
+         mosaic_field[target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names).tolist()
          mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
          if len(mosaic_field[target]['field_ids']) > 1:
             mosaic_field[target]['mosaic']=True
