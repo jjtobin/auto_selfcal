@@ -2266,7 +2266,10 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
                   if key =='Image':
                         line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                   if key =='intflux':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                     if sclib[target][band][key+'_orig'] == 0:
+                         line+='    <td>{:0.2f} </td>\n'.format(1.0)
+                     else:
+                         line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='SNR':
                      line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='SNR_NF':
@@ -2331,9 +2334,14 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
             for solint in solint_list:
                if solint in vis_keys:
                   vis_solint_keys=sclib[target][band][vislist[len(vislist)-1]][solint].keys()
+                  if key != 'Pass' and sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == 'None':
+                      line+='    <td> - </td>\n'
+                      continue
                   if key=='Pass':
                      if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
                         line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
+                     elif sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == 'None':
+                        line+='    <td><font color="green">{}</font> {}</td>\n'.format('Not attempted',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
                   if key=='intflux_final':
@@ -2379,7 +2387,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          for vis in vislist:
             line='<tr bgcolor="#ffffff">\n    <td>'+vis+': </td>\n'
             for solint in solint_list:
-               if solint in vis_keys:
+               if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None':
                   # only evaluate last gaintable not the pre-apply table
                   gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                   line+='<td><a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=200 HEIGHT=200></a></td>\n'
@@ -2390,7 +2398,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
             for quantity in ['Nsols','Flagged_Sols','Frac_Flagged']:
                line='<tr bgcolor="#ffffff">\n    <td>'+quantity+'</td>\n'
                for solint in solint_list:
-                  if solint in vis_keys:
+                  if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None':
                      # only evaluate last gaintable not the pre-apply table
                      gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                      nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
@@ -2475,7 +2483,7 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
          #for i in range(final_solint_index+index_addition):
          for i in range(len(solints[band])):
 
-            if solints[band][i] not in keylist:
+            if solints[band][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass'] == 'None':
                continue
             htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+solints[band][i]+'.html','w')
             htmlOutSolint.writelines('<html>\n')
