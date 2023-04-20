@@ -461,8 +461,7 @@ for target in all_targets:
       selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(solints[band])-n_ap_solints),np.array([3.0]*n_ap_solints))
    else: #implicitly making log10 the default
       selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
-   if n_ap_solints > 0:
-      selfcal_library[target][band]['nsigma']
+
    if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
