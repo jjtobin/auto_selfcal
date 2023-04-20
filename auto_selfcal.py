@@ -855,20 +855,8 @@ for target in all_targets:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
-   ## omit DR modifiers here since we should have increased DR significantly
-   if telescope=='ALMA' or telescope =='ACA':
-      sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
-      dr_mod=1.0
-      if not selfcal_library[target][band]['SC_success']: # fetch the DR modifier if selfcal failed on source
-         dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vislist)
-         print('DR modifier: ',dr_mod)
-         sensitivity=sensitivity*dr_mod 
-      if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
-         sensitivity=sensitivity*4.0 
-   else:
-      sensitivity=0.0
    tclean_wrapper(vislist,sani_target+'_'+band+'_final',\
-               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
+               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_curr']*3.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                nterms=selfcal_library[target][band]['nterms'],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
@@ -932,8 +920,11 @@ if check_all_spws:
                else:
                   sensitivity=0.0
                spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
+               sensitivity_agg=get_sensitivity(vislist,selfcal_library[target][band],target,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
+               sensitivity_scale_factor=selfcal_library[target][band]['RMS_curr']/sensitivity_agg
+
                tclean_wrapper(vislist,sani_target+'_'+band+'_'+spw+'_final',\
-                          band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
+                          band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*sensitivity_scale_factor*4.0)+'Jy',scales=[0],\
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
                           nterms=1,field=target,datacolumn='corrected',\
                           spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
