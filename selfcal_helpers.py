@@ -339,7 +339,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          scansforfield=msmd.scansforfield(target)
          scansforspw=msmd.scansforspw(band_properties[vis][band]['spwarray'][0])
          scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
-         scansdict[vis][target].sort
+         scansdict[vis][target].sort()
       for target in targets:
          mosaic_field[target]={}
          mosaic_field[target]['field_ids']=[]
@@ -425,7 +425,7 @@ def fetch_spws(vislist,targets):
       msmd.open(vis)
       for target in targets:
          scansdict[vis][target]=msmd.scansforfield(target)
-         scansdict[vis][target].sort
+         scansdict[vis][target].sort()
       for target in targets:
          for scan in scansdict[vis][target]:
             spws=msmd.spwsforscan(scan)
