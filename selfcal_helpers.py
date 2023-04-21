@@ -860,8 +860,8 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     beam_extent_size = ((center_coords - max_coords)**2)[0:2].sum()**0.5 * 360*60*60/(2*np.pi)
 
     # use the maximum of the three possibilities as the outer extent of the mask.
-    print("beammajor*5 = ", beammajor*5, ", LAS = ", las, ", beam_extent = ", beam_extent_size)
-    outer_major = max(beammajor*5, beam_extent_size, las if las is not None else 0.)
+    print("beammajor*5 = ", beammajor*5, ", LAS = ", 5*las, ", beam_extent = ", beam_extent_size)
+    outer_major = max(beammajor*5, beam_extent_size, 5*las if las is not None else 0.)
 
     imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(outer_major)+'arcsec',minor=str(outer_major)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
 
@@ -1649,6 +1649,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
       min_baseline=np.min(all_baselines)
+      baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
@@ -1659,7 +1660,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          band_properties[vis][band]['minuv']=max_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
-         band_properties[vis][band]['LAS']=0.6 / (1000*min_uv_dist) * 180./np.pi * 3600.
+         band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
 
 
 def get_uv_range(band,band_properties,vislist):
