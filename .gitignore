@@ -1,8 +1,3 @@
-__pycache__/
-working/
-applycal_to_orig_MSes.py
-
-*.py[cod]
 *.ms*
 *.log
 *.last
@@ -14,7 +9,7 @@ applycal_to_orig_MSes.py
 *.gridwt
 *.mask
 weblog
+
 .*.swp
-*.ipynb_checkpoints
 
-
+applycal_to_orig_MSes.py
