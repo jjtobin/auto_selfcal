@@ -34,6 +34,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          continue
       elif iteration == iterjump:
          iterjump=-1
+
+      if 'ap' in solints[band][iteration] and not do_amp_selfcal:
+          break
+
       if solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
          print('*********** estimated SNR for solint='+solints[band][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
          if iteration > 1 and solmode[band][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
@@ -927,8 +931,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
-             if iteration <= 1 and (not np.all([selfcal_library[target][band][fid][vislist[0]][solint]['Pass'] == True for fid in \
-                    selfcal_library[target][band]['sub-fields-to-selfcal']]) or len(selfcal_library[target][band]['sub-fields-to-selfcal']) < \
+             if iteration <= 1 and ((not np.all([selfcal_library[target][band][fid][vislist[0]][solint]['Pass'] == True for fid in \
+                    selfcal_library[target][band]['sub-fields-to-selfcal']])) or len(selfcal_library[target][band]['sub-fields-to-selfcal']) < \
                     len(selfcal_library[target][band]['sub-fields'])) and do_amp_selfcal:
                  print("***** NOTE: Amplitude self-calibration turned off because not all fields succeeded at non-inf_EB phase self-calibration")
                  do_amp_selfcal = False
