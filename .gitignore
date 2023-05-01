@@ -6,7 +6,7 @@
 *.pickle
 *.tt*
 *.alpha*
-*.gridwt
+*.gridwt*
 *.mask
 weblog
 
