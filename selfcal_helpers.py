@@ -747,6 +747,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
     beampa = headerlist['beampa']['value']
 
     if mosaic_sub_field:
+        os.system("rm -rf temp.image")
         immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
                 expr="IM0*IM1/IM2")
         image_stats= imstat(imagename = "temp.image")
@@ -799,7 +800,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
 
 
 
-def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosaic_sub_field=False):
+def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosaic_sub_field=False, save_near_field_mask=True):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
@@ -826,7 +827,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
        print('checkmask')
        return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.beam.extent.mask temp.image')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     os.system('cp -r '+maskImage+ ' temp.mask')
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
@@ -888,7 +889,8 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
            print("#Peak Near Field SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
-    os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
+    if save_near_field_mask:
+        os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     return SNR,rms
 

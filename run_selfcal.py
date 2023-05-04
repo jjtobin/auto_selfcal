@@ -72,6 +72,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  resume = True
                  files = glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.*")
                  for f in files:
+                     if "nearfield" in f:
+                         continue
                      os.system("cp -r "+f+" "+f.replace(prev_solint+"_"+str(prev_iteration)+"_post", solint+'_'+str(iteration)))
          else:
              resume = False
@@ -126,13 +128,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  new_fields_to_selfcal = []
                  for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                      os.system('rm -rf test*.mask')
-                     SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
-                             las=selfcal_library[target][band]['LAS'], mosaic_sub_field=True)
+                     tmp_SNR_NF,tmp_RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                             las=selfcal_library[target][band]['LAS'], mosaic_sub_field=True, save_near_field_mask=False)
 
                      immath(imagename=[sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0",\
                              sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".pb.tt0",\
                              sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".mospb.tt0"], outfile="test.mask", \
-                             expr="IIF(IM0*IM1/IM2 > "+str(5*RMS_NF)+", 1., 0.)")
+                             expr="IIF(IM0*IM1/IM2 > "+str(5*tmp_RMS_NF)+", 1., 0.)")
 
                      bmaj = ''.join(np.array(list(imhead(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
                              mode="get", hdkey="bmaj").values())[::-1]).astype(str))
@@ -147,10 +149,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              outfile="test.smoothed.truncated.mask", expr="IIF(IM0 > 0.01 || IM1 > 0., 1., 0.)")
 
                      original_intflux = get_intflux(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
-                             rms=RMS_NF, maskname=sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".mask", \
+                             rms=tmp_RMS_NF, maskname=sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".mask", \
                              mosaic_sub_field=True)[0]
                      updated_intflux = get_intflux(sani_target+"_field_"+str(fid)+"_"+band+"_"+solint+"_"+str(iteration)+".image.tt0", \
-                             rms=RMS_NF, maskname="test.smoothed.truncated.mask", mosaic_sub_field=True)[0]
+                             rms=tmp_RMS_NF, maskname="test.smoothed.truncated.mask", mosaic_sub_field=True)[0]
                      os.system('rm -rf test*.mask')
 
 
