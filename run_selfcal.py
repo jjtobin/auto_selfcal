@@ -84,7 +84,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic')
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
          if iteration == 0:
             gaincal_preapply_gaintable={}
@@ -115,7 +115,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                              savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                              nterms=selfcal_library[target][band]['nterms'],
-                             field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, savemodel_only=True)
+                             field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, savemodel_only=True, cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
              for vis in vislist:
                 # Record gaincal details.
@@ -587,7 +587,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                       threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                       nterms=selfcal_library[target][band]['nterms'],
-                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic')
+                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
              ##
              ## Do the assessment of the post- (and pre-) selfcal images.

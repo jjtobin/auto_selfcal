@@ -57,7 +57,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
        cycleniter=-1
-       cyclefactor=1.0
+       #cyclefactor=1.0
        print(band_properties)
        if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:
           sidelobethreshold=2.0
@@ -68,7 +68,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=2.0*nfrms_multiplier
        cycleniter=-1
-       cyclefactor=1.0
+       #cyclefactor=1.0
 
     elif 'VLA' in telescope:
        sidelobethreshold=2.0
@@ -77,7 +77,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        lownoisethreshold=1.5*nfrms_multiplier
        pblimit=-0.1
        cycleniter=-1
-       cyclefactor=3.0
+       #cyclefactor=3.0
        pbmask=0.0
     wprojplanes=1
     if band=='EVLA_L' or band =='EVLA_S':
