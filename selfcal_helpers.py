@@ -835,7 +835,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
 
     # Check the extent of the beam as well.
-    psfImage = imagename.replace('image','psf')
+    psfImage = maskImage.replace('mask','psf')+'.tt0'
 
     immath(psfImage, mode="evalexpr", expr="iif(IM0==1,IM0,0)", outfile="temp.delta")
     npix = imhead("temp.delta", mode="get", hdkey="shape")[0]
