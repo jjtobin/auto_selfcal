@@ -565,7 +565,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     if fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                         applycal(vis=vis,\
                                  gaintable=selfcal_library[target][band][fid][vis][solint]['gaintable'],\
-                                 interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=True,\
+                                 interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=False,\
                                  spwmap=selfcal_library[target][band][fid][vis][solint]['spwmap'],\
                                  #applymode=applymode,field=target,spw=selfcal_library[target][band][vis]['spws'])
                                  applymode='calflag',field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
@@ -574,7 +574,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             applycal(vis=vis,\
                                     gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
                                     interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
-                                    calwt=True,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
+                                    calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
                                     applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
                                     field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
 
@@ -810,7 +810,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                applycal(vis=vis,\
                                        gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
                                        interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
-                                       calwt=True,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
+                                       calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
                                        applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
                                        field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
                  else:
@@ -902,7 +902,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                          applycal(vis=vis,\
                                  gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
                                  interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
-                                 calwt=True,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
+                                 calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
                                  applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
                                  field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
                      else:
