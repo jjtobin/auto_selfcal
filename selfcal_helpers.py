@@ -6,7 +6,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
-                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point',):
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', \
+                   savemodel_only=False, resume=False):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -72,41 +73,43 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
 
     if gridder=='mosaic' and startmodel!='':
        parallel=False
-    for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
-        os.system('rm -rf '+ imagename + ext)
-    tclean(vis= vis, 
-           imagename = imagename, 
-           field=field,
-           specmode = 'mfs', 
-           deconvolver = 'mtmfs',
-           scales = scales, 
-           gridder=gridder,
-           weighting='briggs', 
-           robust = robust,
-           gain = gain,
-           imsize = imsize,
-           cell = cellsize, 
-           smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
-           niter = niter, #we want to end on the threshold
-           interactive = interactive,
-           nsigma=nsigma,    
-           cycleniter = cycleniter,
-           cyclefactor = cyclefactor, 
-           uvtaper = uvtaper, 
-           savemodel = 'none',
-           mask=mask,
-           usemask=usemask,
-           sidelobethreshold=sidelobethreshold,
-           smoothfactor=smoothfactor,
-           pbmask=pbmask,
-           pblimit=pblimit,
-           nterms = nterms,
-           uvrange=uvrange,
-           threshold=threshold,
-           parallel=parallel,
-           phasecenter=phasecenter,
-           startmodel=startmodel,
-           datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes)
+    if not savemodel_only:
+        if not resume:
+            for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+                os.system('rm -rf '+ imagename + ext)
+        tclean(vis= vis, 
+               imagename = imagename, 
+               field=field,
+               specmode = 'mfs', 
+               deconvolver = 'mtmfs',
+               scales = scales, 
+               gridder=gridder,
+               weighting='briggs', 
+               robust = robust,
+               gain = gain,
+               imsize = imsize,
+               cell = cellsize, 
+               smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
+               niter = niter, #we want to end on the threshold
+               interactive = interactive,
+               nsigma=nsigma,    
+               cycleniter = cycleniter,
+               cyclefactor = cyclefactor, 
+               uvtaper = uvtaper, 
+               savemodel = 'none',
+               mask=mask,
+               usemask=usemask,
+               sidelobethreshold=sidelobethreshold,
+               smoothfactor=smoothfactor,
+               pbmask=pbmask,
+               pblimit=pblimit,
+               nterms = nterms,
+               uvrange=uvrange,
+               threshold=threshold,
+               parallel=parallel,
+               phasecenter=phasecenter,
+               startmodel=startmodel,
+               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes)
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel=='modelcolumn':
           print("")
@@ -138,6 +141,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  pblimit=pblimit,
                  calcres = False,
                  calcpsf = False,
+                 restoration = False,
                  nterms = nterms,
                  uvrange=uvrange,
                  threshold=threshold,
@@ -152,7 +156,8 @@ def collect_listobs_per_vis(vislist):
       listdict[vis]=listobs(vis)
    return listdict
 
-def fetch_scan_times(vislist,targets,listdict):
+#listobs version of function, marked for removal
+def fetch_scan_times_old(vislist,targets,listdict):
    scantimesdict={}
    integrationsdict={}
    integrationtimesdict={}
@@ -188,13 +193,62 @@ def fetch_scan_times(vislist,targets,listdict):
          integrationtimesdict[vis][target]=np.median(integrationtime)
          integrationsdict[vis][target]=integrations.copy()
    if np.mean(n_spws) != np.max(n_spws):
-      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    if np.max(min_spws) != np.min(min_spws):
-      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    spwslist=np.unique(spwslist).astype(int)
    return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
 
-def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
+def fetch_scan_times(vislist,targets):
+   scantimesdict={}
+   integrationsdict={}
+   integrationtimesdict={}
+   integrationtimes=np.array([])
+   n_spws=np.array([])
+   min_spws=np.array([])
+   spwslist=np.array([])
+   scansdict={}
+   for vis in vislist:
+      scantimesdict[vis]={}
+      integrationsdict[vis]={}
+      integrationtimesdict[vis]={}
+      scansdict[vis]={}
+      msmd.open(vis)
+      for target in targets:
+         scansdict[vis][target]=msmd.scansforfield(target)
+
+      for target in targets:
+         scantimes=np.array([])
+         integrations=np.array([])
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+            integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
+            integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
+            times=msmd.timesforscan(scan)
+            scantime=np.max(times)+integrationtime-np.min(times)
+            ints_per_scan=np.round(scantime/integrationtimes[0])
+            scantimes=np.append(scantimes,np.array([scantime]))
+            integrations=np.append(integrations,np.array([ints_per_scan]))
+
+
+
+         scantimesdict[vis][target]=scantimes.copy()
+         #assume each band only has a single integration time
+         integrationtimesdict[vis][target]=np.median(integrationtimes)
+         integrationsdict[vis][target]=integrations.copy()
+      msmd.close()
+   if np.mean(n_spws) != np.max(n_spws):
+      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+   if np.max(min_spws) != np.min(min_spws):
+      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+   spwslist=np.unique(spwslist).astype(int)
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist
+
+#listobs version of function, marked for removal
+def fetch_scan_times_band_aware_old(vislist,targets,listdict,band_properties,band):
    scantimesdict={}
    scanstartsdict={}
    scanendsdict={}
@@ -253,16 +307,87 @@ def fetch_scan_times_band_aware(vislist,targets,listdict,band_properties,band):
          integrationsdict[vis][target]=integrations.copy()
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       spwslist=np.unique(spwslist).astype(int)
    else:
      return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,-99,-99,spwslist,mosaic_field
    return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
 
+def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
+   scantimesdict={}
+   scanstartsdict={}
+   scanendsdict={}
+   integrationsdict={}
+   integrationtimesdict={}
+   integrationtimes=np.array([])
+   n_spws=np.array([])
+   min_spws=np.array([])
+   spwslist=np.array([])
+   mosaic_field={}
+   scansdict={}
+   for vis in vislist:
+      scantimesdict[vis]={}
+      scanstartsdict[vis]={}
+      scanendsdict[vis]={}
+      integrationsdict[vis]={}
+      integrationtimesdict[vis]={}
+      scansdict[vis]={}
+      msmd.open(vis)
+      for target in targets:
+         scansforfield=msmd.scansforfield(target)
+         scansforspw=msmd.scansforspw(band_properties[vis][band]['spwarray'][0])
+         scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
+         scansdict[vis][target].sort()
+      for target in targets:
+         mosaic_field[target]={}
+         mosaic_field[target]['field_ids']=[]
+         mosaic_field[target]['mosaic']=False
+         #mosaic_field[target]['field_ids']=msmd.fieldsforname(target)
+         mosaic_field[target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target])
+         mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
+         if len(mosaic_field[target]['field_ids']) > 1:
+            mosaic_field[target]['mosaic']=True
+         scantimes=np.array([])
+         integrations=np.array([])
+         scanstarts=np.array([])
+         scanends=np.array([])
 
-def fetch_spws(vislist,targets,listdict):
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+            integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
+            integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
+            times=msmd.timesforscan(scan)
+            scantime=np.max(times)+integrationtime-np.min(times)
+            scanstarts=np.append(scanstarts,np.array([np.min(times)/86400.0]))
+            scanends=np.append(scanends,np.array([(np.max(times)+integrationtime)/86400.0]))
+            ints_per_scan=np.round(scantime/integrationtimes[0])
+            scantimes=np.append(scantimes,np.array([scantime]))
+            integrations=np.append(integrations,np.array([ints_per_scan]))
+
+               
+         scantimesdict[vis][target]=scantimes.copy()
+         scanstartsdict[vis][target]=scanstarts.copy()
+         scanendsdict[vis][target]=scanends.copy()
+         #assume each band only has a single integration time
+         integrationtimesdict[vis][target]=np.median(integrationtimes)
+         integrationsdict[vis][target]=integrations.copy()
+   if len(n_spws) > 0:
+      if np.mean(n_spws) != np.max(n_spws):
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      if np.max(min_spws) != np.min(min_spws):
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      spwslist=np.unique(spwslist).astype(int)
+   else:
+     return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
+   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
+
+#deprecated function marked for removal
+def fetch_spws_old(vislist,targets,listdict):
    scantimesdict={}
    n_spws=np.array([])
    min_spws=np.array([])
@@ -271,19 +396,17 @@ def fetch_spws(vislist,targets,listdict):
       listdict[vis]=listobs(vis)
       keylist=list(listdict[vis].keys())  
       for target in targets:
-         countscans=0
          for key in keylist:
             if 'scan' in key and listdict[vis][key]['0']['FieldName']==target:
-               countscans+=1
                n_spws=np.append(len(listdict[vis][key]['0']['SpwIds']),n_spws)
                min_spws=np.append(np.min(listdict[vis][key]['0']['SpwIds']),min_spws)
                spwslist=np.append(listdict[vis][key]['0']['SpwIds'],spwslist)
                #print(scantimes)
    if len(n_spws) > 1:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
    spwslist=np.unique(spwslist).astype(int)
    if len(n_spws) == 1:
       return n_spws,min_spws,spwslist
@@ -291,6 +414,37 @@ def fetch_spws(vislist,targets,listdict):
       return np.max(n_spws),np.min(min_spws),spwslist
 
 
+def fetch_spws(vislist,targets):
+   scantimesdict={}
+   n_spws=np.array([])
+   min_spws=np.array([])
+   spwslist=np.array([])
+   scansdict={}
+   for vis in vislist:
+      scansdict[vis]={}
+      msmd.open(vis)
+      for target in targets:
+         scansdict[vis][target]=msmd.scansforfield(target)
+         scansdict[vis][target].sort()
+      for target in targets:
+         for scan in scansdict[vis][target]:
+            spws=msmd.spwsforscan(scan)
+            n_spws=np.append(len(spws),n_spws)
+            min_spws=np.append(np.min(spws),min_spws)
+            spwslist=np.append(spws,spwslist)
+   if len(n_spws) > 1:
+      if np.mean(n_spws) != np.max(n_spws):
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      if np.max(min_spws) != np.min(min_spws):
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+   spwslist=np.unique(spwslist).astype(int)
+   if len(n_spws) == 1:
+      return n_spws,min_spws,spwslist
+   else:
+      return np.max(n_spws),np.min(min_spws),spwslist
+
+
+#unused function
 def fetch_scan_times_target(vislist,target,listdict):
    scantimesdict={}
    integrationsdict={}
@@ -598,7 +752,7 @@ def fetch_targets_old(vis):
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
-def fetch_targets(vis):
+def fetch_targets_previous(vis):
       fields=[]
       tb.open(vis+'/FIELD')
       names=list(tb.getcol('NAME'))
@@ -609,6 +763,18 @@ def fetch_targets(vis):
          if 'field_' in listobskey:
             fieldnum=int(listobskey.split('_')[1])
             fields.append(names[fieldnum])
+      fields=list(set(fields)) # convert to set to only get unique items
+      return fields
+
+def fetch_targets(vis):
+      fields=[]
+      msmd.open(vis)
+      fieldnames=msmd.fieldnames()
+      for fieldname in fieldnames:
+         scans=msmd.scansforfield(fieldname)
+         if len(scans) > 0:
+            fields.append(fieldname)
+      msmd.close()
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
 
@@ -825,22 +991,32 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
       solint_snr[target][band]={}
       solint_snr_per_spw[target][band]={}
       for solint in solints[band]:
+         #code to work around some VLA data not having the same number of spws due to missing BlBPs
+         #selects spwlist from the visibilities with the greates number of spws
+         maxspws=0
+         maxspwvis=''
+         for vis in vislist:
+            if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
+               maxspws=selfcal_library[target][band][vis]['n_spws']
+               maxspwvis=vis+''
          solint_snr[target][band][solint]=0.0
          solint_snr_per_spw[target][band][solint]={}       
          if solint == 'inf_EB':
             SNR_self_EB=np.zeros(len(vislist))
-            SNR_self_EB_spw=np.zeros([len(vislist),len(selfcal_library[target][band][vislist[0]]['spwsarray'])])
-            SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[target][band][vislist[0]]['spwsarray'])])
+            SNR_self_EB_spw=np.zeros([len(vislist),len(selfcal_library[target][band][maxspwvis]['spwsarray'])])
+            SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[target][band][maxspwvis]['spwsarray'])])
             SNR_self_EB_spw={}
             for i in range(len(vislist)):
                SNR_self_EB[i]=selfcal_library[target][band]['SNR_orig']/((n_ant)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)
                SNR_self_EB_spw[vislist[i]]={}
                for spw in selfcal_library[target][band][vislist[i]]['spwsarray']:
-                  SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
-            for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
+                  if spw in SNR_self_EB_spw[vislist[i]].keys():
+                     SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+            for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(vislist)):
-                  mean_SNR+=SNR_self_EB_spw[vislist[j]][str(spw)]
+                  if spw in SNR_self_EB_spw[vislist[j]].keys():
+                     mean_SNR+=SNR_self_EB_spw[vislist[j]][str(spw)]
                mean_SNR=mean_SNR/len(vislist) 
                solint_snr_per_spw[target][band][solint][str(spw)]=mean_SNR
             solint_snr[target][band][solint]=np.mean(SNR_self_EB)
@@ -848,16 +1024,16 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
          elif solint =='inf' or solint == 'inf_ap':
                selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
                solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
-               for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
+               for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
                   solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
-               for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
+               for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
                   solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
          else:
                solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
-               for spw in selfcal_library[target][band][vislist[0]]['spwsarray']:
+               for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
                   solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
    return solint_snr,solint_snr_per_spw
 
@@ -873,47 +1049,40 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
          solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
-def get_sensitivity(vislist,selfcal_library,specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
-   sensitivities=np.zeros(len(vislist))
-   TOS=np.zeros(len(vislist))
-   counter=0
+def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
    scalefactor=1.0
+   maxspws=0
+   maxspwvis=''
    for vis in vislist:
-      im.open(vis)
-      im.selectvis(field='',spw=spwstring)
-      im.defineimage(mode=specmode,stokes='I',spw=spw,cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
-      im.weight(type='briggs',robust=robust)  
-      if uvtaper != '':
-         if 'klambda' in uvtaper:
-            uvtaper=uvtaper.replace('klambda','')
-            uvtaperflt=float(uvtaper)
-            bmaj=str(206.0/uvtaperflt)+'arcsec'
-            bmin=bmaj
-            bpa='0.0deg'
-         if 'arcsec' in uvtaper:
-            bmaj=uvtaper
-            bmin=uvtaper
-            bpa='0.0deg'
-         print('uvtaper: '+bmaj+' '+bmin+' '+bpa)
-         im.filter(type='gaussian', bmaj=bmaj, bmin=bmin, bpa=bpa)
-      try:
-          sens=im.apparentsens()
-      except:
-          print('#')
-          print('# Sensisitivity Calculation failed for '+vis)
-          print('# Continuing to next MS') 
-          print('# Data in this spw/MS may be flagged')
-          print('#')
-          continue
-      #print(sens)
-      #print(vis,'Briggs Sensitivity = ', sens[1])
-      #print(vis,'Relative to Natural Weighting = ', sens[2])  
-      sensitivities[counter]=sens[1]*scalefactor
-      TOS[counter]=selfcal_library[vis]['TOS']
-      counter+=1
-   #estsens=np.sum(sensitivities)/float(counter)/(float(counter))**0.5
-   #print(estsens)
-   estsens=np.sum(sensitivities*TOS)/np.sum(TOS)
+      im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
+      # Also figure out which vis has the max # of spws
+      if selfcal_library[vis]['n_spws'] >= maxspws:
+          maxspws=selfcal_library[vis]['n_spws']
+          maxspwvis=vis+''
+   im.defineimage(mode=specmode,stokes='I',spw=selfcal_library[maxspwvis]['spwsarray'],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
+   im.weight(type='briggs',robust=robust)  
+   if uvtaper != '':
+      if 'klambda' in uvtaper:
+         uvtaper=uvtaper.replace('klambda','')
+         uvtaperflt=float(uvtaper)
+         bmaj=str(206.0/uvtaperflt)+'arcsec'
+         bmin=bmaj
+         bpa='0.0deg'
+      if 'arcsec' in uvtaper:
+         bmaj=uvtaper
+         bmin=uvtaper
+         bpa='0.0deg'
+      print('uvtaper: '+bmaj+' '+bmin+' '+bpa)
+      im.filter(type='gaussian', bmaj=bmaj, bmin=bmin, bpa=bpa)
+   try:
+       estsens=np.float64(im.apparentsens()[1])
+   except:
+       print('#')
+       print('# Sensisitivity Calculation failed for '+vis)
+       print('# Continuing to next MS') 
+       print('# Data in this spw/MS may be flagged')
+       print('#')
+       sys.exit(0)
    print('Estimated Sensitivity: ',estsens)
    return estsens
 
@@ -951,7 +1120,7 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
     fieldnames = tb.getcol('NAME')
     tb.close()
     tb.open(msfile+'/OBSERVATION')
-    obstime = np.squeeze(tb.getcol('TIME_RANGE', startrow = obsid, nrow = 1))[0]
+    obstime = np.squeeze(tb.getcol('TIME_RANGE', startrow = obsid[0], nrow = 1))[0]
     tb.close()
     nchan = len(chanfreqs)
     ms.open(msfile)
@@ -1109,6 +1278,16 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
    return avgarray
 
 
+def largest_prime_factor(n):
+    i = 2
+    while i * i <= n:
+        if n % i:
+            i += 1
+        else:
+            n //= i
+    return n
+
+
 def get_image_parameters(vislist,telescope,band,band_properties):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
@@ -1133,8 +1312,36 @@ def get_image_parameters(vislist,telescope,band,band_properties):
    npixels=int(np.ceil(fov/cell / 100.0)) * 100
    if npixels > 16384:
       npixels=16384
+
+   while largest_prime_factor(npixels) >= 7:
+       npixels += 2
+
    return cellsize,npixels,nterms
 
+
+def check_image_nterms(fracbw, SNR):
+   if fracbw >=0.1:
+      nterms=2
+   elif (SNR > 10.0) and (fracbw < 0.1):   # estimate the gain of going to nterms=2 based on nterms=1 S/N and fracbw
+      #coefficients come from a empirical fit using simulated data with a spectral index of 3
+      X=[fracbw,np.log10(SNR)]
+      A = 2336.415
+      B = 0.051
+      C = -306.590
+      D = 5.654
+      E = 28.220
+      F = -23.598
+      G = -0.594
+      H = -3.413 
+      Z=10**(A*X[0]**3+B*X[1]**3+C*X[0]**2*X[1]+D*X[1]**2*X[0] +E*X[0]*X[1]+ F*X[0]+ G*X[1] +H)
+      if Z > 0.01:
+         print('SWITCHING TO NTERMS=2')
+         nterms=2
+      else:
+         nterms=1
+   else:
+      nterms=1
+   return nterms
 
 def get_mean_freq(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')
@@ -1675,7 +1882,7 @@ def plot_image(filename,outname,min=None,max=None):
    else:
       remainder=width-height
       trim_amount=int(remainder/2.0)
-      im1=im.crop((trim_amount,height-1,width,width-trim_amount-1,0))
+      im1=im.crop((trim_amount,0,width-trim_amount-1,height-1))
    im1.save(outname)
 
 def get_flagged_solns_per_ant(gaintable,vis):
@@ -2046,7 +2253,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                   vis_solint_keys=sclib[target][band][vislist[len(vislist)-1]][solint].keys()
                   if key=='Pass':
                      if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
-                        line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band]['Stop_Reason'])
+                        line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
                   if key=='intflux_final':
@@ -2072,7 +2279,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                      line+='    <td>{:0.2e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
 
                   if key=='Beam_Ratio':
-                     line+='    <td>{:0.2e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post'])/(sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_pre']))
+                     line+='    <td>{:0.2e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))
                   if key =='clean_threshold':
                      if key in vis_solint_keys:
                         line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['clean_threshold']*1000.0)
@@ -2297,7 +2504,7 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 
 def importdata(vislist,all_targets,telescope):
    listdict=collect_listobs_per_vis(vislist)
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets,listdict)
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
    spwslist=spwsarray.tolist()
    spwstring=','.join(str(spw) for spw in spwslist)
 
@@ -2318,7 +2525,7 @@ def importdata(vislist,all_targets,telescope):
    for band in bands:
         print(band)
         scantimesdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,listdict,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
 
         scantimesdict[band]=scantimesdict_temp.copy()
         scanstartsdict[band]=scanstartsdict_temp.copy()
@@ -2332,6 +2539,7 @@ def importdata(vislist,all_targets,telescope):
               band_properties[vis]['bands'].remove(band)
               print('Removing '+band+' bands from list due to no observations')
            bands_to_remove.append(band)
+        loopcount=0
         for vis in vislist:
            for target in all_targets:
               check_target=len(integrationsdict[band][vis][target])
@@ -2341,8 +2549,10 @@ def importdata(vislist,all_targets,telescope):
                  scantimesdict[band][vis].pop(target)
                  scanstartsdict[band][vis].pop(target)
                  scanendsdict[band][vis].pop(target) 
-                           
-                 mosaic_field_dict[band].pop(target)           
+                 #handle case of multiMS mosaic data; assumes mosaic info is the same for MSes
+                 if loopcount == 0:
+                    mosaic_field_dict[band].pop(target)
+           loopcount+=1        
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:
          bands.remove(delband)
@@ -2445,9 +2655,10 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw(spwlist[0],spw_combine_test_gaintable)
    eff_bws=np.zeros(len(spwlist))
    total_bws=np.zeros(len(spwlist))
+   keylist=list(selfcal_library[target][band]['per_spw_stats'].keys())
    for i in range(len(spwlist)):
-      eff_bws[i]=selfcal_library[target][band]['per_spw_stats'][spwlist[i]]['effective_bandwidth']
-      total_bws[i]=selfcal_library[target][band]['per_spw_stats'][spwlist[i]]['bandwidth']
+      eff_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['bandwidth']
    minimum_flagged_ants_per_spw=np.min(nflags)/2.0
    minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
                                                            # the impression of a lot of flagging
@@ -2499,6 +2710,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
             applycal_spwmap[int(spwlist[i])]=int(spwlist[map_index])
    
    return fallback,map_index,spwmap,applycal_spwmap
+
 
 
 
