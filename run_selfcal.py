@@ -17,7 +17,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
    # If we are running this on a mosaic, we want to rerank reference antennas and have a higher gaincal_minsnr by default.
 
    if selfcal_library[target][band]["obstype"] == "mosaic":
-       gaincal_minsnr = 10.0
+       gaincal_minsnr = 2.0
        rerank_refants = True
        refantmode = "strict"
    else:
@@ -81,7 +81,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
          tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                     threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
+                     threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', cyclefactor=selfcal_library[target][band]['cyclefactor'])
@@ -112,7 +112,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              if applymode == "calflag":
                  tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                              band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                             threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
+                             threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                              savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                              nterms=selfcal_library[target][band]['nterms'],
                              field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, savemodel_only=True, cyclefactor=selfcal_library[target][band]['cyclefactor'])
@@ -584,7 +584,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
              tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                       band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr'])+'Jy',
+                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                       nterms=selfcal_library[target][band]['nterms'],
                       field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', cyclefactor=selfcal_library[target][band]['cyclefactor'])
@@ -660,7 +660,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 #selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
                 #selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                 #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
-                selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
+                selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                 selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
                 selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
                 selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
@@ -700,7 +700,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
                     #selfcal_library[target][band][fid][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                     #selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
-                    selfcal_library[target][band][fid][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
+                    selfcal_library[target][band][fid][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                     selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                     selfcal_library[target][band][fid][vis][solint]['fallback']=fallback[vis]+''
                     selfcal_library[target][band][fid][vis][solint]['solmode']=solmode[band][iteration]+''

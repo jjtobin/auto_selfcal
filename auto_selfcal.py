@@ -658,7 +658,7 @@ for target in all_targets:
       dividing_factor=40.0
    elif (dividing_factor ==-99.0):
       dividing_factor=15.0
-   nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
+   nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
 
    n_ap_solints=sum(1 for solint in solints[band] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
    if rel_thresh_scaling == 'loge':
@@ -715,7 +715,7 @@ for target in all_targets:
    vislist=selfcal_library[target][band]['vislist'].copy()
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
    tclean_wrapper(vislist,sani_target+'_'+band+'_final',\
-               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_curr']*3.0)+'Jy',scales=[0],\
+               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],
                nterms=selfcal_library[target][band]['nterms'],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], \
                nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic',\
@@ -841,7 +841,7 @@ if check_all_spws:
                   sensitivity=0.0
                spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
                sensitivity_agg=get_sensitivity(vislist,selfcal_library[target][band],target,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
-               sensitivity_scale_factor=selfcal_library[target][band]['RMS_curr']/sensitivity_agg
+               sensitivity_scale_factor=selfcal_library[target][band]['RMS_NF_curr']/sensitivity_agg
 
                nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
                tclean_wrapper(vislist,sani_target+'_'+band+'_'+spw+'_final',\
