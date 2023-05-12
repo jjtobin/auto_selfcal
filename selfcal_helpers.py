@@ -57,7 +57,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
        cycleniter=-1
-       cyclefactor=1.0
+       #cyclefactor=1.0
        print(band_properties)
        if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:
           sidelobethreshold=2.0
@@ -68,7 +68,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=2.0*nfrms_multiplier
        cycleniter=-1
-       cyclefactor=1.0
+       #cyclefactor=1.0
 
     elif 'VLA' in telescope:
        sidelobethreshold=2.0
@@ -77,7 +77,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        lownoisethreshold=1.5*nfrms_multiplier
        pblimit=-0.1
        cycleniter=-1
-       cyclefactor=3.0
+       #cyclefactor=3.0
        pbmask=0.0
     wprojplanes=1
     if band=='EVLA_L' or band =='EVLA_S':
@@ -154,7 +154,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
 
                 for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
                     target = sanitize_string(field)
-                    os.system('rm -rf '+ imagename.replace(target,target+"_field_"+str(field_id)) + ext)
+                    os.system('rm -rf '+ imagename.replace(target,target+"_field_"+str(field_id)) + ext.replace("pb","mospb"))
 
                     if ext == ".psf.tt0":
                         os.system("cp -r "+imagename+ext+" "+imagename.replace(target,target+"_field_"+str(field_id))+ext)
@@ -305,14 +305,14 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          scansforfield=msmd.scansforfield(target)
          scansforspw=msmd.scansforspw(band_properties[vis][band]['spwarray'][0])
          scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
-         scansdict[vis][target].sort
+         scansdict[vis][target].sort()
       for target in targets:
          mosaic_field[target]={}
          mosaic_field[target]['field_ids']=[]
          mosaic_field[target]['mosaic']=False
          #mosaic_field[target]['field_ids']=msmd.fieldsforname(target)
          store_names = not (msmd.fieldsforscans(scansdict[vis][target]).size > 1 and np.unique(msmd.fieldsforscans(scansdict[vis][target], True)).size == 1)
-         mosaic_field[target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names)
+         mosaic_field[target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names).tolist()
          mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
          if len(mosaic_field[target]['field_ids']) > 1:
             mosaic_field[target]['mosaic']=True
@@ -370,7 +370,7 @@ def fetch_spws(vislist,targets):
       msmd.open(vis)
       for target in targets:
          scansdict[vis][target]=msmd.scansforfield(target)
-         scansdict[vis][target].sort
+         scansdict[vis][target].sort()
       for target in targets:
          for scan in scansdict[vis][target]:
             spws=msmd.spwsforscan(scan)
@@ -747,6 +747,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
     beampa = headerlist['beampa']['value']
 
     if mosaic_sub_field:
+        os.system("rm -rf temp.image")
         immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
                 expr="IM0*IM1/IM2")
         image_stats= imstat(imagename = "temp.image")
@@ -799,7 +800,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
 
 
 
-def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosaic_sub_field=False):
+def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosaic_sub_field=False, save_near_field_mask=True):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
@@ -826,7 +827,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
        print('checkmask')
        return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.beam.extent.mask temp.image')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     os.system('cp -r '+maskImage+ ' temp.mask')
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
@@ -835,7 +836,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
 
     # Check the extent of the beam as well.
-    psfImage = imagename.replace('image','psf')
+    psfImage = maskImage.replace('mask','psf')+'.tt0'
 
     immath(psfImage, mode="evalexpr", expr="iif(IM0==1,IM0,0)", outfile="temp.delta")
     npix = imhead("temp.delta", mode="get", hdkey="shape")[0]
@@ -860,8 +861,8 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     beam_extent_size = ((center_coords - max_coords)**2)[0:2].sum()**0.5 * 360*60*60/(2*np.pi)
 
     # use the maximum of the three possibilities as the outer extent of the mask.
-    print("beammajor*5 = ", beammajor*5, ", LAS = ", las, ", beam_extent = ", beam_extent_size)
-    outer_major = max(beammajor*5, beam_extent_size, las if las is not None else 0.)
+    print("beammajor*5 = ", beammajor*5, ", LAS = ", 5*las, ", beam_extent = ", beam_extent_size)
+    outer_major = max(beammajor*5, beam_extent_size, 5*las if las is not None else 0.)
 
     imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(outer_major)+'arcsec',minor=str(outer_major)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
 
@@ -888,7 +889,8 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
            print("#Peak Near Field SNR: %.2f" % (SNR,))
     ia.close()
     ia.done()
-    os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
+    if save_near_field_mask:
+        os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     return SNR,rms
 
@@ -1650,6 +1652,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
       min_baseline=np.min(all_baselines)
+      baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
@@ -1660,7 +1663,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          band_properties[vis][band]['minuv']=max_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
-         band_properties[vis][band]['LAS']=0.6 / (1000*min_uv_dist) * 180./np.pi * 3600.
+         band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
 
 
 def get_uv_range(band,band_properties,vislist):
@@ -2266,7 +2269,10 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
                   if key =='Image':
                         line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                   if key =='intflux':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                     if sclib[target][band][key+'_orig'] == 0:
+                         line+='    <td>{:0.2f} </td>\n'.format(1.0)
+                     else:
+                         line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='SNR':
                      line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='SNR_NF':
@@ -2331,10 +2337,15 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
             for solint in solint_list:
                if solint in vis_keys:
                   vis_solint_keys=sclib[target][band][vislist[len(vislist)-1]][solint].keys()
+                  if key != 'Pass' and sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == 'None':
+                      line+='    <td> - </td>\n'
+                      continue
                   if key=='Pass':
                     if key in sclib[target][band][vislist[len(vislist)-1]][solint]:
                      if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
                         line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
+                     elif sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == 'None':
+                        line+='    <td><font color="green">{}</font> {}</td>\n'.format('Not attempted',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
                     else:
@@ -2382,7 +2393,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          for vis in vislist:
             line='<tr bgcolor="#ffffff">\n    <td>'+vis+': </td>\n'
             for solint in solint_list:
-               if solint in vis_keys:
+               if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None':
                   # only evaluate last gaintable not the pre-apply table
                   gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                   line+='<td><a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=200 HEIGHT=200></a></td>\n'
@@ -2393,7 +2404,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
             for quantity in ['Nsols','Flagged_Sols','Frac_Flagged']:
                line='<tr bgcolor="#ffffff">\n    <td>'+quantity+'</td>\n'
                for solint in solint_list:
-                  if solint in vis_keys:
+                  if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None':
                      # only evaluate last gaintable not the pre-apply table
                      gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                      nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
@@ -2478,7 +2489,7 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
          #for i in range(final_solint_index+index_addition):
          for i in range(len(solints[band])):
 
-            if solints[band][i] not in keylist:
+            if solints[band][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass'] == 'None':
                continue
             htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+solints[band][i]+'.html','w')
             htmlOutSolint.writelines('<html>\n')
