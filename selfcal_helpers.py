@@ -2663,10 +2663,16 @@ def importdata(vislist,all_targets,telescope):
 
    gaincalibrator_dict = {}
    for vis in vislist:
-       viskey = vis.replace("_target.ms","_target.selfcal.ms")
+       if "targets" in vis:
+           vis_string = "_target"
+       else:
+           vis_string = "_targets"
+
+       viskey = vis.replace(vis_string+".ms",vis_string+".selfcal.ms")
+
        gaincalibrator_dict[viskey] = {}
-       if os.path.exists(vis.replace("_target.ms",".ms").replace("_target.selfcal.ms",".ms")):
-           msmd.open(vis.replace("_target.ms",".ms").replace("_target.selfcal.ms",".ms"))
+       if os.path.exists(vis.replace(vis_string+".ms",".ms").replace(vis_string+".selfcal.ms",".ms")):
+           msmd.open(vis.replace(vis_string+".ms",".ms").replace(vis_string+".selfcal.ms",".ms"))
    
            for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
                scans_for_field = msmd.scansforfield(field)
