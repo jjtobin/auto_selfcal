@@ -2664,9 +2664,9 @@ def importdata(vislist,all_targets,telescope):
    gaincalibrator_dict = {}
    for vis in vislist:
        if "targets" in vis:
-           vis_string = "_target"
-       else:
            vis_string = "_targets"
+       else:
+           vis_string = "_target"
 
        viskey = vis.replace(vis_string+".ms",vis_string+".selfcal.ms")
 
