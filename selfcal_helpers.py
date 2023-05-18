@@ -1589,7 +1589,7 @@ def get_uv_range(band,band_properties,vislist):
          mean_max_uv+=band_properties[vis][band]['maxuv']
       mean_max_uv=mean_max_uv/float(n_vis)
       min_uv=0.05*mean_max_uv
-      uvrange='>{:0.2f}klambda'.format(min_uv)
+      uvrange='>{:0.2f}m'.format(min_uv)
    else:
       uvrange=''
    return uvrange
