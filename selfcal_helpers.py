@@ -1412,33 +1412,44 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
    return bands,observed_bands
 
 
-def get_VLA_bands(vislist):
+def get_VLA_bands(vislist,fields):
    observed_bands={}
    for vis in vislist:
       observed_bands[vis]={}
+      msmd.open(vis)
+      spws_for_field=np.array([])
+      for field in fields:
+         spws_temp=msmd.spwsforfield(field)
+         spws_for_field=np.concatenate((spws_for_field,np.array(spws_temp)))
+      msmd.close()
+      spws_for_field=np.unique(spws_for_field)
+      spws_for_field.sort()
+      spws_for_field=spws_for_field.astype('int')
       #visheader=vishead(vis,mode='list',listitems=[])
       tb.open(vis+'/SPECTRAL_WINDOW') 
       spw_names=tb.getcol('NAME')
       tb.close()
       #spw_names=visheader['spw_name'][0]
-      spw_names_band=spw_names.copy()
-      spw_names_bb=spw_names.copy()
+      spw_names_band=['']*len(spws_for_field)
+      spw_names_band=['']*len(spws_for_field)
+      spw_names_bb=['']*len(spws_for_field)
       spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
-      for i in range(len(spw_names)):
-         spw_names_band[i]=spw_names[i].split('#')[0]
-         spw_names_bb[i]=spw_names[i].split('#')[1]
-         spw_names_spw[i]=i
+
+      for i in range(len(spws_for_field)):
+         spw_names_band[i]=spw_names[spws_for_field[i]].split('#')[0]
+         spw_names_bb[i]=spw_names[spws_for_field[i]].split('#')[1]
+         spw_names_spw[i]=spws_for_field[i]
       all_bands=np.unique(spw_names_band)
       observed_bands[vis]['n_bands']=len(all_bands)
       observed_bands[vis]['bands']=all_bands.tolist()
       for band in all_bands:
-         index=np.where(spw_names_band==band)
-         if (band == 'EVLA_X') and (len(index[0]) == 2): # ignore pointing band
-            observed_bands[vis]['n_bands']=observed_bands[vis]['n_bands']-1
-            observed_bands[vis]['bands'].remove('EVLA_X')
-            continue
-         elif (band == 'EVLA_X') and (len(index[0]) > 2): # ignore pointing band
-            observed_bands[vis][band]={}
+         index=np.where(np.array(spw_names_band)==band)
+         observed_bands[vis][band]={}
+         # logic below removes the VLA standard pointing setups at X and C-bands
+         # the code is mostly immune to this issue since we get the spws for only
+         # the science targets above; however, should not ignore the possibility
+         # that someone might also do pointing on what is the science target
+         if (band == 'EVLA_X') and (len(index[0]) >= 2): # ignore pointing band
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
@@ -1446,16 +1457,8 @@ def get_VLA_bands(vislist):
                 if (meanfreq==8.332e9) or (meanfreq==8.460e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
-            spwslist=observed_bands[vis][band]['spwarray'].tolist()
-            spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
-         elif (band == 'EVLA_C') and (len(index[0]) == 2): # ignore pointing band
-            observed_bands[vis]['n_bands']=observed_bands[vis]['n_bands']-1
-            observed_bands[vis]['bands'].remove('EVLA_C')
-            continue
-         elif (band == 'EVLA_C') and (len(index[0]) > 2): # ignore pointing band
-            observed_bands[vis][band]={}
+         elif (band == 'EVLA_C') and (len(index[0]) >= 2): # ignore pointing band
+
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
@@ -1463,17 +1466,12 @@ def get_VLA_bands(vislist):
                 if (meanfreq==4.832e9) or (meanfreq==4.960e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
-            spwslist=observed_bands[vis][band]['spwarray'].tolist()
-            spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
          else:
-            observed_bands[vis][band]={}
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
-            spwslist=observed_bands[vis][band]['spwarray'].tolist()
-            spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+         spwslist=observed_bands[vis][band]['spwarray'].tolist()
+         spwstring=','.join(str(spw) for spw in spwslist)
+         observed_bands[vis][band]['spwstring']=spwstring+''
+         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):
@@ -1484,7 +1482,6 @@ def get_VLA_bands(vislist):
      print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
    get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
    return observed_bands[vislist[0]]['bands'].copy(),observed_bands
-
 
 
 def get_telescope(vis):
