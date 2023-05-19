@@ -69,6 +69,7 @@ second_iter_solmode = ""
 unflag_fb_to_prev_solint = False
 rerank_refants=False
 allow_gain_interpolation=False
+aca_use_nfmask=False
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -330,7 +331,7 @@ for target in all_targets:
                      savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=nterms[target][band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic')
    dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_dirty.image.tt0')
-   if telescope!='ACA':
+   if telescope!='ACA' or aca_use_nfmask:
       dirty_NF_SNR,dirty_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_dirty.image.tt0', las=selfcal_library[target][band]['LAS'])
    else:
       dirty_NF_SNR,dirty_NF_RMS=dirty_SNR,dirty_RMS
@@ -343,7 +344,7 @@ for target in all_targets:
            imagename = sani_target+'_'+band+'_dirty.image.tt0'
 
        mosaic_dirty_SNR[fid], mosaic_dirty_RMS[fid] = estimate_SNR(imagename, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope !='ACA':
+       if telescope !='ACA' or aca_use_nfmask:
           mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'], \
                   mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
        else:
@@ -375,7 +376,7 @@ for target in all_targets:
                      savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=nterms[target][band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=dirty_NF_RMS/dirty_RMS, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', cyclefactor=selfcal_library[target][band]['cyclefactor'])
    initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0')
-   if telescope!='ACA':
+   if telescope!='ACA' or aca_use_nfmask:
       initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0', las=selfcal_library[target][band]['LAS'])
    else:
       initial_NF_SNR,initial_NF_RMS=initial_SNR,initial_RMS
@@ -388,7 +389,7 @@ for target in all_targets:
            imagename = sani_target+'_'+band+'_initial.image.tt0'
 
        mosaic_initial_SNR[fid], mosaic_initial_RMS[fid] = estimate_SNR(imagename, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope !='ACA':
+       if telescope !='ACA' or aca_use_nfmask:
           mosaic_initial_NF_SNR[fid],mosaic_initial_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'], \
                   mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
        else:
@@ -535,7 +536,7 @@ if check_all_spws:
                      field=target,spw=spws_per_vis,
                      uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
             dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0')
-            if telescope!='ACA':
+            if telescope!='ACA' or aca_use_nfmask:
                dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0', las=selfcal_library[target][band]['LAS'])
             else:
                dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=per_spw_SNR,per_spw_RMS
@@ -560,7 +561,7 @@ if check_all_spws:
                           nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS, cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
             per_spw_SNR,per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0')
-            if telescope!='ACA':
+            if telescope!='ACA' or aca_use_nfmask:
                initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0', las=selfcal_library[target][band]['LAS'])
             else:
                initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=per_spw_SNR,per_spw_RMS
@@ -698,7 +699,7 @@ for target in all_targets:
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
-           gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation)
+           gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, aca_use_nfmask=aca_use_nfmask)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
@@ -721,7 +722,7 @@ for target in all_targets:
                nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic',\
                cyclefactor=selfcal_library[target][band]['cyclefactor'])
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
-   if telescope !='ACA':
+   if telescope !='ACA' or aca_use_nfmask:
       final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_final.image.tt0', las=selfcal_library[target][band]['LAS'])
    else:
       final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
@@ -734,7 +735,7 @@ for target in all_targets:
            imagename = sani_target+'_'+band+'_final.image.tt0'
 
        mosaic_final_SNR[fid], mosaic_final_RMS[fid] = estimate_SNR(imagename, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope !='ACA':
+       if telescope !='ACA' or aca_use_nfmask:
           mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'], \
                   mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
        else:
@@ -750,7 +751,7 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
    #recalc inital stats using final mask
    final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
-   if telescope!='ACA':
+   if telescope!='ACA' or aca_use_nfmask:
       final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask', las=selfcal_library[target][band]['LAS'])
    else:
       final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
@@ -782,7 +783,7 @@ for target in all_targets:
        #recalc inital stats using final mask
        mosaic_initial_final_SNR,mosaic_initial_final_RMS=estimate_SNR(imagename+'_initial.image.tt0',maskname=imagename+'_final.mask', \
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope!='ACA':
+       if telescope!='ACA' or aca_use_nfmask:
           mosaic_initial_final_NF_SNR,mosaic_initial_final_NF_RMS=estimate_near_field_SNR(imagename+'_initial.image.tt0', \
                   maskname=imagename+'_final.mask', las=selfcal_library[target][band]['LAS'], \
                   mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
@@ -851,7 +852,7 @@ if check_all_spws:
                           spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'],
                           nfrms_multiplier=nfsnr_modifier, cyclefactor=selfcal_library[target][band]['cyclefactor'])
             final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0')
-            if telescope !='ACA':
+            if telescope !='ACA' or aca_use_nfmask:
                final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_final.image.tt0', las=selfcal_library[target][band]['LAS'])
             else:
                final_per_spw_NF_SNR,final_per_spw_NF_RMS=final_per_spw_SNR,final_per_spw_RMS
@@ -862,7 +863,7 @@ if check_all_spws:
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_final']=final_per_spw_NF_RMS
             #reccalc initial stats with final mask
             final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+spw+'_final.mask')
-            if telescope !='ACA':
+            if telescope !='ACA' or aca_use_nfmask:
                final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+spw+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+spw+'_final.mask', las=selfcal_library[target][band]['LAS'])
             else:
                final_per_spw_NF_SNR,final_per_spw_NF_RMS=final_per_spw_SNR,final_per_spw_RMS
