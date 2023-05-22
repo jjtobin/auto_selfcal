@@ -307,9 +307,8 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          mosaic_field[vis][target]={}
          mosaic_field[vis][target]['field_ids']=[]
          mosaic_field[vis][target]['mosaic']=False
-         #mosaic_field[target]['field_ids']=msmd.fieldsforname(target)
-         store_names = not (msmd.fieldsforscans(scansdict[vis][target]).size > 1 and np.unique(msmd.fieldsforscans(scansdict[vis][target], True)).size == 1)
-         mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names).tolist()
+
+         mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target]).tolist()
          mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
          mosaic_field[vis][target]['phasecenters'] = [msmd.phasecenter(fid) for fid in mosaic_field[vis][target]['field_ids']]
          if len(mosaic_field[vis][target]['field_ids']) > 1:
@@ -335,8 +334,8 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
             ints_per_scan=np.round(scantime/integrationtimes[0])
             scantimes=np.append(scantimes,np.array([scantime]))
             integrations=np.append(integrations,np.array([ints_per_scan]))
-            scanfields = np.append(scanfields,np.array([','.join(msmd.fieldsforscan(scan, store_names).astype(str))]))
-            scannfields = np.append(scannfields,np.array([msmd.fieldsforscan(scan, store_names).size]))
+            scanfields = np.append(scanfields,np.array([','.join(msmd.fieldsforscan(scan).astype(str))]))
+            scannfields = np.append(scannfields,np.array([msmd.fieldsforscan(scan).size]))
 
                
          scantimesdict[vis][target]=scantimes.copy()
