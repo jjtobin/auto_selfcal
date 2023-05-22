@@ -333,7 +333,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                         msmd.close()
                     else:
-                        include_targets = ['']
+                        include_targets = [str(selfcal_library[target][band]['sub-fields-fid_map'][vis][0])]
 
                     for incl_scans, incl_targets in zip(include_scans, include_targets):
                         gaincal(vis=vis,\
@@ -394,7 +394,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][fid][vis]['spws'],
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
                              solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
-                             field=str(fid),gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
+                             field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              #interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+
                              #solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
                              interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists('temp.g'), refantmode='flex')
