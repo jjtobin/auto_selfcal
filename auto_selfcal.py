@@ -71,7 +71,7 @@ if 'VLA' in telescope:
 ## Import inital MS files to get relevant meta data
 ##
 listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
@@ -103,7 +103,7 @@ spwsarray_orig =spwsarray.copy()
 
 vislist=glob.glob('*selfcal.ms')
 listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## Save/restore starting flags
@@ -211,7 +211,15 @@ for target in all_targets:
       selfcal_library[target][band][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
-      selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
+      if spectral_scan:
+         spwmap=np.zeros(np.max(spws_set)+1,dtype='int')
+         spwmap.fill(np.min(spws_set))
+         for i in range(spws_set.shape[0]):
+            indices=np.arange(np.min(spws_set[i]),np.max(spws_set[i])+1)
+            spwmap[indices]=np.min(spws_set[i])
+         selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
+      else:
+         selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
       selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
       selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
@@ -634,14 +642,23 @@ for target in all_targets:
                solnorm=True
             else:
                solnorm=False
-            gaincal(vis=vis,\
-                 caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
-                 gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
-                 refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm,
-                 solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
-                 field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
-                 interp=gaincal_interpolate[vis])
-            ##
+            if solint == 'inf_EB':
+               nspw_sets=spws_set.shape[0]
+            else: #only necessary to loop over gain cal when in inf_EB to avoid inf_EB solving for all spws
+               nspw_sets=1
+            for i in range(nspw_sets):  # run gaincal on each spw set to handle spectral scans (one run one time if not inf_EB)
+               if solint == 'inf_EB':
+                  spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+               else:
+                  spwselect=selfcal_library[target][band][vis]['spws']
+               gaincal(vis=vis,\
+                    caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
+                    gaintype=gaincal_gaintype, spw=spwselect,
+                    refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm,
+                    solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
+                    field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
+                    interp=gaincal_interpolate[vis],append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+               ##
             ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
             ## the number of flagged antennas when combine='spw' then determine if it needs spwmapping or to use the gaintable with spwcombine.
             ##
@@ -650,12 +667,15 @@ for target in all_targets:
                test_gaincal_combine='scan,spw'
                if selfcal_library[target][band]['obstype']=='mosaic':
                   test_gaincal_combine+=',field'   
-               gaincal(vis=vis,\
-                 caltable='test_inf_EB.g',\
-                 gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
-                 refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                 solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
-                 field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange']) 
+               for i in range(spws_set.shape[0]):  # run gaincal on each spw set to handle spectral scans
+                  spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+
+                  gaincal(vis=vis,\
+                    caltable='test_inf_EB.g',\
+                    gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
+                    refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
+                    solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
+                    field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'],append=os.path.exists('test_inf_EB.g')) 
                spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
                fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g')
 
