@@ -24,7 +24,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False, image_mosaic_fields_separately=False):
+                   savemodel_only=False, resume=False, image_mosaic_fields_separately=False, mosaic_field_phasecenters={}, mosaic_field_fid_map={}):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -134,12 +134,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True)
 
         if image_mosaic_fields_separately:
-            msmd.open(vis[0]) 
-            field_ids = np.intersect1d(msmd.fieldsforname(field), msmd.fieldsforintent("*OBSERVE_TARGET*"))
-            phasecenters = dict(zip(field_ids, [msmd.phasecenter(field_id) for field_id in field_ids]))
-            msmd.close()
-
-            for field_id in field_ids:
+            for field_id in mosaic_field_phasecenters:
                 if 'VLA' in telescope:
                    fov=45.0e9/band_properties[vis[0]][band]['meanfreq']*60.0*1.5*0.5
                    if band_properties[vis[0]][band]['meanfreq'] < 12.0e9:
@@ -149,8 +144,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                 if telescope=='ACA':
                    fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
 
-                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(phasecenters[field_id]['m0']['value'], \
-                        phasecenters[field_id]['m1']['value'], fov)
+                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(mosaic_field_phasecenters[field_id]['m0']['value'], \
+                        mosaic_field_phasecenters[field_id]['m1']['value'], fov)
 
                 for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
                     target = sanitize_string(field)
@@ -177,8 +172,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                 nx, ny, nfreq, npol = imhead(imagename=imagename.replace(target,target+"_field_"+str(field_id))+".image.tt0", mode="get", \
                         hdkey="shape")
 
-                im.selectvis(field=str(field_id), spw=spw)
-                im.defineimage(nx=nx, ny=ny, cellx=cellsize, celly=cellsize, phasecenter=field_id, mode="mfs", spw=spw)
+                fid = mosaic_field_fid_map[vis[0]][field_id]
+                im.selectvis(field=str(fid), spw=spw)
+                im.defineimage(nx=nx, ny=ny, cellx=cellsize, celly=cellsize, phasecenter=fid, mode="mfs", spw=spw)
                 im.setvp(dovp=True)
                 im.makeimage(type="pb", image=imagename.replace(target,target+"_field_"+str(field_id)) + ".pb.tt0")
 
@@ -292,6 +288,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    mosaic_field={}
    scansdict={}
    for vis in vislist:
+      mosaic_field[vis] = {}
       scantimesdict[vis]={}
       scanfieldsdict[vis]={}
       scannfieldsdict[vis]={}
@@ -307,15 +304,16 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
          scansdict[vis][target].sort()
       for target in targets:
-         mosaic_field[target]={}
-         mosaic_field[target]['field_ids']=[]
-         mosaic_field[target]['mosaic']=False
+         mosaic_field[vis][target]={}
+         mosaic_field[vis][target]['field_ids']=[]
+         mosaic_field[vis][target]['mosaic']=False
          #mosaic_field[target]['field_ids']=msmd.fieldsforname(target)
          store_names = not (msmd.fieldsforscans(scansdict[vis][target]).size > 1 and np.unique(msmd.fieldsforscans(scansdict[vis][target], True)).size == 1)
-         mosaic_field[target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names).tolist()
-         mosaic_field[target]['field_ids']=list(set(mosaic_field[target]['field_ids']))
-         if len(mosaic_field[target]['field_ids']) > 1:
-            mosaic_field[target]['mosaic']=True
+         mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target], store_names).tolist()
+         mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
+         mosaic_field[vis][target]['phasecenters'] = [msmd.phasecenter(fid) for fid in mosaic_field[vis][target]['field_ids']]
+         if len(mosaic_field[vis][target]['field_ids']) > 1:
+            mosaic_field[vis][target]['mosaic']=True
          scantimes=np.array([])
          scanfields=np.array([])
          scannfields=np.array([])
@@ -1109,7 +1107,7 @@ def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring=''
    maxspws=0
    maxspwvis=''
    for vis in vislist:
-      im.selectvis(vis=vis,field=selfcal_library['sub-fields'][0],spw=selfcal_library[vis]['spws'])
+      im.selectvis(vis=vis,field=selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]],spw=selfcal_library[vis]['spws'])
       # Also figure out which vis has the max # of spws
       if selfcal_library[vis]['n_spws'] >= maxspws:
           maxspws=selfcal_library[vis]['n_spws']
@@ -2664,9 +2662,9 @@ def importdata(vislist,all_targets,telescope):
    gaincalibrator_dict = {}
    for vis in vislist:
        if "targets" in vis:
-           vis_string = "_target"
-       else:
            vis_string = "_targets"
+       else:
+           vis_string = "_target"
 
        viskey = vis.replace(vis_string+".ms",vis_string+".selfcal.ms")
 

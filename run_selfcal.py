@@ -84,7 +84,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', cyclefactor=selfcal_library[target][band]['cyclefactor'])
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
          if iteration == 0:
             gaincal_preapply_gaintable={}
@@ -279,9 +279,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             is_gaincalibrator = intents == "phase"
                             scans = scans[is_gaincalibrator]
 
+                            msmd.open(vis)
                             include_scans = []
                             for iscan in range(scans.size-1):
-                                include_scans.append(",".join(np.array(list(range(scans[iscan]+1,scans[iscan+1]))).astype(str)))
+                                include_scans.append(",".join(np.intersect1d(msmd.scansforfield(target), \
+                                        np.array(list(range(scans[iscan]+1,scans[iscan+1])))).astype(str)))
+                            msmd.close()
                         else:
                             msmd.open(vis)
                             
@@ -312,9 +315,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         remove = []
                         for incl_scan in include_scans:
                             scan_targets = []
-                            for fid in selfcal_library[target][band]['sub-fields-to-gaincal'] if incl_scan == '' else \
+                            for fid in [selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] for fid in \
+                                    selfcal_library[target][band]['sub-fields-to-gaincal']] if incl_scan == '' else \
                                     np.intersect1d(msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)), \
-                                    selfcal_library[target][band]['sub-fields-to-gaincal']):
+                                    [selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] for fid in \
+                                    selfcal_library[target][band]['sub-fields-to-gaincal']]):
+                                # Note: because of the msmd above getting actual fids from the MS, we just need to append fid below.
                                 scan_targets.append(fid)
 
                             if len(scan_targets) > 0:
@@ -537,11 +543,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                             if solint == "scan_inf":
                                 for incl_targets in include_targets:
-                                    if str(fid) in incl_targets.split(",") and int(incl_targets.split(",")[0]) in fields:
+                                    if str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]) in incl_targets.split(",") and \
+                                            int(incl_targets.split(",")[0]) in fields:
                                         new_fields_to_selfcal.append(fid)
                                         break
                             else:
-                                if fid in fields:
+                                if selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] in fields:
                                     new_fields_to_selfcal.append(fid)
 
                             if fid not in new_fields_to_selfcal:
@@ -568,7 +575,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=False,\
                                  spwmap=selfcal_library[target][band][fid][vis][solint]['spwmap'],\
                                  #applymode=applymode,field=target,spw=selfcal_library[target][band][vis]['spws'])
-                                 applymode='calflag',field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
+                                 applymode='calflag',field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                 spw=selfcal_library[target][band][vis]['spws'])
                     else:
                         if selfcal_library[target][band][fid]['SC_success']:
                             applycal(vis=vis,\
@@ -576,7 +584,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                     interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
                                     calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
                                     applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
-                                    field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
+                                    field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                    spw=selfcal_library[target][band][vis]['spws'])    
 
              ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
              ##
@@ -587,7 +596,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                       threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                       nterms=selfcal_library[target][band]['nterms'],
-                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', cyclefactor=selfcal_library[target][band]['cyclefactor'])
+                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
              ##
              ## Do the assessment of the post- (and pre-) selfcal images.
@@ -812,7 +821,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                        interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
                                        calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
                                        applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
-                                       field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
+                                       field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                       spw=selfcal_library[target][band][vis]['spws'])    
                  else:
                     for vis in vislist:
                        inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
@@ -904,7 +914,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
                                  calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
                                  applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
-                                 field=str(fid),spw=selfcal_library[target][band][vis]['spws'])    
+                                 field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                 spw=selfcal_library[target][band][vis]['spws'])    
                      else:
                          print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
                          clearcal(vis=vis,field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
