@@ -651,13 +651,14 @@ for target in all_targets:
                   spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
                else:
                   spwselect=selfcal_library[target][band][vis]['spws']
+               print('Running gaincal on '+spwselect+' for '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
                gaincal(vis=vis,\
                     caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                     gaintype=gaincal_gaintype, spw=spwselect,
                     refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm,
                     solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=gaincal_combine[band][iteration],
                     field=target,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
-                    interp=gaincal_interpolate[vis],append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+                    interp=gaincal_interpolate[vis],append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
                ##
             ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
             ## the number of flagged antennas when combine='spw' then determine if it needs spwmapping or to use the gaintable with spwcombine.
@@ -669,7 +670,7 @@ for target in all_targets:
                   test_gaincal_combine+=',field'   
                for i in range(spws_set.shape[0]):  # run gaincal on each spw set to handle spectral scans
                   spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
-
+                  print('Running gaincal on '+spwselect+' for test_inf_EB.g')
                   gaincal(vis=vis,\
                     caltable='test_inf_EB.g',\
                     gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
@@ -677,7 +678,7 @@ for target in all_targets:
                     solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
                     field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'],append=os.path.exists('test_inf_EB.g')) 
                spwlist=selfcal_library[target][band][vislist[0]]['spws'].split(',')
-               fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g')
+               fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g',spectral_scan)
 
                inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
                print('inf_EB',fallback[vis],applycal_spwmap_inf_EB)
@@ -1036,8 +1037,10 @@ if os.path.exists("cont.dat"):
    for target in all_targets:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
+         contdotdat = parse_contdotdat('cont.dat',all_targets[0])
+         spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
          for vis in vislist:      
-            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray)[:-2]
+            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray,vislist,spwvisref,contdotdat)[:-2]
             line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+spwstring_orig+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
             uvcontsubOut.writelines(line)
             line='os.system("mv '+vis.replace('.selfcal','')+'.contsub '+sani_target+'_'+vis+'.contsub")\n'

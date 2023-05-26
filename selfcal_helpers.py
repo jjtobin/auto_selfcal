@@ -2599,7 +2599,7 @@ def importdata(vislist,all_targets,telescope):
       for delband in bands_to_remove:
          bands.remove(delband)
    
-   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict
+   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,spectral_scan,spws_set
 
 def flag_spectral_lines(vislist,all_targets,spwsarray):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
