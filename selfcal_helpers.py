@@ -1240,7 +1240,8 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
         msmd.open(vis)
         spws=msmd.spwsfornames(spwname)
         msmd.close()
-        trans_spw=np.max(spws[spwname]) # assume higher number spw is the correct one, generally true with ALMA data structure
+        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
+        trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
         flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
         nchan = tb.getcol('CHAN_FREQ', startrow = trans_spw, nrow = 1).size
