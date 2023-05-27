@@ -673,7 +673,7 @@ for target in all_targets:
                   print('Running gaincal on '+spwselect+' for test_inf_EB.g')
                   gaincal(vis=vis,\
                     caltable='test_inf_EB.g',\
-                    gaintype=gaincal_gaintype, spw=selfcal_library[target][band][vis]['spws'],
+                    gaintype=gaincal_gaintype, spw=spwselect,
                     refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
                     solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr, minblperant=4,combine=test_gaincal_combine,
                     field=target,gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'],append=os.path.exists('test_inf_EB.g')) 
