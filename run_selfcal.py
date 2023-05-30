@@ -937,7 +937,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  spw=selfcal_library[target][band][vis]['spws'])    
                      else:
                          print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
-                         clearcal(vis=vis,field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
+                         clearcal(vis=vis,field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                 spw=selfcal_library[target][band][vis]['spws'])
                          selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                          selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
 
