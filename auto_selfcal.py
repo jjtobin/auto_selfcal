@@ -82,7 +82,7 @@ if 'VLA' in telescope:
 ## Import inital MS files to get relevant meta data
 ##
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
@@ -114,7 +114,7 @@ spwsarray_orig =spwsarray.copy()
 
 vislist=glob.glob('*selfcal.ms')
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## Save/restore starting flags
@@ -259,7 +259,15 @@ for target in all_targets:
       selfcal_library[target][band][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
-      selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
+      if spectral_scan:
+         spwmap=np.zeros(np.max(spws_set)+1,dtype='int')
+         spwmap.fill(np.min(spws_set))
+         for i in range(spws_set.shape[0]):
+            indices=np.arange(np.min(spws_set[i]),np.max(spws_set[i])+1)
+            spwmap[indices]=np.min(spws_set[i])
+         selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
+      else:
+         selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
       selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
       selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
    selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
@@ -298,7 +306,16 @@ for target in all_targets:
           selfcal_library[target][band][fid][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
           selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
           selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
-          selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
+          if spectral_scan:
+             spwmap=np.zeros(np.max(spws_set)+1,dtype='int')
+             spwmap.fill(np.min(spws_set))
+             for i in range(spws_set.shape[0]):
+                indices=np.arange(np.min(spws_set[i]),np.max(spws_set[i])+1)
+                spwmap[indices]=np.min(spws_set[i])
+             selfcal_library[target][band][fid][vis]['spwmap']=spwmap.tolist()
+          else:
+             selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][fid][band][vis]['spwsarray'])+1)
+
           selfcal_library[target][band][fid]['Total_TOS']=selfcal_library[target][band][fid][vis]['TOS']+selfcal_library[target][band][fid]['Total_TOS']
           selfcal_library[target][band][fid]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
        selfcal_library[target][band][fid]['Median_scan_time']=np.median(allscantimes)
@@ -710,7 +727,7 @@ with open('selfcal_library.pickle', 'wb') as handle:
 for target in all_targets:
  for band in selfcal_library[target].keys():
    run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize[target], imsize[target], \
-           inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp[target], integration_time, \
+           inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp[target], integration_time, spectral_scan, spws_set,\
            gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
@@ -965,8 +982,10 @@ if os.path.exists("cont.dat"):
    for target in all_targets:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
+         contdotdat = parse_contdotdat('cont.dat',all_targets[0])
+         spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
          for vis in vislist:      
-            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray)[:-2]
+            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray,vislist,spwvisref,contdotdat)[:-2]
             line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+spwstring_orig+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
             uvcontsubOut.writelines(line)
             line='os.system("mv '+vis.replace('.selfcal','')+'.contsub '+sani_target+'_'+vis+'.contsub")\n'

@@ -11,9 +11,11 @@ from casatasks import *
 from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
+from casatools import ms as mstool
 from casaviewer import imview
 from PIL import Image
 
+ms = mstool()
 tb = tbtool()
 msmd = msmdtool()
 ia = image()
@@ -240,6 +242,7 @@ def fetch_scan_times(vislist,targets):
    n_spws=np.array([])
    min_spws=np.array([])
    spwslist=np.array([])
+   spws_set=np.array([])
    scansdict={}
    for vis in vislist:
       scantimesdict[vis]={}
@@ -255,6 +258,10 @@ def fetch_scan_times(vislist,targets):
          integrations=np.array([])
          for scan in scansdict[vis][target]:
             spws=msmd.spwsforscan(scan)
+            if spws_set.size==0:
+               spws_set=spws.copy()
+            else:
+               spws_set=np.vstack((spws_set,spws))
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
             spwslist=np.append(spws,spwslist)
@@ -274,11 +281,12 @@ def fetch_scan_times(vislist,targets):
          integrationsdict[vis][target]=integrations.copy()
       msmd.close()
    if np.mean(n_spws) != np.max(n_spws):
-      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    if np.max(min_spws) != np.min(min_spws):
-      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    spwslist=np.unique(spwslist).astype(int)
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist
+   spws_set=np.unique(spws_set,axis=0)
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set
 
 def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    scantimesdict={}
@@ -355,9 +363,9 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          integrationsdict[vis][target]=integrations.copy()
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
       spwslist=np.unique(spwslist).astype(int)
    else:
      return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
@@ -383,9 +391,9 @@ def fetch_spws(vislist,targets):
             spwslist=np.append(spws,spwslist)
    if len(n_spws) > 1:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    spwslist=np.unique(spwslist).astype(int)
    if len(n_spws) == 1:
       return n_spws,min_spws,spwslist
@@ -1145,7 +1153,7 @@ def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring=''
    print('Estimated Sensitivity: ',estsens)
    return estsens
 
-def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
+def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     """
     Identifies the channel(s) corresponding to input LSRK frequencies. 
     Useful for choosing which channels to split out or flag if a line has been identified by the pipeline.
@@ -1194,7 +1202,13 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
             outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
         return outchans
     else:
-        return np.argmin(np.abs(lsrkfreqs - LSRKfreq))
+        if minmaxchans:
+           if (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == 0) or (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == nchan-1):
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),True
+           else:
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),False
+        else:
+           return np.argmin(np.abs(lsrkfreqs - LSRKfreq))
 
 def parse_contdotdat(contdotdat_file,target):
     """
@@ -1241,7 +1255,21 @@ def parse_contdotdat(contdotdat_file,target):
 
     return contdotdat
 
-def flagchannels_from_contdotdat(vis,target,spwsarray):
+def get_spwnum_refvis(vislist,target,contdotdat,spwsarray):
+   # calculate a score for each visibility based on which one ends up with cont.dat freq ranges that correspond to 
+   # channel limits; lowest score is chosen as the reference visibility file
+   spws=list(contdotdat.keys())
+   score=np.zeros(len(vislist))
+   for i in range(len(vislist)):
+      for spw in spws:
+         chan_min,chanlimit_min=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][0][0],spwsarray, minmaxchans=True)
+         chan_max,chanlimit_max=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][-1][0],spwsarray, minmaxchans=True)
+         if chanlimit_min:
+            score[i]+=1.0
+   visref=vislist[np.argmin(score)]            
+   return visref
+
+def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat):
     """
     Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
 
@@ -1253,21 +1281,30 @@ def flagchannels_from_contdotdat(vis,target,spwsarray):
     =======
     String of channels to be flagged, in a format that can be passed to the spw parameter in CASA's flagdata task. 
     """
-    contdotdat = parse_contdotdat('cont.dat',target)
 
     flagchannels_string = ''
+    #moved out of function to not for each MS for efficiency
+    #contdotdat = parse_contdotdat('cont.dat',target)
+    #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat):
-        flagchannels_string += '%d:' % (spw)
-
+        msmd.open(spwvisref)
+        spwname=msmd.namesforspws(spw)[0]
+        msmd.close()
+        msmd.open(vis)
+        spws=msmd.spwsfornames(spwname)
+        msmd.close()
+        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
+        trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+        flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
-        nchan = tb.getcol('CHAN_FREQ', startrow = spw, nrow = 1).size
+        nchan = tb.getcol('CHAN_FREQ', startrow = trans_spw, nrow = 1).size
         tb.close()
 
         chans = np.array([])
         for k in range(contdotdat[spw].shape[0]):
-            print(spw, contdotdat[spw][k])
+            print(trans_spw, contdotdat[spw][k])
 
-            chans = np.concatenate((LSRKfreq_to_chan(vis, target, spw, contdotdat[spw][k],spwsarray),chans))
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat[spw][k],spwsarray),chans))
 
             """
             if flagchannels_string == '':
@@ -2599,16 +2636,19 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
             htmlOutSolint.close()
 
 def importdata(vislist,all_targets,telescope):
+   spectral_scan=False
    listdict=collect_listobs_per_vis(vislist)
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray,spws_set=fetch_scan_times(vislist,all_targets)
    spwslist=spwsarray.tolist()
    spwstring=','.join(str(spw) for spw in spwslist)
-
+   nspws_sets=spws_set.shape[0]
    if 'VLA' in telescope:
-     bands,band_properties=get_VLA_bands(vislist,all_targets)
-
+      bands,band_properties=get_VLA_bands(vislist,all_targets)
+  
    if telescope=='ALMA' or telescope =='ACA':
-     bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
+      bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
+      if nspws_sets > 1:
+         spectral_scan=True
 
    scantimesdict={}
    scanfieldsdict={}
@@ -2687,18 +2727,21 @@ def importdata(vislist,all_targets,telescope):
    
            msmd.close()
 
-   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,gaincalibrator_dict
+   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set
 
 def flag_spectral_lines(vislist,all_targets,spwsarray):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
+   contdotdat = parse_contdotdat('cont.dat',all_targets[0])
+   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
    for vis in vislist:
       if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
          flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
       else:
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
-         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray)
+         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
+
 
 def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
    for vis in vislist:
@@ -2772,7 +2815,7 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      return nflags, nunflagged,fracflagged
 
 
-def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable):
+def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan):
    # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
    max_flagged_ants_combspw=2.0
    # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
@@ -2838,7 +2881,9 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
          print(i,spwlist[i],spwmap[i])
          if spwmap[i]:
             applycal_spwmap[int(spwlist[i])]=int(spwlist[map_index])
-   
+      # always fallback to combinespw for spectral scans
+      if fallback !='' and spectral_scan:
+         fallback='combinespw'
    return fallback,map_index,spwmap,applycal_spwmap
 
 
