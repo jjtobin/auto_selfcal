@@ -533,17 +533,25 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', nomodify=False)
                     antennas = tb.getcol("ANTENNA1")
                     fields = tb.getcol("FIELD_ID")
+                    scans = tb.getcol("SCAN_NUMBER")
                     flags = tb.getcol("FLAG")
 
                     if (solint != "inf_EB" and not allow_gain_interpolation) or (allow_gain_interpolation and "inf" not in solint):
                         # If a given field has > 25% of its solutions flagged then just flag the whole field because it will have too much 
                         # interpolation.
-                        n_all_flagged = np.sum([np.all(flags[:,:,antennas == ant]) for ant in np.unique(antennas)])
-                        max_n_solutions = max([(fields == fid).sum() for fid in np.unique(fields)]) - n_all_flagged
-                        for fid in np.unique(fields):
-                            fid_n_solutions = (flags[0,0,fields == fid] == False).sum()
-                            if fid_n_solutions < 0.75 * max_n_solutions:
-                                flags[:,:,fields == fid] = True
+                        if solint == "scan_inf":
+                            max_n_solutions = max([(scans == scan).sum() for scan in np.unique(scans)])
+                            for scan in np.unique(scans):
+                                scan_n_solutions = (flags[0,0,scans == scan] == False).sum()
+                                if scan_n_solutions < 0.75 * max_n_solutions:
+                                    flags[:,:,scans == scan] = True
+                        else:
+                            n_all_flagged = np.sum([np.all(flags[:,:,antennas == ant]) for ant in np.unique(antennas)])
+                            max_n_solutions = max([(fields == fid).sum() for fid in np.unique(fields)]) - n_all_flagged
+                            for fid in np.unique(fields):
+                                fid_n_solutions = (flags[0,0,fields == fid] == False).sum()
+                                if fid_n_solutions < 0.75 * max_n_solutions:
+                                    flags[:,:,fields == fid] = True
 
                     bad = np.where(flags[0,0,:])[0]
                     tb.removerows(rownrs=bad)
@@ -553,14 +561,25 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     ## After that enable option for interpolation through inf - DONE
                     if (solint != "inf_EB" and not allow_gain_interpolation) or (allow_gain_interpolation and "inf" not in solint):
                         fields = tb.getcol("FIELD_ID")
+                        scans = tb.getcol("SCAN_NUMBER")
                         new_fields_to_selfcal = []
                         for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                             if solint == "scan_inf":
-                                for incl_targets in include_targets:
-                                    if str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]) in incl_targets.split(",") and \
-                                            int(incl_targets.split(",")[0]) in fields:
-                                        new_fields_to_selfcal.append(fid)
-                                        break
+                                msmd.open(vis)
+                                scans_for_field = []
+                                cals_for_scan = []
+                                total_cals_for_scan = []
+                                for incl_scan in include_scans:
+                                    if selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] in \
+                                            msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)):
+                                        scans_for_field.append(int(incl_scans.split(',')[0]))
+                                        cals_for_scan.append((scans == scans_for_field[-1]).sum() if scans_for_field[-1] in scans else 0.)
+                                        total_cals_for_scan.append(max_n_solutions)
+
+                                if sum(cals_for_scan) / sum(total_cals_for_scan) >= 0.75:
+                                    new_fields_to_selfcal.append(fid)
+
+                                msmd.close()
                             else:
                                 if selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] in fields:
                                     new_fields_to_selfcal.append(fid)
@@ -932,7 +951,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  spw=selfcal_library[target][band][vis]['spws'])    
                      else:
                          print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
-                         clearcal(vis=vis,field=str(fid),spw=selfcal_library[target][band][vis]['spws'])
+                         clearcal(vis=vis,field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                 spw=selfcal_library[target][band][vis]['spws'])
                          selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                          selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
 
