@@ -2550,7 +2550,7 @@ def importdata(vislist,all_targets,telescope):
    spwstring=','.join(str(spw) for spw in spwslist)
    nspws_sets=spws_set.shape[0]
    if 'VLA' in telescope:
-      bands,band_properties=get_VLA_bands(vislist)
+      bands,band_properties=get_VLA_bands(vislist,all_targets)
    
    if telescope=='ALMA' or telescope =='ACA':
       bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
