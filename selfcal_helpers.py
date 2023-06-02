@@ -62,7 +62,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     wprojplanes=1
     if band=='EVLA_L' or band =='EVLA_S':
        gridder='wproject'
-       wplanes=192 # normalized to S-band A-config
+       wplanes=384 # normalized to S-band A-config
        #scale by 75th percentile uv distance divided by A-config value
        wplanes=wplanes * band_properties[vis[0]][band]['75thpct_uv']/20000.0
        if band=='EVLA_L':
