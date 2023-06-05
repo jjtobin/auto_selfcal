@@ -12,7 +12,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
         inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, spectral_scan, spws_set, \
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
-        rerank_refants=False, gaincalibrator_dict={}, allow_gain_interpolation=False):
+        rerank_refants=False, gaincalibrator_dict={}, allow_gain_interpolation=False, aca_use_nfmask=False):
 
    # If we are running this on a mosaic, we want to rerank reference antennas and have a higher gaincal_minsnr by default.
 
@@ -637,7 +637,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              print('Pre selfcal assessemnt: '+target)
              SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
                      maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
-             if telescope !='ACA':
+             if telescope !='ACA' or aca_use_nfmask:
                 SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
                         maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask', las=selfcal_library[target][band]['LAS'])
              else:
@@ -645,7 +645,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
              print('Post selfcal assessemnt: '+target)
              post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
-             if telescope !='ACA':
+             if telescope !='ACA' or aca_use_nfmask:
                 post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0', \
                         las=selfcal_library[target][band]['LAS'])
              else:
@@ -663,7 +663,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  print('Pre selfcal assessemnt: '+target+', field '+str(fid))
                  mosaic_SNR[fid], mosaic_RMS[fid] = estimate_SNR(imagename+'.image.tt0', maskname=imagename+'_post.mask', \
                          mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-                 if telescope !='ACA':
+                 if telescope !='ACA' or aca_use_nfmask:
                     mosaic_SNR_NF[fid],mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'.image.tt0', maskname=imagename+'_post.mask', \
                             las=selfcal_library[target][band]['LAS'], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                  else:
@@ -672,7 +672,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  print('Post selfcal assessemnt: '+target+', field '+str(fid))
                  post_mosaic_SNR[fid], post_mosaic_RMS[fid] = estimate_SNR(imagename+'_post.image.tt0', \
                          mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-                 if telescope !='ACA':
+                 if telescope !='ACA' or aca_use_nfmask:
                     post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'_post.image.tt0', \
                             las=selfcal_library[target][band]['LAS'], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                  else:
