@@ -873,26 +873,34 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
     immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.prepb.mask')
     immath(imagename=[imagename,'temp.nearfield.prepb.mask'], expr='iif(MASK(IM0),IM1,1.0)',outfile='temp.nearfield.mask')
+
     maskImage='temp.nearfield.mask'
-    ia.close()
-    ia.done()
-    ia.open(residualImage)
-    #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-    ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-    mask0Stats = ia.statistics(robust=True,axes=[0,1])
-    ia.maskhandler(op='set',name='madpbmask0')
-    rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
-    residualMean = mask0Stats['median'][0]
-    peak_intensity = image_stats['max'][0]
-    SNR = peak_intensity/rms
-    if verbose:
-           print("#%s" % imagename)
-           print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-           print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-           print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
-           print("#Peak Near Field SNR: %.2f" % (SNR,))
-    ia.close()
-    ia.done()
+
+    mask_stats= imstat(maskImage)
+    if mask_stats['min'][0] == 1:
+       print('checkmask')
+       SNR, rms = np.float64(-99.0), np.float64(-99.0)
+    else:
+       ia.close()
+       ia.done()
+       ia.open(residualImage)
+       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       mask0Stats = ia.statistics(robust=True,axes=[0,1])
+       ia.maskhandler(op='set',name='madpbmask0')
+       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
+       residualMean = mask0Stats['median'][0]
+       peak_intensity = image_stats['max'][0]
+       SNR = peak_intensity/rms
+       if verbose:
+              print("#%s" % imagename)
+              print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+              print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
+              print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
+              print("#Peak Near Field SNR: %.2f" % (SNR,))
+       ia.close()
+       ia.done()
+
     if save_near_field_mask:
         os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
