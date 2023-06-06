@@ -55,6 +55,7 @@ inf_EB_override=False
 gaincal_minsnr=2.0
 minsnr_to_proceed=3.0
 delta_beam_thresh=0.05
+scale_fov=1.0
 n_ants=get_n_ants(vislist)
 telescope=get_telescope(vislist[0])
 apply_cal_mode_default='calflag'
@@ -125,7 +126,7 @@ nterms={}
 applycal_interp={}
 
 for band in bands:
-   cellsize[band],imsize[band],nterms[band]=get_image_parameters(vislist,telescope,band,band_properties)
+   cellsize[band],imsize[band],nterms[band]=get_image_parameters(vislist,telescope,band,band_properties,scale_fov)
    if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
       applycal_interp[band]='linearPD'
    else:
