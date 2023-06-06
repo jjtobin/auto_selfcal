@@ -2111,7 +2111,7 @@ def create_noise_histogram(imagename):
        pix_unmasked=pix[unmasked]
        ia.close()
        ia.done()
-    elif telescope=='VLA':
+    elif 'VLA' in telescope:
        residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
        rms = residual_stats['rms'][0]
        ia.open(residualImage)
