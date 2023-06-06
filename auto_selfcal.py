@@ -71,6 +71,7 @@ rerank_refants=False
 allow_gain_interpolation=False
 guess_scan_combine=False
 aca_use_nfmask=False
+scale_fov=1.0   # option to make field of view larger than the default
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -142,7 +143,7 @@ for target in all_targets:
     for band in bands:
        cellsize[target][band],imsize[target][band],nterms[target][band] = \
                get_image_parameters(vislist,telescope,target,band, \
-               band_properties,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
+               band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
 
        if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
           applycal_interp[target][band]='linearPD'

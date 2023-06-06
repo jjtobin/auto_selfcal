@@ -1392,7 +1392,7 @@ def largest_prime_factor(n):
     return n
 
 
-def get_image_parameters(vislist,telescope,target,band,band_properties,mosaic=False):
+def get_image_parameters(vislist,telescope,target,band,band_properties,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -1414,7 +1414,7 @@ def get_image_parameters(vislist,telescope,target,band,band_properties,mosaic=Fa
       fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
    if telescope=='ACA':
       fov=108.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
-
+   fov=fov*scale_fov
    if mosaic:
        msmd.open(vislist[0])
        fieldid=msmd.fieldsforname(target)
