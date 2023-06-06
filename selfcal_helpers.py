@@ -2548,13 +2548,16 @@ def importdata(vislist,all_targets,telescope):
    scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray,spws_set=fetch_scan_times(vislist,all_targets)
    spwslist=spwsarray.tolist()
    spwstring=','.join(str(spw) for spw in spwslist)
-   nspws_sets=spws_set.shape[0]
+   if spws_set.ndim >1:
+      nspws_sets=spws_set.shape[0]
+   else:
+      nspws_sets=1
    if 'VLA' in telescope:
       bands,band_properties=get_VLA_bands(vislist,all_targets)
    
    if telescope=='ALMA' or telescope =='ACA':
       bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
-      if nspws_sets > 1:
+      if nspws_sets > 1 and spws_set.ndim >1:
          spectral_scan=True
 
    scantimesdict={}

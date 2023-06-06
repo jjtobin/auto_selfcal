@@ -643,12 +643,18 @@ for target in all_targets:
             else:
                solnorm=False
             if solint == 'inf_EB':
-               nspw_sets=spws_set.shape[0]
+                if spws_set.ndim == 1:
+                   nspw_sets=1
+                else:
+                   nspw_sets=spws_set.shape[0]
             else: #only necessary to loop over gain cal when in inf_EB to avoid inf_EB solving for all spws
                nspw_sets=1
             for i in range(nspw_sets):  # run gaincal on each spw set to handle spectral scans (one run one time if not inf_EB)
                if solint == 'inf_EB':
-                  spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+                  if nspw_sets == 1 and spws_set.ndim == 1:
+                     spwselect=','.join(str(spw) for spw in spws_set.tolist())
+                  else:
+                     spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
                else:
                   spwselect=selfcal_library[target][band][vis]['spws']
                print('Running gaincal on '+spwselect+' for '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
@@ -669,7 +675,11 @@ for target in all_targets:
                if selfcal_library[target][band]['obstype']=='mosaic':
                   test_gaincal_combine+=',field'   
                for i in range(spws_set.shape[0]):  # run gaincal on each spw set to handle spectral scans
-                  spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+                  if nspw_sets == 1 and spws_set.ndim == 1:
+                     spwselect=','.join(str(spw) for spw in spws_set.tolist())
+                  else:
+                     spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+
                   print('Running gaincal on '+spwselect+' for test_inf_EB.g')
                   gaincal(vis=vis,\
                     caltable='test_inf_EB.g',\
