@@ -384,7 +384,7 @@ for target in all_targets:
        else:
           mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=mosaic_dirty_SNR[fid],mosaic_dirty_RMS[fid]
 
-   if telescope == "VLA" or (selfcal_library[target][band]['obstype'] == 'mosaic' and \
+   if "VLA" in telescope or (selfcal_library[target][band]['obstype'] == 'mosaic' and \
            selfcal_library[target][band]['Median_scan_time'] / selfcal_library[target][band]['Median_fields_per_scan'] < 60.) \
            or selfcal_library[target][band]['75thpct_uv'] > 2000.0:
        selfcal_library[target][band]['cyclefactor'] = 3.0
