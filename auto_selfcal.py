@@ -315,7 +315,7 @@ for target in all_targets:
                 spwmap[indices]=np.min(spws_set[i])
              selfcal_library[target][band][fid][vis]['spwmap']=spwmap.tolist()
           else:
-             selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][fid][band][vis]['spwsarray'])+1)
+             selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
 
           selfcal_library[target][band][fid]['Total_TOS']=selfcal_library[target][band][fid][vis]['TOS']+selfcal_library[target][band][fid]['Total_TOS']
           selfcal_library[target][band][fid]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
