@@ -69,7 +69,9 @@ second_iter_solmode = ""
 unflag_fb_to_prev_solint = False
 rerank_refants=False
 allow_gain_interpolation=False
+guess_scan_combine=False
 aca_use_nfmask=False
+scale_fov=1.0   # option to make field of view larger than the default
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -141,7 +143,7 @@ for target in all_targets:
     for band in bands:
        cellsize[target][band],imsize[target][band],nterms[target][band] = \
                get_image_parameters(vislist,telescope,target,band, \
-               band_properties,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
+               band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
 
        if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
           applycal_interp[target][band]='linearPD'
@@ -384,7 +386,7 @@ for target in all_targets:
        else:
           mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=mosaic_dirty_SNR[fid],mosaic_dirty_RMS[fid]
 
-   if telescope == "VLA" or (selfcal_library[target][band]['obstype'] == 'mosaic' and \
+   if "VLA" in telescope or (selfcal_library[target][band]['obstype'] == 'mosaic' and \
            selfcal_library[target][band]['Median_scan_time'] / selfcal_library[target][band]['Median_fields_per_scan'] < 60.) \
            or selfcal_library[target][band]['75thpct_uv'] > 2000.0:
        selfcal_library[target][band]['cyclefactor'] = 3.0
@@ -733,7 +735,8 @@ for target in all_targets:
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
-           gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, aca_use_nfmask=aca_use_nfmask)
+           gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine, \
+           aca_use_nfmask=aca_use_nfmask)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
