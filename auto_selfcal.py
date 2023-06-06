@@ -69,6 +69,7 @@ second_iter_solmode = ""
 unflag_fb_to_prev_solint = False
 rerank_refants=False
 allow_gain_interpolation=False
+guess_scan_combine=False
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
@@ -715,7 +716,7 @@ for target in all_targets:
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
-           gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation)
+           gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
