@@ -176,10 +176,45 @@ for target in all_targets:
       for vis in vislist:
          selfcal_library[target][band][vis]={}
 
-      for fid in range(len(mosaic_field[band][vislist[0]][target]["field_ids"])):
+      if mosaic_field[band][vislist[0]][target]['mosaic']:
+         selfcal_library[target][band]['obstype']='mosaic'
+      else:
+         selfcal_library[target][band]['obstype']='single-point'
+
+      # Make sure the fields get mapped properly, in case the order in which they are observed changes from EB to EB.
+
+      selfcal_library[target][band]['sub-fields-fid_map'] = {}
+      all_phasecenters = []
+      for vis in vislist:
+          selfcal_library[target][band]['sub-fields-fid_map'][vis] = {}
+          for i in range(len(mosaic_field[band][vis][target]['field_ids'])):
+              found = False
+              for j in range(len(all_phasecenters)):
+                  distance = ((all_phasecenters[j]["m0"]["value"] - mosaic_field[band][vis][target]['phasecenters'][i]["m0"]["value"])**2 + \
+                          (all_phasecenters[j]["m1"]["value"] - mosaic_field[band][vis][target]['phasecenters'][i]["m1"]["value"])**2)**0.5
+
+                  if distance < 4.84814e-6:
+                      selfcal_library[target][band]['sub-fields-fid_map'][vis][j] = mosaic_field[band][vis][target]['field_ids'][i]
+                      found = True
+                      break
+
+              if not found:
+                  all_phasecenters.append(mosaic_field[band][vis][target]['phasecenters'][i])
+                  selfcal_library[target][band]['sub-fields-fid_map'][vis][len(all_phasecenters)-1] = mosaic_field[band][vis][target]['field_ids'][i]
+
+      selfcal_library[target][band]['sub-fields'] = list(range(len(all_phasecenters)))
+      selfcal_library[target][band]['sub-fields-to-selfcal'] = list(range(len(all_phasecenters)))
+      selfcal_library[target][band]['sub-fields-phasecenters'] = dict(zip(selfcal_library[target][band]['sub-fields'], all_phasecenters))
+
+      # Now we can start to create a sub-field selfcal_library entry for each sub-field.
+
+      for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid] = {}
 
           for vis in vislist:
+              if not fid in selfcal_library[target][band]['sub-fields-fid_map'][vis]:
+                  continue
+
               selfcal_library[target][band][fid][vis] = {}
 
 import json
@@ -217,29 +252,6 @@ for target in all_targets:
    selfcal_library[target][band]['spws_per_vis']=[]
    selfcal_library[target][band]['nterms']=nterms[target][band]
    selfcal_library[target][band]['vislist']=vislist.copy()
-   if mosaic_field[band][vislist[0]][target]['mosaic']:
-      selfcal_library[target][band]['obstype']='mosaic'
-   else:
-      selfcal_library[target][band]['obstype']='single-point'
-   selfcal_library[target][band]['sub-fields'] = list(range(len(mosaic_field[band][vislist[0]][target]['field_ids'])))
-   selfcal_library[target][band]['sub-fields-to-selfcal'] = list(range(len(mosaic_field[band][vislist[0]][target]['field_ids'])))
-   selfcal_library[target][band]['sub-fields-fid_map'] = {}
-   selfcal_library[target][band]['sub-fields-phasecenters'] = dict(zip(list(range(len(mosaic_field[band][vislist[0]][target]['field_ids']))),\
-           mosaic_field[band][vislist[0]][target]['phasecenters']))
-   for vis in vislist:
-       # Make sure the fields get mapped properly, in case the order in which they are observed changes from EB to EB.
-       fid_map = []
-       for i in range(len(selfcal_library[target][band]['sub-fields'])):
-           for j in range(len(mosaic_field[band][vis][target]['phasecenters'])):
-               distance = ((mosaic_field[band][vis][target]['phasecenters'][j]["m0"]["value"] - \
-                       selfcal_library[target][band]['sub-fields-phasecenters'][i]["m0"]["value"])**2 + \
-                       (mosaic_field[band][vis][target]['phasecenters'][j]["m1"]["value"] - \
-                       selfcal_library[target][band]['sub-fields-phasecenters'][i]["m1"]["value"])**2)**0.5
-
-               if distance < 4.84814e-6:
-                   fid_map.append(mosaic_field[band][vis][target]['field_ids'][j])
-                   break
-       selfcal_library[target][band]['sub-fields-fid_map'][vis] = dict(zip(selfcal_library[target][band]['sub-fields'],fid_map))
    allscantimes=np.array([])
    allscannfields=np.array([])
    for vis in vislist:
@@ -277,11 +289,11 @@ for target in all_targets:
        selfcal_library[target][band][fid]['spws']=[]
        selfcal_library[target][band][fid]['spws_per_vis']=[]
        selfcal_library[target][band][fid]['nterms']=nterms[target][band]
-       selfcal_library[target][band][fid]['vislist']=vislist.copy()
+       selfcal_library[target][band][fid]['vislist']=[vis for vis in vislist if fid in selfcal_library[target][band]['sub-fields-fid_map'][vis]]
        selfcal_library[target][band][fid]['obstype'] = 'single-point'
        allscantimes=np.array([])
        allscannfields=np.array([])
-       for vis in vislist:
+       for vis in selfcal_library[target][band][fid]['vislist']:
           good = np.array([str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]) in scan_fields for scan_fields in scanfieldsdict[band][vis][target]])
           selfcal_library[target][band][fid][vis]['gaintable']=[]
           selfcal_library[target][band][fid][vis]['TOS']=np.sum(scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
@@ -477,12 +489,11 @@ print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 for target in all_targets:
    for band in selfcal_library[target].keys():
       selfcal_library[target][band]['per_spw_stats']={}
-      vislist=selfcal_library[target][band]['vislist'].copy()
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws
       maxspws=0
       maxspwvis=''
-      for vis in vislist:
+      for vis in selfcal_library[target][band]['vislist']:
          if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
             maxspws=selfcal_library[target][band][vis]['n_spws']
             maxspwvis=vis+''
@@ -511,8 +522,7 @@ for target in all_targets:
 
       for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid]['per_spw_stats']={}
-          vislist=selfcal_library[target][band][fid]['vislist'].copy()
-          for vis in vislist:
+          for vis in selfcal_library[target][band][fid]['vislist']:
               selfcal_library[target][band][fid][vis]['spwlist']=selfcal_library[target][band][fid][vis]['spws'].split(',')
           spwlist=selfcal_library[target][band][fid][maxspwvis]['spwlist']
           spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][fid][maxspwvis]['spwsarray'],target)
@@ -536,7 +546,6 @@ if check_all_spws:
    for target in all_targets:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
-         vislist=selfcal_library[target][band]['vislist'].copy()
          #potential place where diff spws for different VLA EBs could cause problems
          spwlist=selfcal_library[target][band][vis]['spws'].split(',')
          for spw in spwlist:
@@ -544,8 +553,8 @@ if check_all_spws:
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
             if not os.path.exists(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0'):
-               spws_per_vis=[spw]*len(vislist)
-               tclean_wrapper(vislist,sani_target+'_'+band+'_'+spw+'_dirty',
+               spws_per_vis=[spw]*len(selfcal_library[target][band]['vislist'])
+               tclean_wrapper(selfcal_library[target][band]['vislist'],sani_target+'_'+band+'_'+spw+'_dirty',
                      band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=1,
@@ -558,18 +567,18 @@ if check_all_spws:
                dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=per_spw_SNR,per_spw_RMS
             if not os.path.exists(sani_target+'_'+band+'_'+spw+'_initial.image.tt0'):
                if telescope=='ALMA' or telescope =='ACA':
-                  sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,spw,spw=np.array([int(spw)]),imsize=imsize[target][band],cellsize=cellsize[target][band])
+                  sensitivity=get_sensitivity(selfcal_library[target][band]['vislist'],selfcal_library[target][band],target,spw,spw=np.array([int(spw)]),imsize=imsize[target][band],cellsize=cellsize[target][band])
                   dr_mod=1.0
-                  dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
+                  dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,selfcal_library[target][band]['vislist'])
                   print('DR modifier: ',dr_mod,'SPW: ',spw)
                   sensitivity=sensitivity*dr_mod 
                   if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
                      sensitivity=sensitivity*4.0 
                else:
                   sensitivity=0.0
-               spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
+               spws_per_vis=[spw]*len(selfcal_library[target][band]['vislist'])  #assumes all spw ids are identical in each MS file
 
-               tclean_wrapper(vislist,sani_target+'_'+band+'_'+spw+'_initial',\
+               tclean_wrapper(selfcal_library[target][band]['vislist'],sani_target+'_'+band+'_'+spw+'_initial',\
                           band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                           savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],\
                           nterms=1,field=target,datacolumn='corrected',\
