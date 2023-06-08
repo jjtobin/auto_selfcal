@@ -11,9 +11,11 @@ from casatasks import *
 from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
+from casatools import ms as mstool
 from casaviewer import imview
 from PIL import Image
 
+ms = mstool()
 tb = tbtool()
 msmd = msmdtool()
 ia = image()
@@ -82,7 +84,14 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     wprojplanes=1
     if band=='EVLA_L' or band =='EVLA_S':
        gridder='wproject'
-       wprojplanes=-1
+       wplanes=384 # normalized to S-band A-config
+       #scale by 75th percentile uv distance divided by A-config value
+       wplanes=wplanes * band_properties[vis[0]][band]['75thpct_uv']/20000.0
+       if band=='EVLA_L':
+          wplanes=wplanes*2.0 # compensate for 1.5 GHz being 2x longer than 3 GHz
+
+
+       wprojplanes=int(wplanes)
     if (band=='EVLA_L' or band =='EVLA_S') and obstype=='mosaic':
        print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
     if obstype=='mosaic':
@@ -240,6 +249,7 @@ def fetch_scan_times(vislist,targets):
    n_spws=np.array([])
    min_spws=np.array([])
    spwslist=np.array([])
+   spws_set=np.array([])
    scansdict={}
    for vis in vislist:
       scantimesdict[vis]={}
@@ -255,6 +265,10 @@ def fetch_scan_times(vislist,targets):
          integrations=np.array([])
          for scan in scansdict[vis][target]:
             spws=msmd.spwsforscan(scan)
+            if spws_set.size==0:
+               spws_set=spws.copy()
+            else:
+               spws_set=np.vstack((spws_set,spws))
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
             spwslist=np.append(spws,spwslist)
@@ -274,11 +288,12 @@ def fetch_scan_times(vislist,targets):
          integrationsdict[vis][target]=integrations.copy()
       msmd.close()
    if np.mean(n_spws) != np.max(n_spws):
-      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    if np.max(min_spws) != np.min(min_spws):
-      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    spwslist=np.unique(spwslist).astype(int)
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist
+   spws_set=np.unique(spws_set,axis=0)
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set
 
 def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    scantimesdict={}
@@ -355,9 +370,9 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          integrationsdict[vis][target]=integrations.copy()
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
       spwslist=np.unique(spwslist).astype(int)
    else:
      return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
@@ -383,9 +398,9 @@ def fetch_spws(vislist,targets):
             spwslist=np.append(spws,spwslist)
    if len(n_spws) > 1:
       if np.mean(n_spws) != np.max(n_spws):
-         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
       if np.max(min_spws) != np.min(min_spws):
-         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data)')
+         print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    spwslist=np.unique(spwslist).astype(int)
    if len(n_spws) == 1:
       return n_spws,min_spws,spwslist
@@ -873,26 +888,34 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
     immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.prepb.mask')
     immath(imagename=[imagename,'temp.nearfield.prepb.mask'], expr='iif(MASK(IM0),IM1,1.0)',outfile='temp.nearfield.mask')
+
     maskImage='temp.nearfield.mask'
-    ia.close()
-    ia.done()
-    ia.open(residualImage)
-    #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-    ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-    mask0Stats = ia.statistics(robust=True,axes=[0,1])
-    ia.maskhandler(op='set',name='madpbmask0')
-    rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
-    residualMean = mask0Stats['median'][0]
-    peak_intensity = image_stats['max'][0]
-    SNR = peak_intensity/rms
-    if verbose:
-           print("#%s" % imagename)
-           print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-           print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-           print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
-           print("#Peak Near Field SNR: %.2f" % (SNR,))
-    ia.close()
-    ia.done()
+
+    mask_stats= imstat(maskImage)
+    if mask_stats['min'][0] == 1:
+       print('checkmask')
+       SNR, rms = np.float64(-99.0), np.float64(-99.0)
+    else:
+       ia.close()
+       ia.done()
+       ia.open(residualImage)
+       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       mask0Stats = ia.statistics(robust=True,axes=[0,1])
+       ia.maskhandler(op='set',name='madpbmask0')
+       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
+       residualMean = mask0Stats['median'][0]
+       peak_intensity = image_stats['max'][0]
+       SNR = peak_intensity/rms
+       if verbose:
+              print("#%s" % imagename)
+              print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+              print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
+              print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
+              print("#Peak Near Field SNR: %.2f" % (SNR,))
+       ia.close()
+       ia.done()
+
     if save_near_field_mask:
         os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
@@ -1145,7 +1168,7 @@ def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring=''
    print('Estimated Sensitivity: ',estsens)
    return estsens
 
-def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
+def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     """
     Identifies the channel(s) corresponding to input LSRK frequencies. 
     Useful for choosing which channels to split out or flag if a line has been identified by the pipeline.
@@ -1194,7 +1217,13 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray):
             outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
         return outchans
     else:
-        return np.argmin(np.abs(lsrkfreqs - LSRKfreq))
+        if minmaxchans:
+           if (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == 0) or (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == nchan-1):
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),True
+           else:
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),False
+        else:
+           return np.argmin(np.abs(lsrkfreqs - LSRKfreq))
 
 def parse_contdotdat(contdotdat_file,target):
     """
@@ -1241,7 +1270,21 @@ def parse_contdotdat(contdotdat_file,target):
 
     return contdotdat
 
-def flagchannels_from_contdotdat(vis,target,spwsarray):
+def get_spwnum_refvis(vislist,target,contdotdat,spwsarray):
+   # calculate a score for each visibility based on which one ends up with cont.dat freq ranges that correspond to 
+   # channel limits; lowest score is chosen as the reference visibility file
+   spws=list(contdotdat.keys())
+   score=np.zeros(len(vislist))
+   for i in range(len(vislist)):
+      for spw in spws:
+         chan_min,chanlimit_min=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][0][0],spwsarray, minmaxchans=True)
+         chan_max,chanlimit_max=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][-1][0],spwsarray, minmaxchans=True)
+         if chanlimit_min:
+            score[i]+=1.0
+   visref=vislist[np.argmin(score)]            
+   return visref
+
+def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat):
     """
     Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
 
@@ -1253,21 +1296,30 @@ def flagchannels_from_contdotdat(vis,target,spwsarray):
     =======
     String of channels to be flagged, in a format that can be passed to the spw parameter in CASA's flagdata task. 
     """
-    contdotdat = parse_contdotdat('cont.dat',target)
 
     flagchannels_string = ''
+    #moved out of function to not for each MS for efficiency
+    #contdotdat = parse_contdotdat('cont.dat',target)
+    #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat):
-        flagchannels_string += '%d:' % (spw)
-
+        msmd.open(spwvisref)
+        spwname=msmd.namesforspws(spw)[0]
+        msmd.close()
+        msmd.open(vis)
+        spws=msmd.spwsfornames(spwname)
+        msmd.close()
+        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
+        trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+        flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
-        nchan = tb.getcol('CHAN_FREQ', startrow = spw, nrow = 1).size
+        nchan = tb.getcol('CHAN_FREQ', startrow = trans_spw, nrow = 1).size
         tb.close()
 
         chans = np.array([])
         for k in range(contdotdat[spw].shape[0]):
-            print(spw, contdotdat[spw][k])
+            print(trans_spw, contdotdat[spw][k])
 
-            chans = np.concatenate((LSRKfreq_to_chan(vis, target, spw, contdotdat[spw][k],spwsarray),chans))
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat[spw][k],spwsarray),chans))
 
             """
             if flagchannels_string == '':
@@ -1347,7 +1399,7 @@ def largest_prime_factor(n):
     return n
 
 
-def get_image_parameters(vislist,telescope,target,band,band_properties,mosaic=False):
+def get_image_parameters(vislist,telescope,target,band,band_properties,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -1369,7 +1421,7 @@ def get_image_parameters(vislist,telescope,target,band,band_properties,mosaic=Fa
       fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
    if telescope=='ACA':
       fov=108.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
-
+   fov=fov*scale_fov
    if mosaic:
        msmd.open(vislist[0])
        fieldid=msmd.fieldsforname(target)
@@ -1492,33 +1544,44 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
    return bands,observed_bands
 
 
-def get_VLA_bands(vislist):
+def get_VLA_bands(vislist,fields):
    observed_bands={}
    for vis in vislist:
       observed_bands[vis]={}
+      msmd.open(vis)
+      spws_for_field=np.array([])
+      for field in fields:
+         spws_temp=msmd.spwsforfield(field)
+         spws_for_field=np.concatenate((spws_for_field,np.array(spws_temp)))
+      msmd.close()
+      spws_for_field=np.unique(spws_for_field)
+      spws_for_field.sort()
+      spws_for_field=spws_for_field.astype('int')
       #visheader=vishead(vis,mode='list',listitems=[])
       tb.open(vis+'/SPECTRAL_WINDOW') 
       spw_names=tb.getcol('NAME')
       tb.close()
       #spw_names=visheader['spw_name'][0]
-      spw_names_band=spw_names.copy()
-      spw_names_bb=spw_names.copy()
+      spw_names_band=['']*len(spws_for_field)
+      spw_names_band=['']*len(spws_for_field)
+      spw_names_bb=['']*len(spws_for_field)
       spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
-      for i in range(len(spw_names)):
-         spw_names_band[i]=spw_names[i].split('#')[0]
-         spw_names_bb[i]=spw_names[i].split('#')[1]
-         spw_names_spw[i]=i
+
+      for i in range(len(spws_for_field)):
+         spw_names_band[i]=spw_names[spws_for_field[i]].split('#')[0]
+         spw_names_bb[i]=spw_names[spws_for_field[i]].split('#')[1]
+         spw_names_spw[i]=spws_for_field[i]
       all_bands=np.unique(spw_names_band)
       observed_bands[vis]['n_bands']=len(all_bands)
       observed_bands[vis]['bands']=all_bands.tolist()
       for band in all_bands:
-         index=np.where(spw_names_band==band)
-         if (band == 'EVLA_X') and (len(index[0]) == 2): # ignore pointing band
-            observed_bands[vis]['n_bands']=observed_bands[vis]['n_bands']-1
-            observed_bands[vis]['bands'].remove('EVLA_X')
-            continue
-         elif (band == 'EVLA_X') and (len(index[0]) > 2): # ignore pointing band
-            observed_bands[vis][band]={}
+         index=np.where(np.array(spw_names_band)==band)
+         observed_bands[vis][band]={}
+         # logic below removes the VLA standard pointing setups at X and C-bands
+         # the code is mostly immune to this issue since we get the spws for only
+         # the science targets above; however, should not ignore the possibility
+         # that someone might also do pointing on what is the science target
+         if (band == 'EVLA_X') and (len(index[0]) >= 2): # ignore pointing band
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
@@ -1526,16 +1589,8 @@ def get_VLA_bands(vislist):
                 if (meanfreq==8.332e9) or (meanfreq==8.460e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
-            spwslist=observed_bands[vis][band]['spwarray'].tolist()
-            spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
-         elif (band == 'EVLA_C') and (len(index[0]) == 2): # ignore pointing band
-            observed_bands[vis]['n_bands']=observed_bands[vis]['n_bands']-1
-            observed_bands[vis]['bands'].remove('EVLA_C')
-            continue
-         elif (band == 'EVLA_C') and (len(index[0]) > 2): # ignore pointing band
-            observed_bands[vis][band]={}
+         elif (band == 'EVLA_C') and (len(index[0]) >= 2): # ignore pointing band
+
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
@@ -1543,17 +1598,12 @@ def get_VLA_bands(vislist):
                 if (meanfreq==4.832e9) or (meanfreq==4.960e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
-            spwslist=observed_bands[vis][band]['spwarray'].tolist()
-            spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
          else:
-            observed_bands[vis][band]={}
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
-            spwslist=observed_bands[vis][band]['spwarray'].tolist()
-            spwstring=','.join(str(spw) for spw in spwslist)
-            observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+         spwslist=observed_bands[vis][band]['spwarray'].tolist()
+         spwstring=','.join(str(spw) for spw in spwslist)
+         observed_bands[vis][band]['spwstring']=spwstring+''
+         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):
@@ -1564,7 +1614,6 @@ def get_VLA_bands(vislist):
      print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
    get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
    return observed_bands[vislist[0]]['bands'].copy(),observed_bands
-
 
 
 def get_telescope(vis):
@@ -1660,8 +1709,7 @@ def get_max_uvdist(vislist,bands,band_properties):
       baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
          meanlam=3.0e8/band_properties[vis][band]['meanfreq']
-         max_uv_dist=max_baseline/meanlam/1000.0
-         min_uv_dist=min_baseline/meanlam/1000.0
+         max_uv_dist=max_baseline # leave maxuv in meters like the other uv entries /meanlam/1000.0
          band_properties[vis][band]['maxuv']=max_uv_dist
          band_properties[vis][band]['minuv']=max_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
@@ -1677,7 +1725,7 @@ def get_uv_range(band,band_properties,vislist):
          mean_max_uv+=band_properties[vis][band]['maxuv']
       mean_max_uv=mean_max_uv/float(n_vis)
       min_uv=0.05*mean_max_uv
-      uvrange='>{:0.2f}klambda'.format(min_uv)
+      uvrange='>{:0.2f}m'.format(min_uv)
    else:
       uvrange=''
    return uvrange
@@ -2070,7 +2118,7 @@ def create_noise_histogram(imagename):
        pix_unmasked=pix[unmasked]
        ia.close()
        ia.done()
-    elif telescope=='VLA':
+    elif 'VLA' in telescope:
        residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
        rms = residual_stats['rms'][0]
        ia.open(residualImage)
@@ -2603,16 +2651,22 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
             htmlOutSolint.close()
 
 def importdata(vislist,all_targets,telescope):
+   spectral_scan=False
    listdict=collect_listobs_per_vis(vislist)
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray=fetch_scan_times(vislist,all_targets)
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray,spws_set=fetch_scan_times(vislist,all_targets)
    spwslist=spwsarray.tolist()
    spwstring=','.join(str(spw) for spw in spwslist)
-
+   if spws_set.ndim > 1:
+      nspws_sets=spws_set.shape[0]
+   else:
+      nspws_sets=1
    if 'VLA' in telescope:
-     bands,band_properties=get_VLA_bands(vislist)
-
+      bands,band_properties=get_VLA_bands(vislist,all_targets)
+  
    if telescope=='ALMA' or telescope =='ACA':
-     bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
+      bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
+      if nspws_sets > 1 and spws_set.ndim >1:
+         spectral_scan=True
 
    scantimesdict={}
    scanfieldsdict={}
@@ -2691,18 +2745,21 @@ def importdata(vislist,all_targets,telescope):
    
            msmd.close()
 
-   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,gaincalibrator_dict
+   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set
 
 def flag_spectral_lines(vislist,all_targets,spwsarray):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
+   contdotdat = parse_contdotdat('cont.dat',all_targets[0])
+   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
    for vis in vislist:
       if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
          flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
       else:
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
-         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray)
+         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
+
 
 def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
    for vis in vislist:
@@ -2776,7 +2833,7 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      return nflags, nunflagged,fracflagged
 
 
-def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable):
+def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan):
    # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
    max_flagged_ants_combspw=2.0
    # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
@@ -2842,7 +2899,9 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
          print(i,spwlist[i],spwmap[i])
          if spwmap[i]:
             applycal_spwmap[int(spwlist[i])]=int(spwlist[map_index])
-   
+      # always fallback to combinespw for spectral scans
+      if fallback !='' and spectral_scan:
+         fallback='combinespw'
    return fallback,map_index,spwmap,applycal_spwmap
 
 
