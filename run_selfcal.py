@@ -339,6 +339,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     else:
                         include_targets = [str(selfcal_library[target][band]['sub-fields-fid_map'][vis][0])]
 
+                    selfcal_library[target][band][vis][solint]["include_scans"] = include_scans
+                    selfcal_library[target][band][vis][solint]["include_targets"] = include_targets
+
                     for incl_scans, incl_targets in zip(include_scans, include_targets):
                         if solint == 'inf_EB':
                            if spws_set.ndim == 1:
@@ -590,7 +593,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             scans_for_field = []
                             cals_for_scan = []
                             total_cals_for_scan = []
-                            for incl_scan in include_scans:
+                            for incl_scan in selfcal_library[target][band][vis][solint]['include_scans']:
                                 if selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] in \
                                         msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)):
                                     scans_for_field.append(int(incl_scans.split(',')[0]))
