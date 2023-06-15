@@ -183,6 +183,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
 
              for vis in vislist:
+                if np.intersect1d(selfcal_library[target][band]['sub-fields-to-gaincal'],\
+                        list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())).size == 0:
+                     continue
                 applycal_gaintable[vis]=[]
                 applycal_spwmap[vis]=[]
                 applycal_interpolate[vis]=[]
@@ -575,12 +578,28 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     tb.flush()
                     tb.close()
 
+             new_fields_to_selfcal = selfcal_library[target][band]['sub-fields-to-selfcal'].copy()
              if selfcal_library[target][band]['obstype'] == 'mosaic' and ((solint != "inf_EB" and not allow_gain_interpolation) or \
                      (allow_gain_interpolation and "inf" not in solint)):
                 # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be selfcal'd
                 # because they have too much interpolation.
-                new_fields_to_selfcal = selfcal_library[target][band]['sub-fields-to-selfcal'].copy()
                 for vis in vislist:
+                    ## If an EB had no fields to gaincal on, remove all fields in that EB from being selfcal'd as there is no calibration available
+                    ## in this EB.
+                    if np.intersect1d(selfcal_library[target][band]['sub-fields-to-gaincal'],\
+                            list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())).size == 0:
+                        for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                            new_fields_to_selfcal.remove(fid)
+
+                            selfcal_library[target][band][fid]['Stop_Reason'] = 'No viable calibrator fields in at least 1 EB'
+                            for v in selfcal_library[target][band][fid]['vislist']:
+                                selfcal_library[target][band][fid][v][solint]['Pass'] = 'None'
+                                if 'Fail_Reason' in selfcal_library[target][band][fid][v][solint]:
+                                    selfcal_library[target][band][fid][v][solint]['Fail_Reason'] += '; '
+                                else:
+                                    selfcal_library[target][band][fid][v][solint]['Fail_Reason'] = ''
+                                selfcal_library[target][band][fid][v][solint]['Fail_Reason'] += 'No viable fields'
+                        continue
                     ## NEXT TO DO: check % of flagged solutions - DONE, see above
                     ## After that enable option for interpolation through inf - DONE
                     tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
@@ -619,8 +638,20 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
 
                     tb.close()
+             elif selfcal_library[target][band]['obstype'] == 'mosaic' and solint == "inf_EB":
+                ## If an EB had no fields to gaincal on, remove all fields in that EB from being selfcal'd as there is no calibration available
+                ## in this EB.
+                if np.intersect1d(selfcal_library[target][band]['sub-fields-to-gaincal'],\
+                        list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())).size == 0:
+                    for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                        new_fields_to_selfcal.remove(fid)
 
-                selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
+                        selfcal_library[target][band][fid]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
+                        for v in selfcal_library[target][band][fid]['vislist']:
+                            selfcal_library[target][band][fid][v][solint]['Pass'] = 'None'
+                            selfcal_library[target][band][fid][v][solint]['Fail_Reason'] = 'No viable inf_EB fields'
+
+             selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
 
              for vis in vislist:
                 ##
@@ -729,7 +760,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
                 selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                 selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
-                selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
+                if vis in fallback:
+                    selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
+                else:
+                    selfcal_library[target][band][vis][solint]['fallback']=''
                 selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
                 selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
                 selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
@@ -769,7 +803,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
                     selfcal_library[target][band][fid][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                     selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-                    selfcal_library[target][band][fid][vis][solint]['fallback']=fallback[vis]+''
+                    if vis in fallback:
+                        selfcal_library[target][band][fid][vis][solint]['fallback']=fallback[vis]+''
+                    else:
+                        selfcal_library[target][band][fid][vis][solint]['fallback']=''
                     selfcal_library[target][band][fid][vis][solint]['solmode']=solmode[band][iteration]+''
                     selfcal_library[target][band][fid][vis][solint]['SNR_post']=post_mosaic_SNR[fid].copy()
                     selfcal_library[target][band][fid][vis][solint]['RMS_post']=post_mosaic_RMS[fid].copy()

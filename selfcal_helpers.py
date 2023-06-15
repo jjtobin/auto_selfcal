@@ -2442,7 +2442,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          for vis in vislist:
             line='<tr bgcolor="#ffffff">\n    <td>'+vis+': </td>\n'
             for solint in solint_list:
-               if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None':
+               if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None' and 'gaintable' in sclib[target][band][vis][solint]:
                   # only evaluate last gaintable not the pre-apply table
                   gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                   line+='<td><a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=200 HEIGHT=200></a></td>\n'
@@ -2453,7 +2453,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
             for quantity in ['Nsols','Flagged_Sols','Frac_Flagged']:
                line='<tr bgcolor="#ffffff">\n    <td>'+quantity+'</td>\n'
                for solint in solint_list:
-                  if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None':
+                  if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None' and 'gaintable' in sclib[target][band][vis][solint]:
                      # only evaluate last gaintable not the pre-apply table
                      gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                      nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
@@ -2602,6 +2602,9 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
             for vis in vislist:
                htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
+               if 'gaintable' not in sclib[target][band][vis][solints[band][i]]:
+                    htmlOutSolint.writelines('No gaintable available <br><br>')
+                    continue
                ant_list=get_ant_list(vis)
                gaintable=sclib[target][band][vis][solints[band][i]]['gaintable'][len(sclib[target][band][vis][solints[band][i]]['gaintable'])-1]
                print('******************'+gaintable+'***************')
