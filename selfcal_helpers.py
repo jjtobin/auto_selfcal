@@ -248,14 +248,16 @@ def fetch_scan_times(vislist,targets):
    integrationtimes=np.array([])
    n_spws=np.array([])
    min_spws=np.array([])
-   spwslist=np.array([])
-   spws_set=np.array([])
+   spwslist_dict = {}
+   spws_set_dict = {}
    scansdict={}
    for vis in vislist:
       scantimesdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
       scansdict[vis]={}
+      spwslist=np.array([])
+      spws_set=np.array([])
       msmd.open(vis)
       for target in targets:
          scansdict[vis][target]=msmd.scansforfield(target)
@@ -286,14 +288,14 @@ def fetch_scan_times(vislist,targets):
          #assume each band only has a single integration time
          integrationtimesdict[vis][target]=np.median(integrationtimes)
          integrationsdict[vis][target]=integrations.copy()
+      spwslist_dict[vis] = np.unique(spwslist).astype(int)
+      spws_set_dict[vis] = np.unique(spws_set,axis=0)
       msmd.close()
    if np.mean(n_spws) != np.max(n_spws):
       print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    if np.max(min_spws) != np.min(min_spws):
       print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
-   spwslist=np.unique(spwslist).astype(int)
-   spws_set=np.unique(spws_set,axis=0)
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict
 
 def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    scantimesdict={}
@@ -1479,9 +1481,9 @@ def get_mean_freq(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')
    freqarray=tb.getcol('REF_FREQUENCY')
    tb.close()
-   meanfreq=np.mean(freqarray[spwsarray])
-   minfreq=np.min(freqarray[spwsarray])
-   maxfreq=np.max(freqarray[spwsarray])
+   meanfreq=np.mean(freqarray[spwsarray[vislist[0]]])
+   minfreq=np.min(freqarray[spwsarray[vislist[0]]])
+   maxfreq=np.max(freqarray[spwsarray[vislist[0]]])
    fracbw=np.abs(maxfreq-minfreq)/meanfreq
    return meanfreq, maxfreq,minfreq,fracbw
 
@@ -1534,8 +1536,8 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
       observed_bands[vis]['bands']=[band]
       for band in bands:
          observed_bands[vis][band]={}
-         observed_bands[vis][band]['spwarray']=spwarray
-         observed_bands[vis][band]['spwstring']=spwstring+''
+         observed_bands[vis][band]['spwarray']=spwarray[vis]
+         observed_bands[vis][band]['spwstring']=spwstring[vis]+''
          observed_bands[vis][band]['meanfreq']=meanfreq
          observed_bands[vis][band]['maxfreq']=maxfreq
          observed_bands[vis][band]['minfreq']=minfreq
@@ -2657,10 +2659,13 @@ def importdata(vislist,all_targets,telescope):
    spectral_scan=False
    listdict=collect_listobs_per_vis(vislist)
    scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray,spws_set=fetch_scan_times(vislist,all_targets)
-   spwslist=spwsarray.tolist()
-   spwstring=','.join(str(spw) for spw in spwslist)
-   if spws_set.ndim > 1:
-      nspws_sets=spws_set.shape[0]
+   spwslist = {}
+   spwstring = {}
+   for vis in vislist:
+        spwslist[vis] = spwsarray[vis].tolist()
+        spwstring[vis]=','.join(str(spw) for spw in spwslist[vis])
+   if spws_set[vislist[0]].ndim > 1:
+      nspws_sets=spws_set[vislist[0]].shape[0]
    else:
       nspws_sets=1
    if 'VLA' in telescope:
@@ -2668,7 +2673,7 @@ def importdata(vislist,all_targets,telescope):
   
    if telescope=='ALMA' or telescope =='ACA':
       bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
-      if nspws_sets > 1 and spws_set.ndim >1:
+      if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
          spectral_scan=True
 
    scantimesdict={}
