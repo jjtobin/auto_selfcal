@@ -99,7 +99,7 @@ for vis in vislist:
 ##
 spwslist_orig=spwslist.copy()
 vislist_orig=vislist.copy()
-spwstring_orig=spwstring+''
+spwstring_orig=spwstring.copy()
 spwsarray_orig =spwsarray.copy()
 
 vislist=glob.glob('*selfcal.ms')
@@ -213,11 +213,11 @@ for target in all_targets:
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
       if spectral_scan:
-         spwmap=np.zeros(np.max(spws_set)+1,dtype='int')
-         spwmap.fill(np.min(spws_set))
-         for i in range(spws_set.shape[0]):
-            indices=np.arange(np.min(spws_set[i]),np.max(spws_set[i])+1)
-            spwmap[indices]=np.min(spws_set[i])
+         spwmap=np.zeros(np.max(spws_set[vis])+1,dtype='int')
+         spwmap.fill(np.min(spws_set[vis]))
+         for i in range(spws_set[vis].shape[0]):
+            indices=np.arange(np.min(spws_set[vis][i]),np.max(spws_set[vis][i])+1)
+            spwmap[indices]=np.min(spws_set[vis][i])
          selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
       else:
          selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
@@ -667,18 +667,18 @@ for target in all_targets:
             else:
                solnorm=False
             if solint == 'inf_EB':
-                if spws_set.ndim == 1:
+                if spws_set[vis].ndim == 1:
                    nspw_sets=1
                 else:
-                   nspw_sets=spws_set.shape[0]
+                   nspw_sets=spws_set[vis].shape[0]
             else: #only necessary to loop over gain cal when in inf_EB to avoid inf_EB solving for all spws
                nspw_sets=1
             for i in range(nspw_sets):  # run gaincal on each spw set to handle spectral scans (one run one time if not inf_EB)
                if solint == 'inf_EB':
-                  if nspw_sets == 1 and spws_set.ndim == 1:
-                     spwselect=','.join(str(spw) for spw in spws_set.tolist())
+                  if nspw_sets == 1 and spws_set[vis].ndim == 1:
+                     spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
                   else:
-                     spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+                     spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
                else:
                   spwselect=selfcal_library[target][band][vis]['spws']
                print('Running gaincal on '+spwselect+' for '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
@@ -698,11 +698,11 @@ for target in all_targets:
                test_gaincal_combine='scan,spw'
                if selfcal_library[target][band]['obstype']=='mosaic':
                   test_gaincal_combine+=',field'   
-               for i in range(spws_set.shape[0]):  # run gaincal on each spw set to handle spectral scans
-                  if nspw_sets == 1 and spws_set.ndim == 1:
-                     spwselect=','.join(str(spw) for spw in spws_set.tolist())
+               for i in range(spws_set[vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
+                  if nspw_sets == 1 and spws_set[vis].ndim == 1:
+                     spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
                   else:
-                     spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+                     spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
 
                   print('Running gaincal on '+spwselect+' for test_inf_EB.g')
                   gaincal(vis=vis,\
