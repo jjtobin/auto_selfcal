@@ -1279,6 +1279,10 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
    score=np.zeros(len(vislist))
    for i in range(len(vislist)):
       for spw in spws:
+         if spw not in spwsarray_dict[vislist[i]]:
+             score[i] += 2.0
+             continue
+
          chan_min,chanlimit_min=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][0][0],spwsarray_dict[vislist[i]], minmaxchans=True)
          chan_max,chanlimit_max=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][-1][0],spwsarray_dict[vislist[i]], minmaxchans=True)
          if chanlimit_min:
