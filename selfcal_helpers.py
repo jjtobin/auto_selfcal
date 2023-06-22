@@ -40,7 +40,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if ephem_column[fieldid[0]] !=-1:
        phasecenter='TRACKFIELD'
 
-    if obstype=='mosaic':
+    if obstype=='mosaic' and phasecenter != 'TRACKFIELD':
        phasecenter=get_phasecenter(vis[0],field)
 
 
