@@ -1255,7 +1255,7 @@ def parse_contdotdat(contdotdat_file,target):
 
     return contdotdat
 
-def get_spwnum_refvis(vislist,target,contdotdat,spwsarray):
+def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
    # calculate a score for each visibility based on which one ends up with cont.dat freq ranges that correspond to 
    # channel limits; lowest score is chosen as the reference visibility file
    spws=list(contdotdat.keys())
@@ -2632,12 +2632,12 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 def importdata(vislist,all_targets,telescope):
    spectral_scan=False
    listdict=collect_listobs_per_vis(vislist)
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray,spws_set=fetch_scan_times(vislist,all_targets)
-   spwslist = {}
-   spwstring = {}
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray_dict,spws_set=fetch_scan_times(vislist,all_targets)
+   spwslist_dict = {}
+   spwstring_dict = {}
    for vis in vislist:
-        spwslist[vis] = spwsarray[vis].tolist()
-        spwstring[vis]=','.join(str(spw) for spw in spwslist[vis])
+        spwslist_dict[vis] = spwsarray_dict[vis].tolist()
+        spwstring_dict[vis]=','.join(str(spw) for spw in spwslist_dict[vis])
    if spws_set[vislist[0]].ndim > 1:
       nspws_sets=spws_set[vislist[0]].shape[0]
    else:
@@ -2646,7 +2646,7 @@ def importdata(vislist,all_targets,telescope):
       bands,band_properties=get_VLA_bands(vislist,all_targets)
    
    if telescope=='ALMA' or telescope =='ACA':
-      bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
+      bands,band_properties=get_ALMA_bands(vislist,spwstring_dict,spwsarray_dict)
       if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
          spectral_scan=True
 
@@ -2693,19 +2693,19 @@ def importdata(vislist,all_targets,telescope):
       for delband in bands_to_remove:
          bands.remove(delband)
    
-   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,spectral_scan,spws_set
+   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,spectral_scan,spws_set
 
-def flag_spectral_lines(vislist,all_targets,spwsarray):
+def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
    contdotdat = parse_contdotdat('cont.dat',all_targets[0])
-   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
+   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict)
    for vis in vislist:
       if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
          flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
       else:
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
-         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat)
+         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
 def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
