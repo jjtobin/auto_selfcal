@@ -85,13 +85,13 @@ if 'VLA' in telescope:
 ## Import inital MS files to get relevant meta data
 ##
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
 ##
 if os.path.exists("cont.dat"):
-   flag_spectral_lines(vislist,all_targets,spwsarray)
+   flag_spectral_lines(vislist,all_targets,spwsarray_dict)
 
 
 ##
@@ -110,14 +110,14 @@ for vis in vislist:
 ##
 ## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
 ##
-spwslist_orig=spwslist.copy()
+spwslist_dict_orig=spwslist_dict.copy()
 vislist_orig=vislist.copy()
-spwstring_orig=spwstring.copy()
-spwsarray_orig =spwsarray.copy()
+spwstring_dict_orig=spwstring_dict.copy()
+spwsarray_dict_orig =spwsarray_dict.copy()
 
 vislist=glob.glob('*selfcal.ms')
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## Save/restore starting flags
@@ -265,9 +265,9 @@ for target in all_targets:
       allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
       allscannfields=np.append(allscannfields,scannfieldsdict[band][vis][target])
       selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
-      n_spws,minspw,spwsarray=fetch_spws([vis],[target])
-      spwslist=spwsarray.tolist()
-      spwstring=','.join(str(spw) for spw in spwslist)
+      #n_spws,minspw,spwsarray=fetch_spws([vis],[target])
+      #spwslist=spwsarray.tolist()
+      #spwstring=','.join(str(spw) for spw in spwslist)
       selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
       selfcal_library[target][band][vis]['spwsarray']=band_properties[vis][band]['spwarray']
 
@@ -313,9 +313,9 @@ for target in all_targets:
           allscantimes=np.append(allscantimes,scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
           allscannfields=np.append(allscannfields,[1])
           selfcal_library[target][band][fid][vis]['refant'] = selfcal_library[target][band][vis]['refant']
-          n_spws,minspw,spwsarray=fetch_spws([vis],[target])
-          spwslist=spwsarray.tolist()
-          spwstring=','.join(str(spw) for spw in spwslist)
+          #n_spws,minspw,spwsarray=fetch_spws([vis],[target])
+          #spwslist=spwsarray.tolist()
+          #spwstring=','.join(str(spw) for spw in spwslist)
           selfcal_library[target][band][fid][vis]['spws']=band_properties[vis][band]['spwstring']
           selfcal_library[target][band][fid][vis]['spwsarray']=band_properties[vis][band]['spwarray']
           selfcal_library[target][band][fid][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
@@ -973,7 +973,7 @@ for target in all_targets:
          for vis in vislist: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_orig+'")\n'
+            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_dict_orig[vis]+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
                if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
@@ -983,7 +983,7 @@ for target in all_targets:
                applycal(vis=vis.replace('.selfcal',''),\
                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
-                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_orig)
+                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_dict_orig[vis])
 
 applyCalOut.close()
 
@@ -996,10 +996,10 @@ if os.path.exists("cont.dat"):
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          contdotdat = parse_contdotdat('cont.dat',all_targets[0])
-         spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
+         spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict)
          for vis in vislist:      
-            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray,vislist,spwvisref,contdotdat)[:-2]
-            line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+spwstring_orig+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
+            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)[:-2]
+            line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+spwstring_dict_orig[vis]+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
             uvcontsubOut.writelines(line)
             line='os.system("mv '+vis.replace('.selfcal','')+'.contsub '+sani_target+'_'+vis+'.contsub")\n'
             uvcontsubOut.writelines(line)
