@@ -1084,7 +1084,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                SNR_self_EB_spw[selfcal_library['vislist'][i]]={}
                for spw in selfcal_library[selfcal_library['vislist'][i]]['spwsarray']:
                   if spw in SNR_self_EB_spw[selfcal_library['vislist'][i]].keys():
-                     SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+                     SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
             for spw in selfcal_library[maxspwvis]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(selfcal_library['vislist'])):
@@ -1098,21 +1098,21 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
                for spw in selfcal_library[maxspwvis]['spwsarray']:
-                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
          elif solint =='inf' or solint == 'inf_ap':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
                for spw in selfcal_library[maxspwvis]['spwsarray']:
-                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
                for spw in selfcal_library[maxspwvis]['spwsarray']:
-                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
          else:
                solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
                for spw in selfcal_library[maxspwvis]['spwsarray']:
-                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library['total_effective_bandwidth'])**0.5
+                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
       return solint_snr,solint_snr_per_spw
 
 def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
@@ -1214,16 +1214,26 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     ms.close()
 
     if type(LSRKfreq)==np.ndarray:
-        outchans = np.zeros_like(LSRKfreq)
-        for i in range(len(LSRKfreq)):
-            outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
+        if minmaxchans:
+            #print(nchan)
+            chanwidth = lsrkfreqs[1] - lsrkfreqs[0]
+            channel = ((LSRKfreq - lsrkfreqs[0])/chanwidth).astype(int)
+            channel_sorted = np.sort(channel)
+            channel_sorted[-1] = abs(nchan-1 - channel_sorted[-1])
+            return channel_sorted/nchan
+        else:
+            outchans = np.zeros_like(LSRKfreq)
+            for i in range(len(LSRKfreq)):
+                outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
         return outchans
     else:
         if minmaxchans:
-           if (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == 0) or (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == nchan-1):
-              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),True
+           if np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == 0:
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),"min"
+           elif np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == nchan-1:
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),"max"
            else:
-              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),False
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),"middle"
         else:
            return np.argmin(np.abs(lsrkfreqs - LSRKfreq))
 
@@ -1280,13 +1290,19 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
    for i in range(len(vislist)):
       for spw in spws:
          if spw not in spwsarray_dict[vislist[i]]:
-             score[i] += 2.0
+             score[i] += 1e8
              continue
 
-         chan_min,chanlimit_min=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][0][0],spwsarray_dict[vislist[i]], minmaxchans=True)
-         chan_max,chanlimit_max=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][-1][0],spwsarray_dict[vislist[i]], minmaxchans=True)
-         if chanlimit_min:
-            score[i]+=1.0
+         # The score is computed as the total distance of the top and bottom of the contdotdat range for this SPW to the
+         # known edges of the SPW.
+         test = LSRKfreq_to_chan(vislist[i], target, spw, np.array([contdotdat[spw][0][0],contdotdat[spw][-1][1]]), \
+                 spwsarray_dict[vislist[i]], minmaxchans=True)
+         score[i] += test.sum()
+
+   # Add in some penalty for being lower after sorting the vislist, as in principle the sorted order should be the order
+   # that they were observed and analyzed in?
+   score += np.arange(len(vislist))[np.argsort(np.argsort(vislist))]
+   print(score)
    visref=vislist[np.argmin(score)]            
    return visref
 
@@ -1358,27 +1374,38 @@ def get_spw_chanwidths(vis,spwarray):
 
    return widtharray,bwarray,nchanarray
 
-def get_spw_bandwidth(vis,spwsarray,target):
+def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
    spwbws={}
-   for spw in spwsarray:
+   for spw in spwsarray_dict[vis]:
       tb.open(vis+'/SPECTRAL_WINDOW')
-      spwbws[str(spw)]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spw, nrow = 1)))[0]/1.0e9 # put bandwidths into GHz
+      spwbws[spw]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spw, nrow = 1)))[0]/1.0e9 # put bandwidths into GHz
       tb.close()
    spweffbws=spwbws.copy()
    if os.path.exists("cont.dat"):
-      spweffbws=get_spw_eff_bandwidth(vis,target)
+      spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict)
 
    return spwbws,spweffbws
 
 
-def get_spw_eff_bandwidth(vis,target):
+def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
    spweffbws={}
    contdotdat=parse_contdotdat('cont.dat',target)
+
+   spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
    for key in contdotdat.keys():
+      msmd.open(spwvisref)
+      spwname=msmd.namesforspws(key)[0]
+      msmd.close()
+      msmd.open(vis)
+      spws=msmd.spwsfornames(spwname)
+      msmd.close()
+      # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
+      trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+
       cumulat_bw=0.0
       for i in range(len(contdotdat[key])):
          cumulat_bw+=np.abs(contdotdat[key][i][1]-contdotdat[key][i][0])
-      spweffbws[str(key)]=cumulat_bw+0.0
+      spweffbws[trans_spw]=cumulat_bw+0.0
    return spweffbws
    
 
@@ -2858,10 +2885,10 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw(spwlist[0],spw_combine_test_gaintable)
    eff_bws=np.zeros(len(spwlist))
    total_bws=np.zeros(len(spwlist))
-   keylist=list(selfcal_library[target][band]['per_spw_stats'].keys())
+   keylist=list(selfcal_library[target][band][vis]['per_spw_stats'].keys())
    for i in range(len(spwlist)):
-      eff_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['effective_bandwidth']
-      total_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['bandwidth']
+      eff_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['bandwidth']
    minimum_flagged_ants_per_spw=np.min(nflags)/2.0
    minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
                                                            # the impression of a lot of flagging
