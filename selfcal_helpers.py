@@ -2422,6 +2422,13 @@ def render_per_solint_QA_pages(sclib,solints,bands):
          index_addition=1
          if sclib[target][band]['final_solint'] != 'inf_ap' and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
+         # if it's a dataset where inf_EB == inf, make sure to take out the assumption that there would be an 'inf' solution
+         if 'inf' not in solints[band]:
+            index_addition=index_addition-1
+         #add an additional check to make sure the final index will be in the array
+         if final_solint_index+index_addition-1 > (len(solints[band])-1):
+            index_addition=(final_solint_index+index_addition-1) - (len(solints[band])-1)
+         
 
          final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
          keylist=sclib[target][band][vislist[0]].keys()
