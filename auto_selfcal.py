@@ -324,34 +324,29 @@ for target in all_targets:
       vislist=selfcal_library[target][band]['vislist'].copy()
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws
-      maxspws=0
-      maxspwvis=''
-      for vis in vislist:
-         if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
-            maxspws=selfcal_library[target][band][vis]['n_spws']
-            maxspwvis=vis+''
-         selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
-      spwlist=selfcal_library[target][band][maxspwvis]['spwlist']
-       
-      spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][maxspwvis]['spwsarray'],target)
+      #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
+      for vis in selfcal_library[target][band]['vislist']:
+         selfcal_library[target][band][vis]['per_spw_stats'] = {}
+          
+         spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
 
-      selfcal_library[target][band]['total_bandwidth']=0.0
-      selfcal_library[target][band]['total_effective_bandwidth']=0.0
-      if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
-         print('cont.dat does not contain all spws; falling back to total bandwidth')
-         for spw in spw_bandwidths.keys():
-            if spw not in spw_effective_bandwidths.keys():
-               spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+         selfcal_library[target][band][vis]['total_bandwidth']=0.0
+         selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
+         if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+            print('cont.dat does not contain all spws; falling back to total bandwidth')
+            for spw in spw_bandwidths.keys():
+               if spw not in spw_effective_bandwidths.keys():
+                  spw_effective_bandwidths[spw]=spw_bandwidths[spw]
 
-      for spw in spwlist:
-         keylist=selfcal_library[target][band]['per_spw_stats'].keys()
-         if spw not in keylist:
-            selfcal_library[target][band]['per_spw_stats'][spw]={}
+         for spw in selfcal_library[target][band][vis]['spwlist']:
+            keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
+            if spw not in keylist:
+               selfcal_library[target][band][vis]['per_spw_stats'][spw]={}
 
-         selfcal_library[target][band]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-         selfcal_library[target][band]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-         selfcal_library[target][band]['total_bandwidth']+=spw_bandwidths[spw]
-         selfcal_library[target][band]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
+            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths[spw]
+            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
 
 if check_all_spws:
    for target in all_targets:
@@ -1080,8 +1075,8 @@ if os.path.exists("cont.dat"):
          contdotdat = parse_contdotdat('cont.dat',all_targets[0])
          spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
          for vis in vislist:      
-            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray,vislist,spwvisref,contdotdat)[:-2]
-            line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+spwstring_orig+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
+            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],vislist,spwvisref,contdotdat)[:-2]
+            line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
             uvcontsubOut.writelines(line)
             line='os.system("mv '+vis.replace('.selfcal','')+'.contsub '+sani_target+'_'+vis+'.contsub")\n'
             uvcontsubOut.writelines(line)
