@@ -181,6 +181,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  selfcal_library[target][band]['sub-fields-to-gaincal'] = new_fields_to_selfcal
                  if solint != 'inf_EB' and not allow_gain_interpolation:
                      selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
+             else:
+                selfcal_library[target][band]['sub-fields-to-gaincal'] = selfcal_library[target][band]['sub-fields-to-selfcal']
 
              for vis in vislist:
                 if np.intersect1d(selfcal_library[target][band]['sub-fields-to-gaincal'],\
