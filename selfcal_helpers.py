@@ -1618,7 +1618,7 @@ def get_VLA_bands(vislist,fields):
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
-                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
+                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
                 if (meanfreq==8.332e9) or (meanfreq==8.460e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
@@ -1627,7 +1627,7 @@ def get_VLA_bands(vislist,fields):
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
-                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
+                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
                 if (meanfreq==4.832e9) or (meanfreq==4.960e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
@@ -1636,7 +1636,7 @@ def get_VLA_bands(vislist,fields):
          spwslist=observed_bands[vis][band]['spwarray'].tolist()
          spwstring=','.join(str(spw) for spw in spwslist)
          observed_bands[vis][band]['spwstring']=spwstring+''
-         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: observed_bands[vis][band]['spwarray']})
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):
