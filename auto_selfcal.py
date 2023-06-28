@@ -969,7 +969,7 @@ for target in all_targets:
          for vis in vislist: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_dict_orig[vis]+'")\n'
+            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_dict_orig[vis.replace('.selfcal','')]+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
                if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
@@ -979,7 +979,7 @@ for target in all_targets:
                applycal(vis=vis.replace('.selfcal',''),\
                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
-                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_dict_orig[vis])
+                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_dict_orig[vis.replace('.selfcal','')])
 
 applyCalOut.close()
 
