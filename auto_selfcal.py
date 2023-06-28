@@ -455,7 +455,7 @@ for target in all_targets:
    selfcal_library[target][band]['SNR_NF_orig']=initial_NF_SNR
    selfcal_library[target][band]['RMS_NF_orig']=initial_NF_RMS
    selfcal_library[target][band]['RMS_curr']=initial_RMS
-   selfcal_library[target][band]['RMS_NF_curr']=initial_NF_RMS
+   selfcal_library[target][band]['RMS_NF_curr']=initial_NF_RMS if initial_NF_RMS > 0 else initial_RMS
    selfcal_library[target][band]['SNR_dirty']=dirty_SNR
    selfcal_library[target][band]['RMS_dirty']=dirty_RMS
    selfcal_library[target][band]['Beam_major_orig']=header['restoringbeam']['major']['value']
@@ -485,7 +485,7 @@ for target in all_targets:
        selfcal_library[target][band][fid]['SNR_NF_orig']=mosaic_initial_NF_SNR[fid]
        selfcal_library[target][band][fid]['RMS_NF_orig']=mosaic_initial_NF_RMS[fid]
        selfcal_library[target][band][fid]['RMS_curr']=mosaic_initial_RMS[fid]
-       selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid]
+       selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid] if mosaic_initial_NF_RMS[fid] > 0 else mosaic_initial_RMS[fid]
        selfcal_library[target][band][fid]['SNR_dirty']=mosaic_dirty_SNR[fid]
        selfcal_library[target][band][fid]['RMS_dirty']=mosaic_dirty_RMS[fid]
        selfcal_library[target][band][fid]['Beam_major_orig']=header['restoringbeam']['major']['value']
