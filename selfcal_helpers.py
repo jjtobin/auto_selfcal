@@ -2882,7 +2882,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    min_spwmap_bw=0.0
    spwmap=[False]*len(spwlist)
    nflags,nunflagged,fracflagged=get_flagged_solns_per_spw(spwlist,gaintable)
-   nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw(spwlist[0],spw_combine_test_gaintable)
+   nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable)
    eff_bws=np.zeros(len(spwlist))
    total_bws=np.zeros(len(spwlist))
    keylist=list(selfcal_library[target][band][vis]['per_spw_stats'].keys())
