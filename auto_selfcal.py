@@ -85,13 +85,13 @@ if 'VLA' in telescope:
 ## Import inital MS files to get relevant meta data
 ##
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## flag spectral lines in MS(es) if there is a cont.dat file present
 ##
 if os.path.exists("cont.dat"):
-   flag_spectral_lines(vislist,all_targets,spwsarray)
+   flag_spectral_lines(vislist,all_targets,spwsarray_dict)
 
 
 ##
@@ -110,14 +110,14 @@ for vis in vislist:
 ##
 ## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
 ##
-spwslist_orig=spwslist.copy()
+spwslist_dict_orig=spwslist_dict.copy()
 vislist_orig=vislist.copy()
-spwstring_orig=spwstring+''
-spwsarray_orig =spwsarray.copy()
+spwstring_dict_orig=spwstring_dict.copy()
+spwsarray_dict_orig =spwsarray_dict.copy()
 
 vislist=glob.glob('*selfcal.ms')
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
+integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
 ##
 ## Save/restore starting flags
@@ -265,9 +265,9 @@ for target in all_targets:
       allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
       allscannfields=np.append(allscannfields,scannfieldsdict[band][vis][target])
       selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
-      n_spws,minspw,spwsarray=fetch_spws([vis],[target])
-      spwslist=spwsarray.tolist()
-      spwstring=','.join(str(spw) for spw in spwslist)
+      #n_spws,minspw,spwsarray=fetch_spws([vis],[target])
+      #spwslist=spwsarray.tolist()
+      #spwstring=','.join(str(spw) for spw in spwslist)
       selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
       selfcal_library[target][band][vis]['spwsarray']=band_properties[vis][band]['spwarray']
 
@@ -275,11 +275,11 @@ for target in all_targets:
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
       if spectral_scan:
-         spwmap=np.zeros(np.max(spws_set)+1,dtype='int')
-         spwmap.fill(np.min(spws_set))
-         for i in range(spws_set.shape[0]):
-            indices=np.arange(np.min(spws_set[i]),np.max(spws_set[i])+1)
-            spwmap[indices]=np.min(spws_set[i])
+         spwmap=np.zeros(np.max(spws_set[vis])+1,dtype='int')
+         spwmap.fill(np.min(spws_set[vis]))
+         for i in range(spws_set[vis].shape[0]):
+            indices=np.arange(np.min(spws_set[vis][i]),np.max(spws_set[vis][i])+1)
+            spwmap[indices]=np.min(spws_set[vis][i])
          selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
       else:
          selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
@@ -313,20 +313,20 @@ for target in all_targets:
           allscantimes=np.append(allscantimes,scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
           allscannfields=np.append(allscannfields,[1])
           selfcal_library[target][band][fid][vis]['refant'] = selfcal_library[target][band][vis]['refant']
-          n_spws,minspw,spwsarray=fetch_spws([vis],[target])
-          spwslist=spwsarray.tolist()
-          spwstring=','.join(str(spw) for spw in spwslist)
+          #n_spws,minspw,spwsarray=fetch_spws([vis],[target])
+          #spwslist=spwsarray.tolist()
+          #spwstring=','.join(str(spw) for spw in spwslist)
           selfcal_library[target][band][fid][vis]['spws']=band_properties[vis][band]['spwstring']
           selfcal_library[target][band][fid][vis]['spwsarray']=band_properties[vis][band]['spwarray']
           selfcal_library[target][band][fid][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
           selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
           selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
           if spectral_scan:
-             spwmap=np.zeros(np.max(spws_set)+1,dtype='int')
-             spwmap.fill(np.min(spws_set))
-             for i in range(spws_set.shape[0]):
-                indices=np.arange(np.min(spws_set[i]),np.max(spws_set[i])+1)
-                spwmap[indices]=np.min(spws_set[i])
+             spwmap=np.zeros(np.max(spws_set[vis])+1,dtype='int')
+             spwmap.fill(np.min(spws_set[vis]))
+             for i in range(spws_set[vis].shape[0]):
+                indices=np.arange(np.min(spws_set[vis][i]),np.max(spws_set[vis][i])+1)
+                spwmap[indices]=np.min(spws_set[vis][i])
              selfcal_library[target][band][fid][vis]['spwmap']=spwmap.tolist()
           else:
              selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
@@ -511,56 +511,52 @@ for target in all_targets:
       selfcal_library[target][band]['per_spw_stats']={}
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws
-      maxspws=0
-      maxspwvis=''
+      #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
       for vis in selfcal_library[target][band]['vislist']:
-         if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
-            maxspws=selfcal_library[target][band][vis]['n_spws']
-            maxspwvis=vis+''
-         selfcal_library[target][band][vis]['spwlist']=selfcal_library[target][band][vis]['spws'].split(',')
-      spwlist=selfcal_library[target][band][maxspwvis]['spwlist']
-       
-      spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][maxspwvis]['spwsarray'],target)
+         selfcal_library[target][band][vis]['per_spw_stats'] = {}
+          
+         spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
 
-      selfcal_library[target][band]['total_bandwidth']=0.0
-      selfcal_library[target][band]['total_effective_bandwidth']=0.0
-      if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
-         print('cont.dat does not contain all spws; falling back to total bandwidth')
-         for spw in spw_bandwidths.keys():
-            if spw not in spw_effective_bandwidths.keys():
-               spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+         selfcal_library[target][band][vis]['total_bandwidth']=0.0
+         selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
+         if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+            print('cont.dat does not contain all spws; falling back to total bandwidth')
+            for spw in spw_bandwidths.keys():
+               if spw not in spw_effective_bandwidths.keys():
+                  spw_effective_bandwidths[spw]=spw_bandwidths[spw]
 
-      for spw in spwlist:
-         keylist=selfcal_library[target][band]['per_spw_stats'].keys()
-         if spw not in keylist:
-            selfcal_library[target][band]['per_spw_stats'][spw]={}
+         for spw in selfcal_library[target][band][vis]['spwlist']:
+            keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
+            if spw not in keylist:
+               selfcal_library[target][band][vis]['per_spw_stats'][spw]={}
 
-         selfcal_library[target][band]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-         selfcal_library[target][band]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-         selfcal_library[target][band]['total_bandwidth']+=spw_bandwidths[spw]
-         selfcal_library[target][band]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
+            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths[spw]
+            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
 
       for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid]['per_spw_stats']={}
           for vis in selfcal_library[target][band][fid]['vislist']:
-              selfcal_library[target][band][fid][vis]['spwlist']=selfcal_library[target][band][fid][vis]['spws'].split(',')
-          spwlist=selfcal_library[target][band][fid][maxspwvis]['spwlist']
-          spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,selfcal_library[target][band][fid][maxspwvis]['spwsarray'],target)
-          selfcal_library[target][band][fid]['total_bandwidth']=0.0
-          selfcal_library[target][band][fid]['total_effective_bandwidth']=0.0
-          if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
-             print('cont.dat does not contain all spws; falling back to total bandwidth')
-             for spw in spw_bandwidths.keys():
-                if spw not in spw_effective_bandwidths.keys():
-                   spw_effective_bandwidths[spw]=spw_bandwidths[spw]
-          for spw in spwlist:
-             keylist=selfcal_library[target][band][fid]['per_spw_stats'].keys()
-             if spw not in keylist:
-                selfcal_library[target][band][fid]['per_spw_stats'][spw]={}
-             selfcal_library[target][band][fid]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-             selfcal_library[target][band][fid]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-             selfcal_library[target][band][fid]['total_bandwidth']+=spw_bandwidths[spw]
-             selfcal_library[target][band][fid]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+              selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
+
+              spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+
+              selfcal_library[target][band][fid][vis]['total_bandwidth']=0.0
+              selfcal_library[target][band][fid][vis]['total_effective_bandwidth']=0.0
+              if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+                 print('cont.dat does not contain all spws; falling back to total bandwidth')
+                 for spw in spw_bandwidths.keys():
+                    if spw not in spw_effective_bandwidths.keys():
+                       spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+              for spw in selfcal_library[target][band][fid][vis]['spwlist']:
+                 keylist=selfcal_library[target][band][fid][vis]['per_spw_stats'].keys()
+                 if spw not in keylist:
+                    selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]={}
+                 selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
+                 selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
+                 selfcal_library[target][band][fid][vis]['total_bandwidth']+=spw_bandwidths[spw]
+                 selfcal_library[target][band][fid][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
 
 if check_all_spws:
    for target in all_targets:
@@ -973,7 +969,7 @@ for target in all_targets:
          for vis in vislist: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_orig+'")\n'
+            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_dict_orig[vis.replace('.selfcal','')]+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
                if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
@@ -983,7 +979,7 @@ for target in all_targets:
                applycal(vis=vis.replace('.selfcal',''),\
                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
-                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_orig)
+                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_dict_orig[vis.replace('.selfcal','')])
 
 applyCalOut.close()
 
@@ -996,10 +992,10 @@ if os.path.exists("cont.dat"):
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          contdotdat = parse_contdotdat('cont.dat',all_targets[0])
-         spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
+         spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict)
          for vis in vislist:      
-            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray,vislist,spwvisref,contdotdat)[:-2]
-            line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+spwstring_orig+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
+            contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],vislist,spwvisref,contdotdat)[:-2]
+            line='uvcontsub(vis="'+vis.replace('.selfcal','')+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspw="'+contdot_dat_flagchannels_string+'",excludechans=True, combine="spw")\n'
             uvcontsubOut.writelines(line)
             line='os.system("mv '+vis.replace('.selfcal','')+'.contsub '+sani_target+'_'+vis+'.contsub")\n'
             uvcontsubOut.writelines(line)
