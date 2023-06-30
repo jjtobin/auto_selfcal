@@ -349,18 +349,18 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                     for incl_scans, incl_targets in zip(include_scans, include_targets):
                         if solint == 'inf_EB':
-                           if spws_set.ndim == 1:
+                           if spws_set[vis].ndim == 1:
                               nspw_sets=1
                            else:
-                              nspw_sets=spws_set.shape[0]
+                              nspw_sets=spws_set[vis].shape[0]
                         else: #only necessary to loop over gain cal when in inf_EB to avoid inf_EB solving for all spws
                            nspw_sets=1
                         for i in range(nspw_sets):  # run gaincal on each spw set to handle spectral scans
                            if solint == 'inf_EB':
-                              if nspw_sets == 1 and spws_set.ndim == 1:
-                                 spwselect=','.join(str(spw) for spw in spws_set.tolist())
+                              if nspw_sets == 1 and spws_set[vis].ndim == 1:
+                                 spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
                               else:
-                                 spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+                                 spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
                            else:
                               spwselect=selfcal_library[target][band][vis]['spws']
                            gaincal(vis=vis,\
@@ -489,11 +489,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                    test_gaincal_combine='scan,spw'
                    if selfcal_library[target][band]['obstype']=='mosaic':
                       test_gaincal_combine+=',field'   
-                   for i in range(spws_set.shape[0]):  # run gaincal on each spw set to handle spectral scans
-                      if nspw_sets == 1 and spws_set.ndim == 1:
-                         spwselect=','.join(str(spw) for spw in spws_set.tolist())
+                   for i in range(spws_set[vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
+                      if nspw_sets == 1 and spws_set[vis].ndim == 1:
+                         spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
                       else:
-                         spwselect=','.join(str(spw) for spw in spws_set[i].tolist())
+                         spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
 
                       gaincal(vis=vis,\
                         caltable='test_inf_EB.g',\
@@ -698,6 +698,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              if telescope !='ACA' or aca_use_nfmask:
                 SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
                         maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask', las=selfcal_library[target][band]['LAS'])
+                if RMS_NF < 0:
+                    SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                            maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask', las=selfcal_library[target][band]['LAS'])
              else:
                 SNR_NF,RMS_NF=SNR,RMS
 
@@ -706,6 +709,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              if telescope !='ACA' or aca_use_nfmask:
                 post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0', \
                         las=selfcal_library[target][band]['LAS'])
+                if post_RMS_NF < 0:
+                    post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0', \
+                            maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask', las=selfcal_library[target][band]['LAS'])
              else:
                 post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
 
@@ -724,6 +730,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  if telescope !='ACA' or aca_use_nfmask:
                     mosaic_SNR_NF[fid],mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'.image.tt0', maskname=imagename+'_post.mask', \
                             las=selfcal_library[target][band]['LAS'], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    if mosaic_RMS_NF[fid] < 0:
+                        mosaic_SNR_NF[fid],mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'.image.tt0', maskname=imagename+'.mask', \
+                                las=selfcal_library[target][band]['LAS'], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                  else:
                     mosaic_SNR_NF[fid],mosaic_RMS_NF[fid]=mosaic_SNR[fid],mosaic_RMS[fid]
 
@@ -733,6 +742,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  if telescope !='ACA' or aca_use_nfmask:
                     post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'_post.image.tt0', \
                             las=selfcal_library[target][band]['LAS'], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    if post_mosaic_RMS_NF[fid] < 0:
+                        post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=estimate_near_field_SNR(imagename+'_post.image.tt0', \
+                                maskname=imagename+'.mask', las=selfcal_library[target][band]['LAS'], \
+                                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                  else:
                     post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=mosaic_SNR[fid],mosaic_RMS[fid]
                  print()
@@ -774,7 +787,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 ## Update RMS value if necessary
                 if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr']:
                    selfcal_library[target][band]['RMS_curr']=selfcal_library[target][band][vis][solint]['RMS_post'].copy()
-                if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr']:
+                if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr'] and \
+                        selfcal_library[target][band][vis][solint]['RMS_NF_post'] > 0:
                    selfcal_library[target][band]['RMS_NF_curr']=selfcal_library[target][band][vis][solint]['RMS_NF_post'].copy()
                 header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
                 selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
