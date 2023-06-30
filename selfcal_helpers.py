@@ -297,6 +297,7 @@ def fetch_scan_times(vislist,targets):
       print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict
 
+
 def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    scantimesdict={}
    scanfieldsdict={}
@@ -1170,6 +1171,7 @@ def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring=''
        sys.exit(0)
    print('Estimated Sensitivity: ',estsens)
    return estsens
+
 
 def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     """
@@ -2561,6 +2563,13 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
          index_addition=1
          if sclib[target][band]['final_solint'] != 'inf_ap' and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
+         # if it's a dataset where inf_EB == inf, make sure to take out the assumption that there would be an 'inf' solution
+         if 'inf' not in solints[band]:
+            index_addition=index_addition-1
+         #add an additional check to make sure the final index will be in the array
+         if final_solint_index+index_addition-1 > (len(solints[band])-1):
+            index_addition=(final_solint_index+index_addition-1) - (len(solints[band])-1)
+         
 
          final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
          keylist=sclib[target][band][vislist[0]].keys()
