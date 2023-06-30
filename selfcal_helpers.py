@@ -820,6 +820,18 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
 
 
 def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosaic_sub_field=False, save_near_field_mask=True):
+    if maskname is None:
+       maskImage=imagename.replace('image','mask').replace('.tt0','')
+    else:
+       maskImage=maskname
+    if not os.path.exists(maskImage):
+       print('Does not exist')
+       return np.float64(-99.0),np.float64(-99.0)
+    goodMask=checkmask(maskImage)
+    if not goodMask:
+       print('checkmask')
+       return np.float64(-99.0),np.float64(-99.0)
+
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
@@ -834,17 +846,6 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     else:
         image_stats= imstat(imagename = imagename)
 
-    if maskname is None:
-       maskImage=imagename.replace('image','mask').replace('.tt0','')
-    else:
-       maskImage=maskname
-    if not os.path.exists(maskImage):
-       print('Does not exist')
-       return np.float64(-99.0),np.float64(-99.0)
-    goodMask=checkmask(maskImage)
-    if not goodMask:
-       print('checkmask')
-       return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     os.system('cp -r '+maskImage+ ' temp.mask')
