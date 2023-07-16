@@ -617,9 +617,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             for incl_scan in selfcal_library[target][band][vis][solint]['include_scans']:
                                 if selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] in \
                                         msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)):
-                                    scans_for_field.append(int(incl_scans.split(',')[0]))
+                                    scans_for_field.append(int(incl_scan.split(',')[0]))
                                     cals_for_scan.append((scans == scans_for_field[-1]).sum() if scans_for_field[-1] in scans else 0.)
-                                    total_cals_for_scan.append(max_n_solutions)
+                                    #total_cals_for_scan.append(len(msmd.antennasforscan(scans_for_field[-1])))
+                                    total_cals_for_scan.append(len(msmd.antennanames()))
 
                             if sum(cals_for_scan) / sum(total_cals_for_scan) < 0.75:
                                 new_fields_to_selfcal.remove(fid)
