@@ -615,9 +615,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             cals_for_scan = []
                             total_cals_for_scan = []
                             for incl_scan in selfcal_library[target][band][vis][solint]['include_scans']:
-                                if selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] in \
-                                        msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)):
-                                    scans_for_field.append(int(incl_scan.split(',')[0]))
+                                scans_array = np.array(incl_scan.split(",")).astype(int)
+                                fields_for_scans = msmd.fieldsforscans(scans_array)
+
+                                if selfcal_library[target][band]['sub-fields-fid_map'][vis][fid] in fields_for_scans:
+                                    scans_for_field.append(np.intersect1d(scans_array, np.unique(scans)))
                                     cals_for_scan.append((scans == scans_for_field[-1]).sum() if scans_for_field[-1] in scans else 0.)
                                     #total_cals_for_scan.append(len(msmd.antennasforscan(scans_for_field[-1])))
                                     total_cals_for_scan.append(len(msmd.antennanames()))
