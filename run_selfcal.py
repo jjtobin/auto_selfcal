@@ -875,6 +875,77 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              else:
                  field_by_field_success = numpy.logical_and(strict_field_by_field_success, beam_field_by_field_success)
 
+             # If not all fields were successful, we need to make an additional image to evaluate whether the image as a whole improved,
+             # otherwise the _post image won't be exactly representative.
+             if selfcal_library[target][band]['obstype'] == "mosaic" and not np.all(field_by_field_success):
+                 field_by_field_success_dict = dict(zip(selfcal_library[target][band]['sub-fields-to-selfcal'], field_by_field_success))
+                 print('****************Not all fields were successful, so re-applying and re-making _post image*************')
+                 for vis in vislist:
+                     flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
+                     for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                         if not field_by_field_success_dict[fid]:
+                             if selfcal_library[target][band][fid]['SC_success']:
+                                 print('****************Applying '+str(selfcal_library[target][band][fid][vis]['gaintable_final'])+' to '+target+' field '+\
+                                         str(fid)+' '+band+'*************')
+                                 applycal(vis=vis,\
+                                         gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
+                                         interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
+                                         calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
+                                         applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
+                                         field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                         spw=selfcal_library[target][band][vis]['spws'])    
+                             else:
+                                 print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
+                                 clearcal(vis=vis,field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                         spw=selfcal_library[target][band][vis]['spws'])
+                                 selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
+                                 selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
+
+                                 for fid in selfcal_library[target][band]['sub-fields']:
+                                     selfcal_library[target][band][fid]['SNR_post']=selfcal_library[target][band][fid]['SNR_orig'].copy()
+                                     selfcal_library[target][band][fid]['RMS_post']=selfcal_library[target][band][fid]['RMS_orig'].copy()
+                         else:
+                             applycal(vis=vis,\
+                                      gaintable=selfcal_library[target][band][fid][vis][solint]['gaintable'],\
+                                      interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=False,\
+                                      spwmap=selfcal_library[target][band][fid][vis][solint]['spwmap'],\
+                                      #applymode=applymode,field=target,spw=selfcal_library[target][band][vis]['spws'])
+                                      applymode='calflag',field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
+                                      spw=selfcal_library[target][band][vis]['spws'])
+
+                 tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post',
+                          band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
+                          threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
+                          savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
+                          nterms=selfcal_library[target][band]['nterms'],
+                          field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=False, mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'])
+
+                 ##
+                 ## Do the assessment of the post- (and pre-) selfcal images.
+                 ##
+                 print('Pre selfcal assessemnt: '+target)
+                 SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                         maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.mask')
+                 if telescope !='ACA' or aca_use_nfmask:
+                    SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                            maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.mask', las=selfcal_library[target][band]['LAS'])
+                    if RMS_NF < 0:
+                        SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
+                                maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask', las=selfcal_library[target][band]['LAS'])
+                 else:
+                    SNR_NF,RMS_NF=SNR,RMS
+
+                 print('Post selfcal assessemnt: '+target)
+                 post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0')
+                 if telescope !='ACA' or aca_use_nfmask:
+                    post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0', \
+                            las=selfcal_library[target][band]['LAS'])
+                    if post_RMS_NF < 0:
+                        post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0', \
+                                maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask', las=selfcal_library[target][band]['LAS'])
+                 else:
+                    post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
+
              if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
                 selfcal_library[target][band]['SC_success']=True
                 selfcal_library[target][band]['Stop_Reason']='None'
