@@ -16,10 +16,14 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     fieldid=msmd.fieldsforname(field)
     msmd.done()
     tb.open(vis[0]+'/FIELD')
-    ephem_column=tb.getcol('EPHEMERIS_ID')
-    tb.close()
-    if ephem_column[fieldid[0]] !=-1:
-       phasecenter='TRACKFIELD'
+    try:
+       ephem_column=tb.getcol('EPHEMERIS_ID')
+       tb.close()
+       if ephem_column[fieldid[0]] !=-1:
+          phasecenter='TRACKFIELD'
+    except:
+       tb.close()
+       phasecenter=''
 
     if obstype=='mosaic':
        phasecenter=get_phasecenter(vis[0],field)
