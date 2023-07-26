@@ -909,7 +909,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                  tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post',
                           band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                          threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
+                          threshold=str(selfcal_library[target][band][vislist[0]][solint]['clean_threshold'])+'Jy',
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                           nterms=selfcal_library[target][band]['nterms'],
                           field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=False, mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'])
