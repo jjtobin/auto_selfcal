@@ -882,8 +882,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  print('****************Not all fields were successful, so re-applying and re-making _post image*************')
                  for vis in vislist:
                      flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
-                     for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                         if not field_by_field_success_dict[fid]:
+                     for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                         if fid not in field_by_field_success_dict or not field_by_field_success_dict[fid]:
                              if selfcal_library[target][band][fid]['SC_success']:
                                  print('****************Applying '+str(selfcal_library[target][band][fid][vis]['gaintable_final'])+' to '+target+' field '+\
                                          str(fid)+' '+band+'*************')
@@ -898,12 +898,6 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
                                  clearcal(vis=vis,field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
                                          spw=selfcal_library[target][band][vis]['spws'])
-                                 selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
-                                 selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
-
-                                 for fid in selfcal_library[target][band]['sub-fields']:
-                                     selfcal_library[target][band][fid]['SNR_post']=selfcal_library[target][band][fid]['SNR_orig'].copy()
-                                     selfcal_library[target][band][fid]['RMS_post']=selfcal_library[target][band][fid]['RMS_orig'].copy()
                          else:
                              applycal(vis=vis,\
                                       gaintable=selfcal_library[target][band][fid][vis][solint]['gaintable'],\
