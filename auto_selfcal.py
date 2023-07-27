@@ -818,7 +818,7 @@ for target in all_targets:
          ## if S/N improvement, and beamarea is changing by < delta_beam_thresh, accept solutions to main calibration dictionary
          ## allow to proceed if solint was inf_EB and SNR decrease was less than 2%
          ##
-         if ((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh)): 
+         if ((post_SNR >= SNR) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and (delta_beamarea < delta_beam_thresh)): 
             selfcal_library[target][band]['SC_success']=True
             selfcal_library[target][band]['Stop_Reason']='None'
             for vis in vislist:
@@ -854,10 +854,6 @@ for target in all_targets:
             reason=''
             if (post_SNR <= SNR):
                reason=reason+' S/N decrease'
-            if (post_SNR_NF < SNR_NF):
-               if reason != '':
-                   reason += '; '
-               reason = reason + ' NF S/N decrease'
             if (delta_beamarea > delta_beam_thresh):
                if reason !='':
                   reason=reason+'; '
