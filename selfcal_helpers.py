@@ -1657,7 +1657,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          max_uv_dist=max_baseline # leave maxuv in meters like the other uv entries /meanlam/1000.0
          min_uv_dist=min_baseline
          band_properties[vis][band]['maxuv']=max_uv_dist
-         band_properties[vis][band]['minuv']=max_uv_dist
+         band_properties[vis][band]['minuv']=min_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
          band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
