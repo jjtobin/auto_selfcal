@@ -907,7 +907,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                       applymode='calflag',field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
                                       spw=selfcal_library[target][band][vis]['spws'])
 
-                 tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post',
+                 files = glob.glob(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+"_post.*")
+                 for f in files:
+                     os.system("mv "+f+" "+f.replace("_post","_post_intermediate"))
+
+                 tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                           band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                           threshold=str(selfcal_library[target][band][vislist[0]][solint]['clean_threshold'])+'Jy',
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
@@ -919,10 +923,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  ##
                  print('Pre selfcal assessemnt: '+target)
                  SNR,RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
-                         maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.mask')
+                         maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
                  if telescope !='ACA' or aca_use_nfmask:
                     SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
-                            maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.mask', las=selfcal_library[target][band]['LAS'])
+                            maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask', las=selfcal_library[target][band]['LAS'])
                     if RMS_NF < 0:
                         SNR_NF,RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
                                 maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask', las=selfcal_library[target][band]['LAS'])
@@ -930,12 +934,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     SNR_NF,RMS_NF=SNR,RMS
 
                  print('Post selfcal assessemnt: '+target)
-                 post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0')
+                 post_SNR,post_RMS=estimate_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
                  if telescope !='ACA' or aca_use_nfmask:
-                    post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0', \
+                    post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0', \
                             las=selfcal_library[target][band]['LAS'])
                     if post_RMS_NF < 0:
-                        post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0', \
+                        post_SNR_NF,post_RMS_NF=estimate_near_field_SNR(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0', \
                                 maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask', las=selfcal_library[target][band]['LAS'])
                  else:
                     post_SNR_NF,post_RMS_NF=post_SNR,post_RMS
@@ -976,11 +980,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr'] and \
                             selfcal_library[target][band][vis][solint]['RMS_NF_post'] > 0:
                        selfcal_library[target][band]['RMS_NF_curr']=selfcal_library[target][band][vis][solint]['RMS_NF_post'].copy()
-                    header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0')
+                    header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
                     selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
                     selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
                     selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
-                    selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post_post.image.tt0',post_RMS)
+                    selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
 
              if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
                 selfcal_library[target][band]['SC_success']=True
