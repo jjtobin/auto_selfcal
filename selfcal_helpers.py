@@ -703,7 +703,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
 
     # Check the extent of the beam as well.
-    psfImage = imagename.replace('image','psf')
+    psfImage = maskImage.replace('mask','psf')+'.tt0'
     pbImage = imagename.replace('image','pb')
 
     immath(imagename=[psfImage,pbImage], mode="evalexpr", expr="iif(IM0 > 0.1,1/IM1,0.0)", outfile="temp.beam.extent.image")
