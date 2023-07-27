@@ -868,7 +868,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                          ((post_mosaic_SNR_NF[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
                  beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
 
-             if solint == 'inf_EB' or np.any(strict_field_by_field_success):
+             if solint == 'inf_EB':
                  # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
                  # fields because there's a good chance that those are just noise being pushed around.
                  field_by_field_success = numpy.logical_and(loose_field_by_field_success, beam_field_by_field_success)
