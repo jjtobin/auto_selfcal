@@ -28,7 +28,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if obstype=='mosaic':
        phasecenter=get_phasecenter(vis[0],field)
 
-    print('NF MRS Multiplier: ', nfrms_multiplier)
+    print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
