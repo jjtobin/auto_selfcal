@@ -552,6 +552,8 @@ for target in all_targets:
                  resume = True
                  files = glob.glob(sani_target+'_'+band+'_'+prev_solint+'_'+str(prev_iteration)+"_post.*")
                  for f in files:
+                     if 'nearfield' in f:
+                         continue
                      os.system("cp -r "+f+" "+f.replace(prev_solint+"_"+str(prev_iteration)+"_post", solint+'_'+str(iteration)))
          else:
              resume = False
