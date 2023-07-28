@@ -35,15 +35,19 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     fieldid=msmd.fieldsforname(field)
     msmd.done()
     tb.open(vis[0]+'/FIELD')
-    ephem_column=tb.getcol('EPHEMERIS_ID')
-    tb.close()
-    if ephem_column[fieldid[0]] !=-1:
-       phasecenter='TRACKFIELD'
+    try:
+       ephem_column=tb.getcol('EPHEMERIS_ID')
+       tb.close()
+       if ephem_column[fieldid[0]] !=-1:
+          phasecenter='TRACKFIELD'
+    except:
+       tb.close()
+       phasecenter=''
 
     if obstype=='mosaic' and phasecenter != 'TRACKFIELD':
        phasecenter=get_phasecenter(vis[0],field)
 
-
+    print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
@@ -221,6 +225,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  usemask='user',
                  savemodel = savemodel,
                  sidelobethreshold=sidelobethreshold,
+                 noisethreshold=noisethreshold,
+                 lownoisethreshold=lownoisethreshold,
                  smoothfactor=smoothfactor,
                  pbmask=pbmask,
                  pblimit=pblimit,
@@ -1805,8 +1811,9 @@ def get_max_uvdist(vislist,bands,band_properties):
       for vis in vislist:
          meanlam=3.0e8/band_properties[vis][band]['meanfreq']
          max_uv_dist=max_baseline # leave maxuv in meters like the other uv entries /meanlam/1000.0
+         min_uv_dist=min_baseline
          band_properties[vis][band]['maxuv']=max_uv_dist
-         band_properties[vis][band]['minuv']=max_uv_dist
+         band_properties[vis][band]['minuv']=min_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
          band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
