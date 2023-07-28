@@ -6,7 +6,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
-                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', \
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', nfrms_multiplier=1.0, \
                    savemodel_only=False, resume=False):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
@@ -28,6 +28,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if obstype=='mosaic':
        phasecenter=get_phasecenter(vis[0],field)
 
+    print('NF RMS Multiplier: ', nfrms_multiplier)
+    # Minimize out the nfrms_multiplier at 1.
+    nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
     if mask == '':
        usemask='auto-multithresh'
@@ -38,8 +41,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if telescope=='ALMA':
        sidelobethreshold=3.0
        smoothfactor=1.0
-       noisethreshold=5.0
-       lownoisethreshold=1.5
+       noisethreshold=5.0*nfrms_multiplier
+       lownoisethreshold=1.5*nfrms_multiplier
        cycleniter=-1
        cyclefactor=1.0
        print(band_properties)
@@ -49,16 +52,16 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if telescope=='ACA':
        sidelobethreshold=1.25
        smoothfactor=1.0
-       noisethreshold=5.0
-       lownoisethreshold=2.0
+       noisethreshold=5.0*nfrms_multiplier
+       lownoisethreshold=2.0*nfrms_multiplier
        cycleniter=-1
        cyclefactor=1.0
 
     elif 'VLA' in telescope:
        sidelobethreshold=2.0
        smoothfactor=1.0
-       noisethreshold=5.0
-       lownoisethreshold=1.5    
+       noisethreshold=5.0*nfrms_multiplier
+       lownoisethreshold=1.5*nfrms_multiplier
        pblimit=-0.1
        cycleniter=-1
        cyclefactor=3.0
@@ -111,6 +114,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                mask=mask,
                usemask=usemask,
                sidelobethreshold=sidelobethreshold,
+               noisethreshold=noisethreshold,
+               lownoisethreshold=lownoisethreshold,
                smoothfactor=smoothfactor,
                pbmask=pbmask,
                pblimit=pblimit,
@@ -120,7 +125,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                parallel=parallel,
                phasecenter=phasecenter,
                startmodel=startmodel,
-               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes)
+               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True)
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel=='modelcolumn':
           print("")
@@ -147,6 +152,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  usemask='user',
                  savemodel = savemodel,
                  sidelobethreshold=sidelobethreshold,
+                 noisethreshold=noisethreshold,
+                 lownoisethreshold=lownoisethreshold,
                  smoothfactor=smoothfactor,
                  pbmask=pbmask,
                  pblimit=pblimit,
@@ -853,7 +860,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True):
 
 
 
-def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
+def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     beammajor = headerlist['beammajor']['value']
@@ -872,38 +879,64 @@ def estimate_near_field_SNR(imagename,maskname=None,verbose=True):
        print('checkmask')
        return np.float64(-99.0),np.float64(-99.0)
     residualImage=imagename.replace('image','residual')
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.beam.extent.mask')
     os.system('cp -r '+maskImage+ ' temp.mask')
     os.system('cp -r '+residualImage+ ' temp.residual')
     residualImage='temp.residual'
     maskStats=imstat(imagename='temp.mask')
-    imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*3.0)+'arcsec',minor=str(beammajor*3.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
-    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.smooth.ceiling.mask')
-    imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(beammajor*5.0)+'arcsec',minor=str(beammajor*5.0)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
-    immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.1,1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
+    imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*1.0)+'arcsec',minor=str(beammajor*1.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
+    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
+
+    # Check the extent of the beam as well.
+    psfImage = maskImage.replace('mask','psf')+'.tt0'
+    pbImage = imagename.replace('image','pb')
+
+    immath(imagename=[psfImage,pbImage], mode="evalexpr", expr="iif(IM0 > 0.1,1/IM1,0.0)", outfile="temp.beam.extent.image")
+
+    centerpos = imhead(psfImage, mode="get", hdkey="maxpixpos")
+    maxpos = imhead("temp.beam.extent.image", mode="get", hdkey="maxpixpos")
+    center_coords = imval(psfImage, box=str(centerpos[0])+","+str(centerpos[1]))["coords"]
+    max_coords = imval(psfImage, box=str(maxpos[0])+","+str(maxpos[1]))["coords"]
+
+    beam_extent_size = ((center_coords - max_coords)**2)[0:2].sum()**0.5 * 360*60*60/(2*np.pi)
+
+    # use the maximum of the three possibilities as the outer extent of the mask.
+    print("beammajor*5 = ", beammajor*5, ", LAS = ", 5*las, ", beam_extent = ", beam_extent_size)
+    outer_major = max(beammajor*5, beam_extent_size, 5*las if las is not None else 0.)
+
+    imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(outer_major)+'arcsec',minor=str(outer_major)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+
+    immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
     #immath(imagename=['temp.smooth.ceiling.mask','temp.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.border.mask')
-    immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.mask')
+    immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.prepb.mask')
+    immath(imagename=['temp.nearfield.prepb.mask',imagename.replace("image","pb")], expr='iif(VALUE(IM1) > 0.1,IM0,1.0)',outfile='temp.nearfield.mask')
     maskImage='temp.nearfield.mask'
-    ia.close()
-    ia.done()
-    ia.open(residualImage)
-    #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-    ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-    mask0Stats = ia.statistics(robust=True,axes=[0,1])
-    ia.maskhandler(op='set',name='madpbmask0')
-    rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
-    residualMean = mask0Stats['median'][0]
-    peak_intensity = image_stats['max'][0]
-    SNR = peak_intensity/rms
-    if verbose:
-           print("#%s" % imagename)
-           print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-           print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-           print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
-           print("#Peak Near Field SNR: %.2f" % (SNR,))
-    ia.close()
-    ia.done()
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask')
+    mask_stats= imstat(maskImage)
+    if mask_stats['min'][0] == 1:
+       print('checkmask')
+       SNR, rms = np.float64(-99.0), np.float64(-99.0)
+    else:
+       ia.close()
+       ia.done()
+       ia.open(residualImage)
+       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
+       mask0Stats = ia.statistics(robust=True,axes=[0,1])
+       ia.maskhandler(op='set',name='madpbmask0')
+       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
+       residualMean = mask0Stats['median'][0]
+       peak_intensity = image_stats['max'][0]
+       SNR = peak_intensity/rms
+       if verbose:
+              print("#%s" % imagename)
+              print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+              print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
+              print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
+              print("#Peak Near Field SNR: %.2f" % (SNR,))
+       ia.close()
+       ia.done()
+    os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
+    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image')
     return SNR,rms
 
 
@@ -1619,14 +1652,19 @@ def get_max_uvdist(vislist,bands,band_properties):
          baselines=get_baseline_dist(vis)
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
+      min_baseline=np.min(all_baselines)
+      baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
          meanlam=3.0e8/band_properties[vis][band]['meanfreq']
          max_uv_dist=max_baseline # leave maxuv in meters like the other uv entries /meanlam/1000.0
+         min_uv_dist=min_baseline
          band_properties[vis][band]['maxuv']=max_uv_dist
+         band_properties[vis][band]['minuv']=min_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
+         band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
 
 
 def get_uv_range(band,band_properties,vislist):
