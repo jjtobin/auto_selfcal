@@ -39,7 +39,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if threshold != '0.0Jy':
        nsigma=0.0
     if telescope=='ALMA':
-       sidelobethreshold=3.0
+       sidelobethreshold=2.5
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
