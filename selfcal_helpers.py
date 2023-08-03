@@ -1384,9 +1384,17 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
       msmd.open(vis)
       spws=msmd.spwsfornames(spwname)
       msmd.close()
+      trans_spw=0
       # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-      trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
-
+      #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+      for check_spw in spws[spwname]:
+         matching_index=np.where(check_spw == spwsarray_dict[vis])
+         if len(matching_index[0]) == 0:
+              continue
+         else:
+              trans_spw=check_spw
+              break
+      #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
       cumulat_bw=0.0
       for i in range(len(contdotdat[key])):
          cumulat_bw+=np.abs(contdotdat[key][i][1]-contdotdat[key][i][0])

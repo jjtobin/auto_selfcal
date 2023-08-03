@@ -325,10 +325,12 @@ for target in all_targets:
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws
       #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
+      spw_bandwidths_dict={}
+      spw_effective_bandwidths_dict={}
       for vis in selfcal_library[target][band]['vislist']:
          selfcal_library[target][band][vis]['per_spw_stats'] = {}
           
-         spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+         spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
 
          selfcal_library[target][band][vis]['total_bandwidth']=0.0
          selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
@@ -343,10 +345,10 @@ for target in all_targets:
             if spw not in keylist:
                selfcal_library[target][band][vis]['per_spw_stats'][spw]={}
 
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths[spw]
-            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths_dict[vis][spw]
 
 if check_all_spws:
    for target in all_targets:
