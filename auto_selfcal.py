@@ -566,6 +566,12 @@ for target in all_targets:
                      nterms=selfcal_library[target][band]['nterms'],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume)
 
+         # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
+         # code will break.
+         if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
+             selfcal_library[target][band]['Stop_Reason'] = 'Empty model for solint '+solint
+             break # breakout of loop because the model is empty and gaincal will therefore fail
+
          header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
 
          if iteration == 0:
