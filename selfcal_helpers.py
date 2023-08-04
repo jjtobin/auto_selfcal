@@ -359,6 +359,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    n_spws=np.array([])
    min_spws=np.array([])
    spwslist=np.array([])
+   spws_set_dict = {}
    mosaic_field={}
    scansdict={}
    for vis in vislist:
@@ -367,6 +368,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       scanendsdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
+      spws_set_dict[vis] = {}
       scansdict[vis]={}
       msmd.open(vis)
       for target in targets:
@@ -390,6 +392,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
 
          for scan in scansdict[vis][target]:
             spws=msmd.spwsforscan(scan)
+            spws_set_dict[vis][scan]=spws.copy()
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
             spwslist=np.append(spws,spwslist)
@@ -410,6 +413,14 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          #assume each band only has a single integration time
          integrationtimesdict[vis][target]=np.median(integrationtimes)
          integrationsdict[vis][target]=integrations.copy()
+   # jump through some hoops to get the dictionary that has spws per scan into a dictionary of unique
+   # spw sets per vis file
+   for vis in vislist:
+      spws_set_list=[i for i in spws_set_dict[vis].values()]
+      spws_set_list=[i.tolist() for i in spws_set_list]
+      unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
+      spws_set_list=[np.array(i) for i in unique_spws_set_list]
+      spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
          print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
@@ -418,7 +429,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       spwslist=np.unique(spwslist).astype(int)
    else:
      return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
-   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
+   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set_dict,mosaic_field
 
 #deprecated function marked for removal
 def fetch_spws_old(vislist,targets,listdict):
@@ -2685,11 +2696,13 @@ def importdata(vislist,all_targets,telescope):
    integrationtimesdict
    mosaic_field_dict={}
    bands_to_remove=[]
+   spws_set_dict = {}
+   nspws_sets_dict = {}
 
    for band in bands:
         print(band)
         scantimesdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
 
         scantimesdict[band]=scantimesdict_temp.copy()
         scanstartsdict[band]=scanstartsdict_temp.copy()
@@ -2697,6 +2710,11 @@ def importdata(vislist,all_targets,telescope):
         integrationsdict[band]=integrationsdict_temp.copy()
         mosaic_field_dict[band]=mosaic_field_temp.copy()
         integrationtimesdict[band]=integrationtimesdict_temp.copy()
+        spws_set_dict[band] = spws_set_dict_temp.copy()
+        if spws_set_dict[band][vislist[0]].ndim > 1:
+           nspws_sets_dict[band]=spws_set_dict[band][vislist[0]].shape[0]
+        else:
+           nspws_sets_dict[band]=1
         if n_spws_temp == -99:
            for vis in vislist:
               band_properties[vis].pop(band)
@@ -2721,7 +2739,7 @@ def importdata(vislist,all_targets,telescope):
       for delband in bands_to_remove:
          bands.remove(delband)
    
-   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,spectral_scan,spws_set
+   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,spectral_scan,spws_set_dict
 
 def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
