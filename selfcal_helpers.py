@@ -217,7 +217,6 @@ def fetch_scan_times_old(vislist,targets,listdict):
    spwslist=np.unique(spwslist).astype(int)
    return scantimesdict,integrationsdict,integrationtimesdict, integrationtime,np.max(n_spws),np.min(min_spws),spwslist
 
-
 def fetch_scan_times(vislist,targets):
    scantimesdict={}
    integrationsdict={}
@@ -233,7 +232,7 @@ def fetch_scan_times(vislist,targets):
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
       scansdict[vis]={}
-      spws_set_dict[vis]=np.array([])
+      spws_set_dict[vis]={}
       spwslist_dict[vis]=np.array([])
       msmd.open(vis)
       for target in targets:
@@ -243,11 +242,10 @@ def fetch_scan_times(vislist,targets):
          scantimes=np.array([])
          integrations=np.array([])
          for scan in scansdict[vis][target]:
+            spws_set_dict[vis][scan]=np.array([])
             spws=msmd.spwsforscan(scan)
-            if spws_set_dict[vis].size==0:
-               spws_set_dict[vis]=spws.copy()
-            else:
-               spws_set_dict[vis]=np.vstack((spws_set_dict[vis],spws))
+            print(scan, spws)
+            spws_set_dict[vis][scan]=spws.copy()
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
             spwslist_dict[vis]=np.append(spws,spwslist_dict[vis])
@@ -272,7 +270,14 @@ def fetch_scan_times(vislist,targets):
       print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    for vis in vislist:
       spwslist_dict[vis]=np.unique(spwslist_dict[vis]).astype(int)
-      spws_set_dict[vis]=np.unique(spws_set_dict[vis],axis=0)
+   # jump through some hoops to get the dictionary that has spws per scan into a dictionary of unique
+   # spw sets per vis file
+   for vis in vislist:
+      spws_set_list=[i for i in spws_set_dict[vis].values()]
+      spws_set_list=[i.tolist() for i in spws_set_list]
+      unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
+      spws_set_list=[np.array(i) for i in unique_spws_set_list]
+      spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
 
    return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict
 

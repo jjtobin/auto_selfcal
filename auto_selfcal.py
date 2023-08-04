@@ -334,11 +334,11 @@ for target in all_targets:
 
          selfcal_library[target][band][vis]['total_bandwidth']=0.0
          selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
-         if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+         if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
             print('cont.dat does not contain all spws; falling back to total bandwidth')
-            for spw in spw_bandwidths.keys():
-               if spw not in spw_effective_bandwidths.keys():
-                  spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+            for spw in spw_bandwidths[vis].keys():
+               if spw not in spw_effective_bandwidths_dict[vis].keys():
+                  spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths_dict[vis][spw]
 
          for spw in selfcal_library[target][band][vis]['spwlist']:
             keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
