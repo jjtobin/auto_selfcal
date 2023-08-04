@@ -1172,9 +1172,13 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     spw_col = tb.getcol('DATA_DESC_ID')
     obs_col = tb.getcol('OBSERVATION_ID')
     #work around the fact that spws in DATA_DESC_ID don't match listobs
+
+    spw=int(spw)  # work around spw begin an np.uint64
     uniquespws=np.unique(spw_col)
     matching_index=np.where(spw==spwsarray)
-    alt_spw=uniquespws[matching_index[0]]
+    alt_spw=uniquespws[matching_index[0][0]]
+    alt_spw=int(alt_spw) # work around spw begin an np.uint64
+    print(spw,alt_spw,matching_index[0])
     tb.close()
     obsid = np.unique(obs_col[np.where(spw_col==alt_spw)]) 
     
@@ -1193,6 +1197,8 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     lsrkfreqs = ms.cvelfreqs(spwids = [spw], fieldids = int(np.where(fieldnames==field)[0][0]), mode = 'channel', nchan = nchan, \
             obstime = str(obstime)+'s', start = 0, outframe = 'LSRK') / 1e9
     ms.close()
+    print(spw,alt_spw,field,int(np.where(fieldnames==field)[0][0]))
+    print(lsrkfreqs)
 
     if type(LSRKfreq)==np.ndarray:
         if minmaxchans:
@@ -1206,6 +1212,7 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
             outchans = np.zeros_like(LSRKfreq)
             for i in range(len(LSRKfreq)):
                 outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
+            print(outchans)
         return outchans
     else:
         if minmaxchans:
