@@ -224,14 +224,16 @@ def fetch_scan_times(vislist,targets):
    integrationtimes=np.array([])
    n_spws=np.array([])
    min_spws=np.array([])
-   spwslist=np.array([])
-   spws_set=np.array([])
+   spwslist_dict={}
+   spws_set_dict={}
    scansdict={}
    for vis in vislist:
       scantimesdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
       scansdict[vis]={}
+      spws_set_dict[vis]={}
+      spwslist_dict[vis]=np.array([])
       msmd.open(vis)
       for target in targets:
          scansdict[vis][target]=msmd.scansforfield(target)
@@ -240,14 +242,13 @@ def fetch_scan_times(vislist,targets):
          scantimes=np.array([])
          integrations=np.array([])
          for scan in scansdict[vis][target]:
+            spws_set_dict[vis][scan]=np.array([])
             spws=msmd.spwsforscan(scan)
-            if spws_set.size==0:
-               spws_set=spws.copy()
-            else:
-               spws_set=np.vstack((spws_set,spws))
+            print(scan, spws)
+            spws_set_dict[vis][scan]=spws.copy()
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
-            spwslist=np.append(spws,spwslist)
+            spwslist_dict[vis]=np.append(spws,spwslist_dict[vis])
             integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
             integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
             times=msmd.timesforscan(scan)
@@ -267,9 +268,18 @@ def fetch_scan_times(vislist,targets):
       print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    if np.max(min_spws) != np.min(min_spws):
       print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
-   spwslist=np.unique(spwslist).astype(int)
-   spws_set=np.unique(spws_set,axis=0)
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set
+   for vis in vislist:
+      spwslist_dict[vis]=np.unique(spwslist_dict[vis]).astype(int)
+   # jump through some hoops to get the dictionary that has spws per scan into a dictionary of unique
+   # spw sets per vis file
+   for vis in vislist:
+      spws_set_list=[i for i in spws_set_dict[vis].values()]
+      spws_set_list=[i.tolist() for i in spws_set_list]
+      unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
+      spws_set_list=[np.array(i) for i in unique_spws_set_list]
+      spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
+
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict
 
 #listobs version of function, marked for removal
 def fetch_scan_times_band_aware_old(vislist,targets,listdict,band_properties,band):
@@ -349,6 +359,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    n_spws=np.array([])
    min_spws=np.array([])
    spwslist=np.array([])
+   spws_set_dict = {}
    mosaic_field={}
    scansdict={}
    for vis in vislist:
@@ -357,6 +368,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       scanendsdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
+      spws_set_dict[vis] = {}
       scansdict[vis]={}
       msmd.open(vis)
       for target in targets:
@@ -380,6 +392,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
 
          for scan in scansdict[vis][target]:
             spws=msmd.spwsforscan(scan)
+            spws_set_dict[vis][scan]=spws.copy()
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
             spwslist=np.append(spws,spwslist)
@@ -400,6 +413,14 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          #assume each band only has a single integration time
          integrationtimesdict[vis][target]=np.median(integrationtimes)
          integrationsdict[vis][target]=integrations.copy()
+   # jump through some hoops to get the dictionary that has spws per scan into a dictionary of unique
+   # spw sets per vis file
+   for vis in vislist:
+      spws_set_list=[i for i in spws_set_dict[vis].values()]
+      spws_set_list=[i.tolist() for i in spws_set_list]
+      unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
+      spws_set_list=[np.array(i) for i in unique_spws_set_list]
+      spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
          print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
@@ -408,7 +429,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       spwslist=np.unique(spwslist).astype(int)
    else:
      return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
-   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
+   return scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set_dict,mosaic_field
 
 #deprecated function marked for removal
 def fetch_spws_old(vislist,targets,listdict):
@@ -1065,7 +1086,7 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                SNR_self_EB_spw[vislist[i]]={}
                for spw in selfcal_library[target][band][vislist[i]]['spwsarray']:
                   if spw in SNR_self_EB_spw[vislist[i]].keys():
-                     SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+                     SNR_self_EB_spw[vislist[i]][str(spw)]=(polscale)**-0.5*selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band][vislist[i]]['TOS'])**0.5)*(selfcal_library[target][band][selfcal_library[target][band][vislist[i]]]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[target][band][selfcal_library[target][band][vislist[i]]]['total_effective_bandwidth'])**0.5
             for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(vislist)):
@@ -1079,16 +1100,16 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
                selfcal_library[target][band]['per_scan_SNR']=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)
                solint_snr[target][band][solint]=selfcal_library[target][band]['per_scan_SNR']
                for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
-                  solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+                  solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/selfcal_library[target][band]['Median_scan_time'])**0.5)*(selfcal_library[target][band][maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[target][band][maxspwvis]['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)
                for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
-                  solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+                  solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/integration_time)**0.5)*(selfcal_library[target][band][maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[target][band][maxspwvis]['total_effective_bandwidth'])**0.5
          else:
                solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[target][band][solint]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
                for spw in selfcal_library[target][band][maxspwvis]['spwsarray']:
-                  solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)*(selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[target][band]['total_effective_bandwidth'])**0.5
+                  solint_snr_per_spw[target][band][solint][str(spw)]=selfcal_library[target][band]['SNR_orig']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)*(selfcal_library[target][band][maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[target][band][maxspwvis]['total_effective_bandwidth'])**0.5
    return solint_snr,solint_snr_per_spw
 
 def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
@@ -1162,9 +1183,13 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     spw_col = tb.getcol('DATA_DESC_ID')
     obs_col = tb.getcol('OBSERVATION_ID')
     #work around the fact that spws in DATA_DESC_ID don't match listobs
+
+    spw=int(spw)  # work around spw begin an np.uint64
     uniquespws=np.unique(spw_col)
     matching_index=np.where(spw==spwsarray)
-    alt_spw=uniquespws[matching_index[0]]
+    alt_spw=uniquespws[matching_index[0][0]]
+    alt_spw=int(alt_spw) # work around spw begin an np.uint64
+    print(spw,alt_spw,matching_index[0])
     tb.close()
     obsid = np.unique(obs_col[np.where(spw_col==alt_spw)]) 
     
@@ -1183,18 +1208,31 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     lsrkfreqs = ms.cvelfreqs(spwids = [spw], fieldids = int(np.where(fieldnames==field)[0][0]), mode = 'channel', nchan = nchan, \
             obstime = str(obstime)+'s', start = 0, outframe = 'LSRK') / 1e9
     ms.close()
+    print(spw,alt_spw,field,int(np.where(fieldnames==field)[0][0]))
+    print(lsrkfreqs)
 
     if type(LSRKfreq)==np.ndarray:
-        outchans = np.zeros_like(LSRKfreq)
-        for i in range(len(LSRKfreq)):
-            outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
+        if minmaxchans:
+            #print(nchan)
+            chanwidth = lsrkfreqs[1] - lsrkfreqs[0]
+            channel = ((LSRKfreq - lsrkfreqs[0])/chanwidth).astype(int)
+            channel_sorted = np.sort(channel)
+            channel_sorted[-1] = abs(nchan-1 - channel_sorted[-1])
+            return channel_sorted/nchan
+        else:
+            outchans = np.zeros_like(LSRKfreq)
+            for i in range(len(LSRKfreq)):
+                outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
+            print(outchans)
         return outchans
     else:
         if minmaxchans:
-           if (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == 0) or (np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == nchan-1):
-              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),True
+           if np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == 0:
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),"min"
+           elif np.argmin(np.abs(lsrkfreqs - LSRKfreq)) == nchan-1:
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),"max"
            else:
-              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),False
+              return np.argmin(np.abs(lsrkfreqs - LSRKfreq)),"middle"
         else:
            return np.argmin(np.abs(lsrkfreqs - LSRKfreq))
 
@@ -1243,17 +1281,27 @@ def parse_contdotdat(contdotdat_file,target):
 
     return contdotdat
 
-def get_spwnum_refvis(vislist,target,contdotdat,spwsarray):
+def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
    # calculate a score for each visibility based on which one ends up with cont.dat freq ranges that correspond to 
    # channel limits; lowest score is chosen as the reference visibility file
    spws=list(contdotdat.keys())
    score=np.zeros(len(vislist))
    for i in range(len(vislist)):
       for spw in spws:
-         chan_min,chanlimit_min=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][0][0],spwsarray, minmaxchans=True)
-         chan_max,chanlimit_max=LSRKfreq_to_chan(vislist[i], target, spw, contdotdat[spw][-1][0],spwsarray, minmaxchans=True)
-         if chanlimit_min:
-            score[i]+=1.0
+         if spw not in spwsarray_dict[vislist[i]]:
+             score[i] += 1e8
+             continue
+
+         # The score is computed as the total distance of the top and bottom of the contdotdat range for this SPW to the
+         # known edges of the SPW.
+         test = LSRKfreq_to_chan(vislist[i], target, spw, np.array([contdotdat[spw][0][0],contdotdat[spw][-1][1]]), \
+                 spwsarray_dict[vislist[i]], minmaxchans=True)
+         score[i] += test.sum()
+
+   # Add in some penalty for being lower after sorting the vislist, as in principle the sorted order should be the order
+   # that they were observed and analyzed in?
+   score += np.arange(len(vislist))[np.argsort(np.argsort(vislist))]
+   print(score)
    visref=vislist[np.argmin(score)]            
    return visref
 
@@ -1282,7 +1330,19 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
         spws=msmd.spwsfornames(spwname)
         msmd.close()
         # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-        trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+        #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+        for check_spw in spws[spwname]:
+           matching_index=np.where(check_spw == spwsarray)
+           if len(matching_index[0]) == 0:
+              continue
+           else:
+              trans_spw=check_spw
+              break
+        if trans_spw==0:
+           print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
+           return ''
+        #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+
         flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
         nchan = tb.getcol('CHAN_FREQ', startrow = trans_spw, nrow = 1).size
@@ -1325,27 +1385,46 @@ def get_spw_chanwidths(vis,spwarray):
 
    return widtharray,bwarray,nchanarray
 
-def get_spw_bandwidth(vis,spwsarray,target):
+def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
    spwbws={}
-   for spw in spwsarray:
+   for spw in spwsarray_dict[vis]:
       tb.open(vis+'/SPECTRAL_WINDOW')
-      spwbws[str(spw)]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spw, nrow = 1)))[0]/1.0e9 # put bandwidths into GHz
+      spwbws[spw]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spw, nrow = 1)))[0]/1.0e9 # put bandwidths into GHz
       tb.close()
    spweffbws=spwbws.copy()
    if os.path.exists("cont.dat"):
-      spweffbws=get_spw_eff_bandwidth(vis,target)
+      spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict)
 
    return spwbws,spweffbws
 
 
-def get_spw_eff_bandwidth(vis,target):
+def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
    spweffbws={}
    contdotdat=parse_contdotdat('cont.dat',target)
+
+   spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
    for key in contdotdat.keys():
+      msmd.open(spwvisref)
+      spwname=msmd.namesforspws(key)[0]
+      msmd.close()
+      msmd.open(vis)
+      spws=msmd.spwsfornames(spwname)
+      msmd.close()
+      trans_spw=0
+      # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
+      #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+      for check_spw in spws[spwname]:
+         matching_index=np.where(check_spw == spwsarray_dict[vis])
+         if len(matching_index[0]) == 0:
+              continue
+         else:
+              trans_spw=check_spw
+              break
+      #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
       cumulat_bw=0.0
       for i in range(len(contdotdat[key])):
          cumulat_bw+=np.abs(contdotdat[key][i][1]-contdotdat[key][i][0])
-      spweffbws[str(key)]=cumulat_bw+0.0
+      spweffbws[trans_spw]=cumulat_bw+0.0
    return spweffbws
    
 
@@ -1432,9 +1511,9 @@ def get_mean_freq(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')
    freqarray=tb.getcol('REF_FREQUENCY')
    tb.close()
-   meanfreq=np.mean(freqarray[spwsarray])
-   minfreq=np.min(freqarray[spwsarray])
-   maxfreq=np.max(freqarray[spwsarray])
+   meanfreq=np.mean(freqarray[spwsarray[vislist[0]]])
+   minfreq=np.min(freqarray[spwsarray[vislist[0]]])
+   maxfreq=np.max(freqarray[spwsarray[vislist[0]]])
    fracbw=np.abs(maxfreq-minfreq)/meanfreq
    return meanfreq, maxfreq,minfreq,fracbw
 
@@ -1487,8 +1566,8 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
       observed_bands[vis]['bands']=[band]
       for band in bands:
          observed_bands[vis][band]={}
-         observed_bands[vis][band]['spwarray']=spwarray
-         observed_bands[vis][band]['spwstring']=spwstring+''
+         observed_bands[vis][band]['spwarray']=spwarray[vis]
+         observed_bands[vis][band]['spwstring']=spwstring[vis]+''
          observed_bands[vis][band]['meanfreq']=meanfreq
          observed_bands[vis][band]['maxfreq']=maxfreq
          observed_bands[vis][band]['minfreq']=minfreq
@@ -1538,7 +1617,7 @@ def get_VLA_bands(vislist,fields):
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
-                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
+                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])} )
                 if (meanfreq==8.332e9) or (meanfreq==8.460e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
@@ -1547,7 +1626,7 @@ def get_VLA_bands(vislist,fields):
             observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
             indices_to_remove=np.array([])
             for i in range(len(observed_bands[vis][band]['spwarray'])):
-                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
+                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
                 if (meanfreq==4.832e9) or (meanfreq==4.960e9):
                    indices_to_remove=np.append(indices_to_remove,[i])
             observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
@@ -1556,7 +1635,7 @@ def get_VLA_bands(vislist,fields):
          spwslist=observed_bands[vis][band]['spwarray'].tolist()
          spwstring=','.join(str(spw) for spw in spwslist)
          observed_bands[vis][band]['spwstring']=spwstring+''
-         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: [observed_bands[vis][band]['spwarray']]})
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):
@@ -2599,19 +2678,22 @@ def render_per_solint_QA_pages(sclib,solints,bands):
 def importdata(vislist,all_targets,telescope):
    spectral_scan=False
    listdict=collect_listobs_per_vis(vislist)
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray,spws_set=fetch_scan_times(vislist,all_targets)
-   spwslist=spwsarray.tolist()
-   spwstring=','.join(str(spw) for spw in spwslist)
-   if spws_set.ndim >1:
-      nspws_sets=spws_set.shape[0]
+   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray_dict,spws_set=fetch_scan_times(vislist,all_targets)
+   spwslist_dict = {}
+   spwstring_dict = {}
+   for vis in vislist:
+        spwslist_dict[vis] = spwsarray_dict[vis].tolist()
+        spwstring_dict[vis]=','.join(str(spw) for spw in spwslist_dict[vis])
+   if spws_set[vislist[0]].ndim > 1:
+      nspws_sets=spws_set[vislist[0]].shape[0]
    else:
       nspws_sets=1
    if 'VLA' in telescope:
       bands,band_properties=get_VLA_bands(vislist,all_targets)
    
    if telescope=='ALMA' or telescope =='ACA':
-      bands,band_properties=get_ALMA_bands(vislist,spwstring,spwsarray)
-      if nspws_sets > 1 and spws_set.ndim >1:
+      bands,band_properties=get_ALMA_bands(vislist,spwstring_dict,spwsarray_dict)
+      if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
          spectral_scan=True
 
    scantimesdict={}
@@ -2621,11 +2703,13 @@ def importdata(vislist,all_targets,telescope):
    integrationtimesdict
    mosaic_field_dict={}
    bands_to_remove=[]
+   spws_set_dict = {}
+   nspws_sets_dict = {}
 
    for band in bands:
         print(band)
         scantimesdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
 
         scantimesdict[band]=scantimesdict_temp.copy()
         scanstartsdict[band]=scanstartsdict_temp.copy()
@@ -2633,6 +2717,11 @@ def importdata(vislist,all_targets,telescope):
         integrationsdict[band]=integrationsdict_temp.copy()
         mosaic_field_dict[band]=mosaic_field_temp.copy()
         integrationtimesdict[band]=integrationtimesdict_temp.copy()
+        spws_set_dict[band] = spws_set_dict_temp.copy()
+        if spws_set_dict[band][vislist[0]].ndim > 1:
+           nspws_sets_dict[band]=spws_set_dict[band][vislist[0]].shape[0]
+        else:
+           nspws_sets_dict[band]=1
         if n_spws_temp == -99:
            for vis in vislist:
               band_properties[vis].pop(band)
@@ -2657,19 +2746,20 @@ def importdata(vislist,all_targets,telescope):
       for delband in bands_to_remove:
          bands.remove(delband)
    
-   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist,spwstring,spwsarray,mosaic_field_dict,spectral_scan,spws_set
+   return listdict,bands,band_properties,scantimesdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,spectral_scan,spws_set_dict
 
-def flag_spectral_lines(vislist,all_targets,spwsarray):
+def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
    contdotdat = parse_contdotdat('cont.dat',all_targets[0])
-   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray)
+   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict)
    for vis in vislist:
       if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
          flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
       else:
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
-         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat)
+         contdotdat = parse_contdotdat('cont.dat',target)
+         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
 def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
@@ -2757,10 +2847,10 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable)
    eff_bws=np.zeros(len(spwlist))
    total_bws=np.zeros(len(spwlist))
-   keylist=list(selfcal_library[target][band]['per_spw_stats'].keys())
+   keylist=list(selfcal_library[target][band][vis]['per_spw_stats'].keys())
    for i in range(len(spwlist)):
-      eff_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['effective_bandwidth']
-      total_bws[i]=selfcal_library[target][band]['per_spw_stats'][keylist[i]]['bandwidth']
+      eff_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['bandwidth']
    minimum_flagged_ants_per_spw=np.min(nflags)/2.0
    minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
                                                            # the impression of a lot of flagging
