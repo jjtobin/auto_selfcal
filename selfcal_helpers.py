@@ -201,7 +201,7 @@ def fetch_scan_times(vislist,targets):
          for scan in scansdict[vis][target]:
             spws_set_dict[vis][scan]=np.array([])
             spws=msmd.spwsforscan(scan)
-            print(scan, spws)
+            #print(scan, spws)
             spws_set_dict[vis][scan]=spws.copy()
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
@@ -247,6 +247,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    integrationtimes=np.array([])
    n_spws=np.array([])
    min_spws=np.array([])
+   scansforspw=np.array([])
    spwslist=np.array([])
    spws_set_dict = {}
    mosaic_field={}
@@ -262,7 +263,10 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       msmd.open(vis)
       for target in targets:
          scansforfield=msmd.scansforfield(target)
-         scansforspw=msmd.scansforspw(band_properties[vis][band]['spwarray'][0])
+         for spw in band_properties[vis][band]['spwarray']:
+            scansforspw_temp=msmd.scansforspw(spw)
+            scansforspw=np.append(scansforspw,np.array(scansforspw_temp,dtype=int))
+         scansforspw=scansforspw.astype(int)
          scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
          scansdict[vis][target].sort()
       for target in targets:
@@ -929,7 +933,7 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     matching_index=np.where(spw==spwsarray)
     alt_spw=uniquespws[matching_index[0][0]]
     alt_spw=int(alt_spw) # work around spw begin an np.uint64
-    print(spw,alt_spw,matching_index[0])
+    #print(spw,alt_spw,matching_index[0])
     tb.close()
     obsid = np.unique(obs_col[np.where(spw_col==alt_spw)]) 
     
@@ -948,8 +952,8 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     lsrkfreqs = ms.cvelfreqs(spwids = [spw], fieldids = int(np.where(fieldnames==field)[0][0]), mode = 'channel', nchan = nchan, \
             obstime = str(obstime)+'s', start = 0, outframe = 'LSRK') / 1e9
     ms.close()
-    print(spw,alt_spw,field,int(np.where(fieldnames==field)[0][0]))
-    print(lsrkfreqs)
+    #print(spw,alt_spw,field,int(np.where(fieldnames==field)[0][0]))
+    #print(lsrkfreqs)
 
     if type(LSRKfreq)==np.ndarray:
         if minmaxchans:
@@ -963,7 +967,7 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
             outchans = np.zeros_like(LSRKfreq)
             for i in range(len(LSRKfreq)):
                 outchans[i] = np.argmin(np.abs(lsrkfreqs - LSRKfreq[i]))
-            print(outchans)
+            #print(outchans)
         return outchans
     else:
         if minmaxchans:
