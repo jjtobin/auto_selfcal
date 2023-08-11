@@ -2751,7 +2751,7 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
       else:
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
-         contdotdat = parse_contdotdat('cont.dat',targets)
+         contdotdat = parse_contdotdat('cont.dat',target)
          contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
