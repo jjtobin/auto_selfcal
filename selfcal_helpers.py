@@ -293,8 +293,6 @@ def fetch_scan_times(vislist,targets):
          #assume each band only has a single integration time
          integrationtimesdict[vis][target]=np.median(integrationtimes)
          integrationsdict[vis][target]=integrations.copy()
-      spwslist_dict[vis] = np.unique(spwslist).astype(int)
-      spws_set_dict[vis] = np.unique(spws_set,axis=0)
       msmd.close()
    if np.mean(n_spws) != np.max(n_spws):
       print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
