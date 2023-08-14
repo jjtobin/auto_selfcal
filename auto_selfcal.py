@@ -322,11 +322,11 @@ for target in all_targets:
           selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
           selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
           if spectral_scan:
-             spwmap=np.zeros(np.max(spws_set[vis])+1,dtype='int')
-             spwmap.fill(np.min(spws_set[vis]))
-             for i in range(spws_set[vis].shape[0]):
-                indices=np.arange(np.min(spws_set[vis][i]),np.max(spws_set[vis][i])+1)
-                spwmap[indices]=np.min(spws_set[vis][i])
+             spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
+             spwmap.fill(np.min(spws_set[band][vis]))
+             for i in range(spws_set[band][vis].shape[0]):
+                indices=np.arange(np.min(spws_set[band][vis][i]),np.max(spws_set[band][vis][i])+1)
+                spwmap[indices]=np.min(spws_set[band][vis][i])
              selfcal_library[target][band][fid][vis]['spwmap']=spwmap.tolist()
           else:
              selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
