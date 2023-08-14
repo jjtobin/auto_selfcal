@@ -349,20 +349,21 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                     for incl_scans, incl_targets in zip(include_scans, include_targets):
                         if solint == 'inf_EB':
-                           if spws_set[vis].ndim == 1:
+                           if spws_set[band][vis].ndim == 1:
                               nspw_sets=1
                            else:
-                              nspw_sets=spws_set[vis].shape[0]
+                              nspw_sets=spws_set[band][vis].shape[0]
                         else: #only necessary to loop over gain cal when in inf_EB to avoid inf_EB solving for all spws
                            nspw_sets=1
                         for i in range(nspw_sets):  # run gaincal on each spw set to handle spectral scans
                            if solint == 'inf_EB':
-                              if nspw_sets == 1 and spws_set[vis].ndim == 1:
-                                 spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
+                              if nspw_sets == 1 and spws_set[band][vis].ndim == 1:
+                                 spwselect=','.join(str(spw) for spw in spws_set[band][vis].tolist())
                               else:
-                                 spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
+                                 spwselect=','.join(str(spw) for spw in spws_set[band][vis][i].tolist())
                            else:
                               spwselect=selfcal_library[target][band][vis]['spws']
+                           print('Running gaincal on '+spwselect+' for '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
                            gaincal(vis=vis,\
                              caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
                              gaintype=gaincal_gaintype, spw=spwselect,
@@ -489,11 +490,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                    test_gaincal_combine='scan,spw'
                    if selfcal_library[target][band]['obstype']=='mosaic':
                       test_gaincal_combine+=',field'   
-                   for i in range(spws_set[vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
-                      if nspw_sets == 1 and spws_set[vis].ndim == 1:
-                         spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
+                   for i in range(spws_set[band][vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
+                      if nspw_sets == 1 and spws_set[band][vis].ndim == 1:
+                         spwselect=','.join(str(spw) for spw in spws_set[band][vis].tolist())
                       else:
-                         spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
+                         spwselect=','.join(str(spw) for spw in spws_set[band][vis][i].tolist())
 
                       gaincal(vis=vis,\
                         caltable='test_inf_EB.g',\

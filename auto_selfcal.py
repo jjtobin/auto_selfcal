@@ -275,11 +275,11 @@ for target in all_targets:
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
       if spectral_scan:
-         spwmap=np.zeros(np.max(spws_set[vis])+1,dtype='int')
-         spwmap.fill(np.min(spws_set[vis]))
-         for i in range(spws_set[vis].shape[0]):
-            indices=np.arange(np.min(spws_set[vis][i]),np.max(spws_set[vis][i])+1)
-            spwmap[indices]=np.min(spws_set[vis][i])
+         spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
+         spwmap.fill(np.min(spws_set[band][vis]))
+         for i in range(spws_set[band][vis].shape[0]):
+            indices=np.arange(np.min(spws_set[band][vis][i]),np.max(spws_set[band][vis][i])+1)
+            spwmap[indices]=np.min(spws_set[band][vis][i])
          selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
       else:
          selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
@@ -512,28 +512,30 @@ for target in all_targets:
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws
       #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
+      spw_bandwidths_dict={}
+      spw_effective_bandwidths_dict={}
       for vis in selfcal_library[target][band]['vislist']:
          selfcal_library[target][band][vis]['per_spw_stats'] = {}
           
-         spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+         spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
 
          selfcal_library[target][band][vis]['total_bandwidth']=0.0
          selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
-         if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+         if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
             print('cont.dat does not contain all spws; falling back to total bandwidth')
-            for spw in spw_bandwidths.keys():
-               if spw not in spw_effective_bandwidths.keys():
-                  spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+            for spw in spw_bandwidths[vis].keys():
+               if spw not in spw_effective_bandwidths_dict[vis].keys():
+                  spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths_dict[vis][spw]
 
          for spw in selfcal_library[target][band][vis]['spwlist']:
             keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
             if spw not in keylist:
                selfcal_library[target][band][vis]['per_spw_stats'][spw]={}
 
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths[spw]
-            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths_dict[vis][spw]
 
       for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid]['per_spw_stats']={}

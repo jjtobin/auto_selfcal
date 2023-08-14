@@ -58,7 +58,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if threshold != '0.0Jy':
        nsigma=0.0
     if telescope=='ALMA':
-       sidelobethreshold=3.0
+       sidelobethreshold=2.5
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
@@ -262,8 +262,8 @@ def fetch_scan_times(vislist,targets):
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
       scansdict[vis]={}
-      spwslist=np.array([])
-      spws_set=np.array([])
+      spws_set_dict[vis]={}
+      spwslist_dict[vis]=np.array([])
       msmd.open(vis)
       for target in targets:
          scansdict[vis][target]=msmd.scansforfield(target)
@@ -272,14 +272,13 @@ def fetch_scan_times(vislist,targets):
          scantimes=np.array([])
          integrations=np.array([])
          for scan in scansdict[vis][target]:
+            spws_set_dict[vis][scan]=np.array([])
             spws=msmd.spwsforscan(scan)
-            if spws_set.size==0:
-               spws_set=spws.copy()
-            else:
-               spws_set=np.vstack((spws_set,spws))
+            #print(scan, spws)
+            spws_set_dict[vis][scan]=spws.copy()
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
-            spwslist=np.append(spws,spwslist)
+            spwslist_dict[vis]=np.append(spws,spwslist_dict[vis])
             integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
             integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
             times=msmd.timesforscan(scan)
@@ -301,8 +300,19 @@ def fetch_scan_times(vislist,targets):
       print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
    if np.max(min_spws) != np.min(min_spws):
       print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict
 
+   for vis in vislist:
+      spwslist_dict[vis]=np.unique(spwslist_dict[vis]).astype(int)
+   # jump through some hoops to get the dictionary that has spws per scan into a dictionary of unique
+   # spw sets per vis file
+   for vis in vislist:
+      spws_set_list=[i for i in spws_set_dict[vis].values()]
+      spws_set_list=[i.tolist() for i in spws_set_list]
+      unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
+      spws_set_list=[np.array(i) for i in unique_spws_set_list]
+      spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
+
+   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict
 
 def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    scantimesdict={}
@@ -315,7 +325,9 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    integrationtimes=np.array([])
    n_spws=np.array([])
    min_spws=np.array([])
+   scansforspw=np.array([])
    spwslist=np.array([])
+   spws_set_dict = {}
    mosaic_field={}
    scansdict={}
    for vis in vislist:
@@ -327,11 +339,15 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       scanendsdict[vis]={}
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
+      spws_set_dict[vis] = {}
       scansdict[vis]={}
       msmd.open(vis)
       for target in targets:
          scansforfield=msmd.scansforfield(target)
-         scansforspw=msmd.scansforspw(band_properties[vis][band]['spwarray'][0])
+         for spw in band_properties[vis][band]['spwarray']:
+            scansforspw_temp=msmd.scansforspw(spw)
+            scansforspw=np.append(scansforspw,np.array(scansforspw_temp,dtype=int))
+         scansforspw=scansforspw.astype(int)
          scansdict[vis][target]=list(set(scansforfield) & set(scansforspw))
          scansdict[vis][target].sort()
       for target in targets:
@@ -353,6 +369,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
 
          for scan in scansdict[vis][target]:
             spws=msmd.spwsforscan(scan)
+            spws_set_dict[vis][scan]=spws.copy()
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
             spwslist=np.append(spws,spwslist)
@@ -377,6 +394,14 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          #assume each band only has a single integration time
          integrationtimesdict[vis][target]=np.median(integrationtimes)
          integrationsdict[vis][target]=integrations.copy()
+   # jump through some hoops to get the dictionary that has spws per scan into a dictionary of unique
+   # spw sets per vis file
+   for vis in vislist:
+      spws_set_list=[i for i in spws_set_dict[vis].values()]
+      spws_set_list=[i.tolist() for i in spws_set_list]
+      unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
+      spws_set_list=[np.array(i) for i in unique_spws_set_list]
+      spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
          print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
@@ -385,7 +410,8 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       spwslist=np.unique(spwslist).astype(int)
    else:
      return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
-   return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,mosaic_field
+   return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set_dict,mosaic_field
+
 
 def fetch_spws(vislist,targets):
    scantimesdict={}
@@ -416,104 +442,6 @@ def fetch_spws(vislist,targets):
    else:
       return np.max(n_spws),np.min(min_spws),spwslist
 
-
-#unused function
-def fetch_scan_times_target(vislist,target,listdict):
-   scantimesdict={}
-   integrationsdict={}
-   integrationtimesdict={}
-   integrationtime=np.array([])
-   n_spws=np.array([])
-   min_spws=np.array([])
-   spwslist=np.array([])
-   allscantimes=np.array([])
-   for vis in vislist:
-      listdict[vis]=listobs(vis)
-      keylist=list(listdict[vis].keys())       
-      countscans=0
-      scantimes=np.array([])
-      integrations=np.array([])
-      for key in keylist:
-         if 'scan' in key:
-            if listdict[vis][key]['0']['FieldName'] == target:
-               countscans+=1
-               scantime=(listdict[vis][key]['0']['EndTime']- listdict[vis][key]['0']['BeginTime'])*86400.0
-               scantimes=np.append(scantimes,np.array([scantime]))
-
-      allscantimes=np.append(allscantimes,scantimes)
-
-   return allscantimes
-
-#deprecated function
-def get_common_intervals(vis,integrationsdict,integrationtime):
-   allintegrations=np.array([])
-
-   #for vis in vislist:
-   allintegrations=np.append(allintegrations,integrationsdict)
-
-   unique_integrations=np.unique(allintegrations)
-   common_multiples=np.array([])
-   common_multiple=True
-   for i in range(1,int(np.max(unique_integrations))):
-      for number in unique_integrations:
-         multiple=number/i
-         #print(multiple,number ,i,multiple.is_integer())
-         if multiple.is_integer():
-            common_multiple=True
-         else:
-            common_multiple=False
-            break
-      if common_multiple:
-         common_multiples=np.append(common_multiples,np.array([i]))
-      common_multiple=True
-   solints=[]
-   for multiple in common_multiples:
-      solint='{:0.2f}s'.format(multiple*integrationtime)
-      solints.append(solint)
-   return common_multiples,solints
-
-#deprecated function
-def get_solints_vla(vis,scantimesdict,integrationtime):
-   allscantimes=np.array([])
-
-   #for vis in vislist: # use if we put all scan times from all MSes into single array
-   #mix of short and long baseline data could have differing integration times and hence solints
-   allscantimes=np.append(allscantimes,scantimesdict)
-
-   medianscantime=np.median(allscantimes)
-   integrations_per_scan=np.round(medianscantime/integrationtime)
-   non_integer_multiple=True
-   i=0
-   while non_integer_multiple:
-      integrations_per_scan=integrations_per_scan+i
-      integrations_per_scan_div4=integrations_per_scan/4.0
-      print(integrations_per_scan,integrations_per_scan_div4,i)
-      if integrations_per_scan_div4.is_integer():
-         non_integer_multiple=False
-         n_ints_increment=i
-      else:
-         i+=1
-
-   max_integrations_per_sol=integrations_per_scan
-   print('Max integrations per solution',max_integrations_per_sol,n_ints_increment)
-   common_multiples=np.array([])
-
-   for i in range(1,int(max_integrations_per_sol)):
-         multiple=max_integrations_per_sol/i
-         #print(multiple,number ,i,multiple.is_integer())
-         if multiple.is_integer():
-            common_multiple=True
-         else:
-            common_multiple=False
-         if common_multiple:
-            common_multiples=np.append(common_multiples,np.array([i]))
-
-   solints=[]
-   for multiple in common_multiples:
-      solint='{:0.2f}s'.format(multiple*integrationtime)
-      solints.append(solint)
-
-   return solints
 
     
 
@@ -723,30 +651,6 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
       #print(delta_ints_per_solint[min_index])
    return delta_ints_per_solint[min_index]
    
-def fetch_targets_old(vis):
-      fields=[]
-      listdict=listobs(vis)
-      listobskeylist=listdict.keys()
-      for listobskey in listobskeylist:
-         if 'field_' in listobskey:
-            fields.append(listdict[listobskey]['name'])
-      fields=list(set(fields)) # convert to set to only get unique items
-      return fields
-
-def fetch_targets_previous(vis):
-      fields=[]
-      tb.open(vis+'/FIELD')
-      names=list(tb.getcol('NAME'))
-      tb.close()
-      listdict=listobs(vis)
-      listobskeylist=listdict.keys()
-      for listobskey in listobskeylist:
-         if 'field_' in listobskey:
-            fieldnum=int(listobskey.split('_')[1])
-            fields.append(names[fieldnum])
-      fields=list(set(fields)) # convert to set to only get unique items
-      return fields
-
 def fetch_targets(vis):
       fields=[]
       msmd.open(vis)
@@ -1200,9 +1104,13 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     spw_col = tb.getcol('DATA_DESC_ID')
     obs_col = tb.getcol('OBSERVATION_ID')
     #work around the fact that spws in DATA_DESC_ID don't match listobs
+
+    spw=int(spw)  # work around spw begin an np.uint64
     uniquespws=np.unique(spw_col)
     matching_index=np.where(spw==spwsarray)
-    alt_spw=uniquespws[matching_index[0]]
+    alt_spw=uniquespws[matching_index[0][0]]
+    alt_spw=int(alt_spw) # work around spw begin an np.uint64
+    #print(spw,alt_spw,matching_index[0])
     tb.close()
     obsid = np.unique(obs_col[np.where(spw_col==alt_spw)]) 
     
@@ -1221,6 +1129,8 @@ def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
     lsrkfreqs = ms.cvelfreqs(spwids = [spw], fieldids = int(np.where(fieldnames==field)[0][0]), mode = 'channel', nchan = nchan, \
             obstime = str(obstime)+'s', start = 0, outframe = 'LSRK') / 1e9
     ms.close()
+    #print(spw,alt_spw,field,int(np.where(fieldnames==field)[0][0]))
+    #print(lsrkfreqs)
 
     if type(LSRKfreq)==np.ndarray:
         if minmaxchans:
@@ -1340,7 +1250,19 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
         spws=msmd.spwsfornames(spwname)
         msmd.close()
         # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-        trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+        #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+        for check_spw in spws[spwname]:
+           matching_index=np.where(check_spw == spwsarray)
+           if len(matching_index[0]) == 0:
+              continue
+           else:
+              trans_spw=check_spw
+              break
+        if trans_spw==0:
+           print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
+           return ''
+        #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+
         flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
         nchan = tb.getcol('CHAN_FREQ', startrow = trans_spw, nrow = 1).size
@@ -1467,9 +1389,17 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
       msmd.open(vis)
       spws=msmd.spwsfornames(spwname)
       msmd.close()
+      trans_spw=0
       # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-      trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
-
+      #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+      for check_spw in spws[spwname]:
+         matching_index=np.where(check_spw == spwsarray_dict[vis])
+         if len(matching_index[0]) == 0:
+              continue
+         else:
+              trans_spw=check_spw
+              break
+      #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
       cumulat_bw=0.0
       for i in range(len(contdotdat[key])):
          cumulat_bw+=np.abs(contdotdat[key][i][1]-contdotdat[key][i][0])
@@ -1704,7 +1634,7 @@ def get_VLA_bands(vislist,fields):
          spwslist=observed_bands[vis][band]['spwarray'].tolist()
          spwstring=','.join(str(spw) for spw in spwslist)
          observed_bands[vis][band]['spwstring']=spwstring+''
-         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: observed_bands[vis][band]['spwarray']})
+         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: [observed_bands[vis][band]['spwarray']]})
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):
@@ -1852,198 +1782,6 @@ def compare_beams(image1, image2):
     beamarea_2=beammajor_2*beamminor_2
     delta_beamarea=(beamarea_2-beamarea_1)/beamarea_1
     return delta_beamarea
-
-
-def generate_weblog_old(sclib,solints,bands):
-   os.system('rm -rf weblog')
-   os.system('mkdir weblog')
-   os.system('mkdir weblog/images')
-   htmlOut=open('weblog/index.html','w')
-   htmlOut.writelines('<html>\n')
-   htmlOut.writelines('<title>SelfCal Weblog</title>\n')
-   htmlOut.writelines('<head>\n')
-   htmlOut.writelines('</head>\n')
-   htmlOut.writelines('<body>\n')
-   htmlOut.writelines('<a name="top"></a>\n')
-   htmlOut.writelines('<h1>SelfCal Weblog</h1>\n')
-   htmlOut.writelines('<h2>Targets:</h2>\n')
-   targets=list(sclib.keys())
-   for target in targets:
-      htmlOut.writelines('<a href="#'+target+'">'+target+'</a><br>\n')
-   htmlOut.writelines('<h2>Bands:</h2>\n')
-   bands_string=', '.join([str(elem) for elem in bands])
-   htmlOut.writelines(''+bands_string+'\n')
-   htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
-   for band in bands:
-      solints_string=', '.join([str(elem) for elem in solints[band]])
-      htmlOut.writelines('<br>'+band+': '+solints_string)
-
-   for target in targets:
-      htmlOut.writelines('<a name="'+target+'"></a>\n')
-      htmlOut.writelines('<h2>'+target+' Summary</h2>\n')
-      htmlOut.writelines('<a href="#top">Back to Top</a><br>\n')
-      htmlOut.writelines('<a href="#'+target+'_plots">Phase vs. Time Plots</a><br>\n')
-      bands_obsd=list(sclib[target].keys())
-
-      for band in bands_obsd:
-         print(target,band)
-         htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">'+band+'</a><br>\n')
-         htmlOut.writelines('Selfcal Success?: '+str(sclib[target][band]['SC_success'])+'<br>\n')
-         keylist=sclib[target][band].keys()
-         if 'Stop_Reason' not in keylist:
-            htmlOut.writelines('Stop Reason: Estimated Selfcal S/N too low for solint<br><br>\n')
-            if sclib[target][band]['SC_success']==False:
-               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
-               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-               continue
-         else:   
-            htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
-            print(target,band,sclib[target][band]['Stop_Reason'])
-            if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint']=='None':
-               plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png') 
-               plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                            'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
-               htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-               continue
-
-         htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br>\n')
-         htmlOut.writelines('Final SNR: {:0.2f}'.format(sclib[target][band]['SNR_final'])+'<br>Initial SNR: {:0.2f}'.format(sclib[target][band]['SNR_orig'])+'<br><br>\n')
-         htmlOut.writelines('Final RMS: {:0.7f}'.format(sclib[target][band]['RMS_final'])+' Jy/beam<br>Initial RMS: {:0.7f}'.format(sclib[target][band]['RMS_orig'])+' Jy/beam<br>\n')
-         htmlOut.writelines('Final Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_final'],sclib[target][band]['Beam_minor_final'],sclib[target][band]['Beam_PA_final'])+'<br>\n')
-         htmlOut.writelines('Initial Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band]['Beam_major_orig'],sclib[target][band]['Beam_minor_orig'],sclib[target][band]['Beam_PA_orig'])+'<br><br>\n')
-         plot_image(sanitize_string(target)+'_'+band+'_final.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png')
-         image_stats=imstat(sanitize_string(target)+'_'+band+'_final.image.tt0')
-         
-         plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
-         os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
-         immath(imagename=[sanitize_string(target)+'_'+band+'_final.image.tt0',sanitize_string(target)+'_'+band+'_initial.image.tt0'],\
-                mode='evalexpr',expr='(IM0-IM1)/IM0',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
-         plot_image(sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
-                       min=-1.5,max=1.0) 
-
-         htmlOut.writelines('Initial, Final, and  Images with scales set by Final Image<br>\n')
-         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
-         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
-         htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
- 
-
-         if 'per_spw_stats' in sclib[target][band].keys():
-            spwlist=list(sclib[target][band]['per_spw_stats'].keys())
-            htmlOut.writelines('<br>Per SPW stats: <br>\n')
-            for spw in spwlist:
-               htmlOut.writelines(spw+': Pre SNR: {:0.2f}, Post SNR: {:0.2f} Pre RMS: {:0.7f}, Post RMS: {:0.7f}<br>\n'\
-                                  .format(sclib[target][band]['per_spw_stats'][spw]['SNR_orig'],sclib[target][band]['per_spw_stats'][spw]['SNR_final'],\
-                                          sclib[target][band]['per_spw_stats'][spw]['RMS_orig'],sclib[target][band]['per_spw_stats'][spw]['RMS_final']))
-               if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-                  htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>')
-               if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-                  htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>')
-               if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-                  htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>')
-
-   for target in targets:
-      bands_obsd=list(sclib[target].keys())
-      htmlOut.writelines('<h2>'+target+' Plots</h2>\n')
-      htmlOut.writelines('<a name="'+target+'_plots"></a>\n')
-      for band in bands_obsd:
-         htmlOut.writelines('<a name="'+target+'_'+band+'_plots"></a>\n')
-         htmlOut.writelines('<h3>'+band+'</h3>\n')
-         if sclib[target][band]['final_solint'] == 'None':
-            final_solint_index=0
-         else:
-            final_solint_index=solints[band].index(sclib[target][band]['final_solint']) 
-
-         vislist=sclib[target][band]['vislist']
-         index_addition=1
-         if sclib[target][band]['final_solint'] != 'int' and sclib[target][band]['final_solint'] != 'None':
-            index_addition=2
-
-         final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
-         keylist=sclib[target][band][vislist[0]].keys()
-         if index_addition == 2 and final_solint_to_plot not in keylist:
-           index_addition=index_addition-1
-
-         solints_string=''
-         for i in range(final_solint_index+index_addition):
-               solints_string+='<a href="#'+target+'_'+band+'_'+solints[band][i]+'_plots">'+solints[band][i]+'  </a><br>\n'
-         
-         htmlOut.writelines('<br>Solints: '+solints_string)
-         
-         for i in range(final_solint_index+index_addition):
-            keylist=sclib[target][band][vislist[0]].keys()
-            if solints[band][i] not in keylist:
-               continue
-            htmlOut.writelines('<a name="'+target+'_'+band+'_'+solints[band][i]+'_plots"></a>\n')
-            htmlOut.writelines('<h3>Solint: '+solints[band][i]+'</h3>\n')
-            htmlOut.writelines('<a href="#'+target+'_'+band+'_plots">Back to Target/Band</a><br>\n')
-
-            keylist_top=sclib[target][band].keys()
-            #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
-            passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass']
-            '''
-            if (i > final_solint_index) or ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
-               htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
-            elif 'Stop_Reason' in keylist_top:
-               if (i == final_solint_index) and ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
-                    htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n') 
-            else:
-               htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
-            '''
-            if passed:
-               htmlOut.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
-            else:
-               htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
-            htmlOut.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png') 
-            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
-                      'weblog/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0]) 
-
-            htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
-            htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-            htmlOut.writelines('Post SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
-            htmlOut.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_pre'])+' Jy/beam<br>\n')
-            htmlOut.writelines('Post Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_post'])+'<br>\n')
-            htmlOut.writelines('Pre Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
-
-
-
-            htmlOut.writelines('<h3>Phase vs. Time Plots:</h3>\n')
-
-            for vis in vislist:
-               htmlOut.writelines('<h4>MS: '+vis+'</h4>\n')
-               ant_list=get_ant_list(vis)
-               gaintable=sclib[target][band][vis][solints[band][i]]['gaintable']
-               nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
-               frac_flagged_sols=nflagged_sols/nsols
-               plot_ants_flagging_colored('weblog/images/plot_ants_'+gaintable+'.png',vis,gaintable)
-               htmlOut.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a><br>\n')
-               htmlOut.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
-               htmlOut.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
-               htmlOut.writelines('Fraction Flagged Solutions: {:0.3f} <br>'.format(frac_flagged_sols))
-               for ant in ant_list:
-                  sani_target=sanitize_string(target)
-                  try:
-                     plotms(vis=gaintable,xaxis='time', yaxis='phase',showgui=False,\
-                         xselfscale=True,plotrange=[0,0,-180,180], antenna=ant,customflaggedsymbol=True,title=ant,\
-                         plotfile='weblog/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True)
-                     #htmlOut.writelines('<img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200>')
-                     htmlOut.writelines('<a href="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'"><img src="images/plot_'+ant+'_'+gaintable.replace('.g','.png')+'" ALT="gaintable antenna '+ant+'" WIDTH=200 HEIGHT=200></a>\n')
-                  except:
-                     continue
-   htmlOut.writelines('</body>\n')
-   htmlOut.writelines('</html>\n')
-   htmlOut.close()
 
 def get_sols_flagged_solns(gaintable):
    tb.open(gaintable)
@@ -2408,35 +2146,35 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
                      if data_type=='final':
                         line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                   if key =='SNR':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
                   if key =='intflux':
-                     line+='    <td>{:0.2f} +/- {:0.2f} mJy</td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0,sclib[target][band]['e_'+key+'_'+data_type]*1000.0)
+                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0,sclib[target][band]['e_'+key+'_'+data_type]*1000.0)
                   if key =='SNR_NF':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
                   if key =='RMS':
-                     line+='    <td>{:0.2f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
+                     line+='    <td>{:0.3f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
                   if key =='RMS_NF':
-                     line+='    <td>{:0.2f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
+                     line+='    <td>{:0.3f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
                   if key=='Beam':
-                     line+='    <td>{:0.2f}"x{:0.2f}" {:0.2f} deg </td>\n'.format(sclib[target][band][key+'_major'+'_'+data_type],sclib[target][band][key+'_minor'+'_'+data_type],sclib[target][band][key+'_PA'+'_'+data_type])
+                     line+='    <td>{:0.3f}"x{:0.3f}" {:0.3f} deg </td>\n'.format(sclib[target][band][key+'_major'+'_'+data_type],sclib[target][band][key+'_minor'+'_'+data_type],sclib[target][band][key+'_PA'+'_'+data_type])
                else:
                   if key =='Image':
                         line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                   if key =='intflux':
                      if sclib[target][band][key+'_orig'] == 0:
-                         line+='    <td>{:0.2f} </td>\n'.format(1.0)
+                         line+='    <td>{:0.3f} </td>\n'.format(1.0)
                      else:
-                         line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                         line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='SNR':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='SNR_NF':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
                   if key =='RMS':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
                   if key =='RMS_NF':
-                     line+='    <td>{:0.2f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
                   if key=='Beam':
-                     line+='    <td>{:0.2f}</td>\n'.format((sclib[target][band][key+'_major_final']*sclib[target][band][key+'_minor_final'])/(sclib[target][band][key+'_major_orig']*sclib[target][band][key+'_minor_orig']))
+                     line+='    <td>{:0.3f}</td>\n'.format((sclib[target][band][key+'_major_final']*sclib[target][band][key+'_minor_final'])/(sclib[target][band][key+'_major_orig']*sclib[target][band][key+'_minor_orig']))
             line+='</tr>\n    '
             htmlOut.writelines(line)
          htmlOut.writelines('</table>\n')
@@ -2502,35 +2240,35 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
                   if key=='intflux_final':
-                     line+='    <td>{:0.2f} +/- {:0.2f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
+                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
                   if key=='intflux_improvement':
                      if sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'] == 0:
-                        line+='    <td>{:0.2f}</td>\n'.format(1.0)
+                        line+='    <td>{:0.3f}</td>\n'.format(1.0)
                      else:
-                        line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
+                        line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
                   if key=='SNR_final':
-                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
                   if key=='SNR_Improvement':
-                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_pre'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_pre'])
                   if key=='SNR_NF_final':
-                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post'])
                   if key=='SNR_NF_Improvement':
-                     line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_pre'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_pre'])
 
                   if key=='RMS_final':
-                     line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']*1000.0)
+                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']*1000.0)
                   if key=='RMS_Improvement':
-                     line+='    <td>{:0.2e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'])
+                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'])
                   if key=='RMS_NF_final':
-                     line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post']*1000.0)
+                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post']*1000.0)
                   if key=='RMS_NF_Improvement':
-                     line+='    <td>{:0.2e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
+                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
 
                   if key=='Beam_Ratio':
-                     line+='    <td>{:0.2e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))
+                     line+='    <td>{:0.3e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))
                   if key =='clean_threshold':
                      if key in vis_solint_keys:
-                        line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['clean_threshold']*1000.0)
+                        line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['clean_threshold']*1000.0)
                      else:
                         line+='    <td>Not Available</td>\n'
                   if key =='Plots':
@@ -2593,9 +2331,9 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
       for spw in spwlist:
          spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
          if 'SNR' in key and key in spwkeys:
-            line+='    <td>{:0.2f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
+            line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
          if 'RMS' in key and key in spwkeys:
-            line+='    <td>{:0.2e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
+            line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
          if 'bandwidth' in key and key in spwkeys:
             line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
       line+='</tr>\n    '
@@ -2699,10 +2437,10 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
 
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-            htmlOutSolint.writelines('Post SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.2f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
             htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_pre'])+' Jy/beam<br>\n')
-            htmlOutSolint.writelines('Post Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_post'])+'<br>\n')
-            htmlOutSolint.writelines('Pre Beam: {:0.2f}"x{:0.2f}" {:0.2f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_post'])+'<br>\n')
+            htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
 
 
             if solints[band][i] =='inf_EB':
@@ -2792,11 +2530,13 @@ def importdata(vislist,all_targets,telescope):
    integrationtimesdict
    mosaic_field_dict={}
    bands_to_remove=[]
+   spws_set_dict = {}
+   nspws_sets_dict = {}
 
    for band in bands:
         print(band)
         scantimesdict_temp,scanfieldsdict_temp,scannfieldsdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
 
         scantimesdict[band]=scantimesdict_temp.copy()
         scanfieldsdict[band]=scanfieldsdict_temp.copy()
@@ -2806,6 +2546,11 @@ def importdata(vislist,all_targets,telescope):
         integrationsdict[band]=integrationsdict_temp.copy()
         mosaic_field_dict[band]=mosaic_field_temp.copy()
         integrationtimesdict[band]=integrationtimesdict_temp.copy()
+        spws_set_dict[band] = spws_set_dict_temp.copy()
+        if spws_set_dict[band][vislist[0]].ndim > 1:
+           nspws_sets_dict[band]=spws_set_dict[band][vislist[0]].shape[0]
+        else:
+           nspws_sets_dict[band]=1
         if n_spws_temp == -99:
            for vis in vislist:
               band_properties[vis].pop(band)
@@ -2860,7 +2605,7 @@ def importdata(vislist,all_targets,telescope):
    
            msmd.close()
 
-   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set
+   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set_dict
 
 def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
@@ -2872,6 +2617,7 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
       else:
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
+         contdotdat = parse_contdotdat('cont.dat',target)
          contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
