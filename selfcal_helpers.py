@@ -952,14 +952,15 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
     solint_snr_per_spw[target]={}
     solint_snr_per_field_per_spw[target]={}
     for band in selfcal_library[target].keys():
-      solint_snr[target][band], solint_snr_per_spw[target][band] = get_SNR_self_individual(vislist, selfcal_library[target][band], n_ant, \
+      if target in solints[band].keys():
+         solint_snr[target][band], solint_snr_per_spw[target][band] = get_SNR_self_individual(vislist, selfcal_library[target][band], n_ant, \
               solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
 
-      solint_snr_per_field[target][band] = {}
-      solint_snr_per_field_per_spw[target][band] = {}
-      for fid in selfcal_library[target][band]['sub-fields']:
-          solint_snr_per_field[target][band][fid], solint_snr_per_field_per_spw[target][band][fid] = get_SNR_self_individual(vislist, \
-                  selfcal_library[target][band][fid], n_ant, solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
+         solint_snr_per_field[target][band] = {}
+         solint_snr_per_field_per_spw[target][band] = {}
+         for fid in selfcal_library[target][band]['sub-fields']:
+             solint_snr_per_field[target][band][fid], solint_snr_per_field_per_spw[target][band][fid] = get_SNR_self_individual(vislist, \
+                     selfcal_library[target][band][fid], n_ant, solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
 
    return solint_snr, solint_snr_per_spw, solint_snr_per_field, solint_snr_per_field_per_spw
 
