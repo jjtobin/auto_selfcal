@@ -252,7 +252,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
 
                     fallback[vis]=''
-                    if solmode[band][target][target][iteration] == 'ap':
+                    if solmode[band][target][iteration] == 'ap':
                        solnorm=True
                     else:
                        solnorm=False
@@ -370,7 +370,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][target][iteration], solnorm=solnorm if applymode=="calflag" else False,
                              solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][target][iteration],
                              field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
-                             interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
+                             interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g'))
                            #
                            if solint != 'inf_EB':
                               break
