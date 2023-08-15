@@ -953,13 +953,13 @@ def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integra
     solint_snr_per_field_per_spw[target]={}
     for band in selfcal_library[target].keys():
       solint_snr[target][band], solint_snr_per_spw[target][band] = get_SNR_self_individual(vislist, selfcal_library[target][band], n_ant, \
-              solints[band], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
+              solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
 
       solint_snr_per_field[target][band] = {}
       solint_snr_per_field_per_spw[target][band] = {}
       for fid in selfcal_library[target][band]['sub-fields']:
           solint_snr_per_field[target][band][fid], solint_snr_per_field_per_spw[target][band][fid] = get_SNR_self_individual(vislist, \
-                  selfcal_library[target][band][fid], n_ant, solints[band], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
+                  selfcal_library[target][band][fid], n_ant, solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
 
    return solint_snr, solint_snr_per_spw, solint_snr_per_field, solint_snr_per_field_per_spw
 
@@ -2035,7 +2035,7 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
    htmlOut.writelines(''+bands_string+'\n')
    htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
    for band in bands:
-      solints_string=', '.join([str(elem) for elem in solints[band]])
+      solints_string=', '.join([str(elem) for elem in solints[band][target]])
       htmlOut.writelines('<br>'+band+': '+solints_string)
 
    for target in targets:
@@ -2194,7 +2194,7 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
 def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          #  SELFCAL SUMMARY TABLE   
          vislist=sclib[target][band]['vislist']
-         solint_list=solints[band]
+         solint_list=solints[band][target]
          htmlOut.writelines('<br>Per solint stats: <br>\n')
          htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
          htmlOut.writelines('	<tr>\n')
@@ -2370,21 +2370,21 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
          if sclib[target][band]['final_solint'] == 'None':
             final_solint_index=0
          else:
-            final_solint_index=solints[band].index(sclib[target][band]['final_solint']) 
+            final_solint_index=solints[band][target].index(sclib[target][band]['final_solint']) 
 
          vislist=sclib[target][band]['vislist']
          index_addition=1
          if sclib[target][band]['final_solint'] != 'inf_ap' and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
          # if it's a dataset where inf_EB == inf, make sure to take out the assumption that there would be an 'inf' solution
-         if 'inf' not in solints[band]:
+         if 'inf' not in solints[band][target]:
             index_addition=index_addition-1
          #add an additional check to make sure the final index will be in the array
-         if final_solint_index+index_addition-1 > (len(solints[band])-1):
-            index_addition=(final_solint_index+index_addition-1) - (len(solints[band])-1)
+         if final_solint_index+index_addition-1 > (len(solints[band][target])-1):
+            index_addition=(final_solint_index+index_addition-1) - (len(solints[band][target])-1)
          
 
-         final_solint_to_plot=solints[band][final_solint_index+index_addition-1]
+         final_solint_to_plot=solints[band][target][final_solint_index+index_addition-1]
          keylist=sclib[target][band][vislist[0]].keys()
          if index_addition == 2 and final_solint_to_plot not in keylist:
            index_addition=index_addition-1
@@ -2392,11 +2392,11 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
 
          
          #for i in range(final_solint_index+index_addition):
-         for i in range(len(solints[band])):
+         for i in range(len(solints[band][target])):
 
-            if solints[band][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass'] == 'None':
+            if solints[band][target][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]['Pass'] == 'None':
                continue
-            htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+solints[band][i]+'.html','w')
+            htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+solints[band][target][i]+'.html','w')
             htmlOutSolint.writelines('<html>\n')
             htmlOutSolint.writelines('<title>SelfCal Weblog</title>\n')
             htmlOutSolint.writelines('<head>\n')
@@ -2409,18 +2409,18 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
             keylist=sclib[target][band][vislist[0]].keys()
             solints_string=''
             for j in range(final_solint_index+index_addition):
-               if solints[band][j] not in keylist:
+               if solints[band][target][j] not in keylist:
                   continue
-               solints_string+='<a href="'+target+'_'+band+'_'+solints[band][j]+'.html">'+solints[band][j]+'  </a><br>\n'
+               solints_string+='<a href="'+target+'_'+band+'_'+solints[band][target][j]+'.html">'+solints[band][target][j]+'  </a><br>\n'
             htmlOutSolint.writelines('<br>Solints: '+solints_string)
 
-            htmlOutSolint.writelines('<h3>Solint: '+solints[band][i]+'</h3>\n')       
+            htmlOutSolint.writelines('<h3>Solint: '+solints[band][target][i]+'</h3>\n')       
             keylist_top=sclib[target][band].keys()
             htmlOutSolint.writelines('<a href="index.html#'+target+'_'+band+'">Back to Main Target/Band</a><br>\n')
 
 
             #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
-            passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][i]]['Pass']
+            passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]['Pass']
             '''
             if (i > final_solint_index) or ('Estimated_SNR_too_low_for_solint' not in sclib[target][band]['Stop_Reason']):
                htmlOut.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
@@ -2436,33 +2436,33 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
 
             htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png', \
+            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0',\
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png', \
                       zoom=2 if directory=="weblog" else 1) 
-            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
+            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0')
+            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0',\
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
                       zoom=2 if directory=="weblog" else 1) 
 
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['SNR_pre'])+'<br><br>\n')
-            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][i]]['RMS_pre'])+' Jy/beam<br>\n')
-            htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_post'])+'<br>\n')
-            htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][i]]['Beam_PA_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['SNR_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['RMS_pre'])+' Jy/beam<br>\n')
+            htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_PA_post'])+'<br>\n')
+            htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_PA_pre'])+'<br><br>\n')
 
 
-            if solints[band][i] =='inf_EB':
+            if solints[band][target][i] =='inf_EB':
                htmlOutSolint.writelines('<h3>Phase vs. Frequency Plots:</h3>\n')
             else:
                htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
             for vis in vislist:
                htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
-               if 'gaintable' not in sclib[target][band][vis][solints[band][i]]:
+               if 'gaintable' not in sclib[target][band][vis][solints[band][target][i]]:
                     htmlOutSolint.writelines('No gaintable available <br><br>')
                     continue
                ant_list=get_ant_list(vis)
-               gaintable=sclib[target][band][vis][solints[band][i]]['gaintable'][len(sclib[target][band][vis][solints[band][i]]['gaintable'])-1]
+               gaintable=sclib[target][band][vis][solints[band][target][i]]['gaintable'][len(sclib[target][band][vis][solints[band][target][i]]['gaintable'])-1]
                print('******************'+gaintable+'***************')
                nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                frac_flagged_sols=nflagged_sols/nsols
@@ -2471,24 +2471,24 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
-               if solints[band][i] =='inf_EB':
-                  if 'fallback' in sclib[target][band][vis][solints[band][i]].keys():
-                     if sclib[target][band][vis][solints[band][i]]['fallback'] == '':
+               if solints[band][target][i] =='inf_EB':
+                  if 'fallback' in sclib[target][band][vis][solints[band][target][i]].keys():
+                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == '':
                         fallback_mode='None'
-                     if sclib[target][band][vis][solints[band][i]]['fallback'] == 'combinespw':
+                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'combinespw':
                         fallback_mode='Combine SPW'
-                     if sclib[target][band][vis][solints[band][i]]['fallback'] == 'spwmap':
+                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'spwmap':
                         fallback_mode='SPWMAP'
                      htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
-               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][solints[band][i]]['spwmap']))+']</h4>\n')
+               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][solints[band][target][i]]['spwmap']))+']</h4>\n')
 
                for ant in ant_list:
                   sani_target=sanitize_string(target)
-                  if solints[band][i] =='inf_EB':
+                  if solints[band][target][i] =='inf_EB':
                      xaxis='frequency'
                   else:
                      xaxis='time'
-                  if 'ap' in solints[band][i]:
+                  if 'ap' in solints[band][target][i]:
                      yaxis='amp'
                      plotrange=[0,0,0,2.0]
                   else:
@@ -2580,7 +2580,7 @@ def importdata(vislist,all_targets,telescope):
                  scanendsdict[band][vis].pop(target) 
                  #handle case of multiMS mosaic data; assumes mosaic info is the same for MSes
                  if loopcount == 0:
-                    mosaic_field_dict[band].pop(target)
+                    mosaic_field_dict[band][vis].pop(target)
            loopcount+=1        
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:

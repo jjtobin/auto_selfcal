@@ -141,9 +141,10 @@ applycal_interp={}
 for target in all_targets:
     cellsize[target], imsize[target], nterms[target], applycal_interp[target] = {}, {}, {}, {}
     for band in bands:
-       cellsize[target][band],imsize[target][band],nterms[target][band] = \
-               get_image_parameters(vislist,telescope,target,band, \
-               band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
+       if target in mosaic_field[band][vislist[0]].keys():
+          cellsize[target][band],imsize[target][band],nterms[target][band] = \
+                  get_image_parameters(vislist,telescope,target,band, \
+                  band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][target]['mosaic'])
 
        if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
           applycal_interp[target][band]='linearPD'
@@ -234,9 +235,18 @@ gaincal_combine={}
 solmode={}
 applycal_mode={}
 for band in bands:
-   solints[band],integration_time,gaincal_combine[band],solmode[band]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
-   print(band,solints[band])
-   applycal_mode[band]=[apply_cal_mode_default]*len(solints[band])
+   solints[band]={}
+   gaincal_combine[band]={}
+   solmode[band]={}
+   applycal_mode[band]={}
+   for target in all_targets:
+      if target in mosaic_field[band][vislist[0]].keys():
+         solints[band][target],integration_time,gaincal_combine[band][target],solmode[band][target]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],\
+                                                                      scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
+                                                                      inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,\
+                                                                      mosaic=mosaic_field[band][vislist[0]][target]['mosaic'])
+         print(band,target,solints[band][target])
+         applycal_mode[band][target]=[apply_cal_mode_default]*len(solints[band][target])
 
 
 
@@ -647,7 +657,7 @@ for target in all_targets:
     inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
     print('Estimated SNR per solint:')
     print(target,band)
-    for solint in solints[band]:
+    for solint in solints[band][target]:
       if solint == 'inf_EB':
          print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
          ''' 
@@ -668,7 +678,7 @@ for target in all_targets:
     for fid in selfcal_library[target][band]['sub-fields']:
         print('Estimated SNR per solint:')
         print(target,band,"field "+str(fid))
-        for solint in solints[band]:
+        for solint in solints[band][target]:
           if solint == 'inf_EB':
              print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
              ''' 
@@ -704,13 +714,13 @@ for target in all_targets:
       dividing_factor=15.0
    nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
 
-   n_ap_solints=sum(1 for solint in solints[band] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
+   n_ap_solints=sum(1 for solint in solints[band][target] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
    if rel_thresh_scaling == 'loge':
-      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band][target])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
    elif rel_thresh_scaling == 'linear':
-      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(solints[band])-n_ap_solints),np.array([3.0]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(solints[band][target])-n_ap_solints),np.array([3.0]*n_ap_solints))
    else: #implicitly making log10 the default
-      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band][target])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
 
    if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[target][band],cellsize=cellsize[target][band])
