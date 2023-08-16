@@ -230,7 +230,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
                           gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                        elif inf_EB_fallback_mode_dict[target][band][vis]=='spwmap':
-                          applycal_spwmap[vis]=[selfcal_library[target][band][vis]['inf_EB']['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                          applycal_spwmap[vis]=selfcal_library[target][band][vis]['inf_EB']['spwmap'] + [selfcal_library[target][band][vis]['spwmap']]
                           gaincal_spwmap[vis]=selfcal_library[target][band][vis]['inf_EB']['spwmap']
                        else:
                           applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
