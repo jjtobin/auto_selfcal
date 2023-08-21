@@ -1367,7 +1367,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          # Finally, update the list of fields to be self-calibrated now that we don't need to know the list at the beginning of this solint.
          new_fields_to_selfcal = []
          for fid in selfcal_library[target][band]['sub-fields']:
-             if selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]]["inf_EB"]["Pass"]:
-                 new_fields_to_selfcal.append(fid)
+             if mode == "cocal":
+                 if ("inf_EB" in selfcal_library[target][band][fid]['vislist'][0] and selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]]["inf_EB"]["Pass"]) or selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]]["inf_EB_fb"]["Pass"]:
+                     new_fields_to_selfcal.append(fid)
+             else:
+                 if selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]]["inf_EB"]["Pass"]:
+                     new_fields_to_selfcal.append(fid)
 
          selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
