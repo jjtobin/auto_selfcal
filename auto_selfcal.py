@@ -1095,6 +1095,7 @@ for target in all_targets:
                 if target+'_field_'+str(fid) not in new_selfcal_library:
                     new_selfcal_library[target+'_field_'+str(fid)] = {}
                 new_selfcal_library[target+'_field_'+str(fid)][band] = selfcal_library[target][band][fid]
+                solints[band][target+'_field_'+str(fid)] = solints[band][target]
 
     if len(new_selfcal_library) > 0:
         generate_weblog(new_selfcal_library,solints,bands,directory='weblog/'+target+'_field-by-field')
