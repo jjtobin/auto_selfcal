@@ -475,7 +475,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         selfcal_library[target][band][vis][solint]["include_targets"] = include_targets
 
                         for incl_scans, incl_targets in zip(include_scans, include_targets):
-                            if solint == 'inf_EB':
+                            if 'inf_EB' in solint:
                                if spws_set[band][vis].ndim == 1:
                                   nspw_sets=1
                                else:
@@ -483,7 +483,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             else: #only necessary to loop over gain cal when in inf_EB to avoid inf_EB solving for all spws
                                nspw_sets=1
                             for i in range(nspw_sets):  # run gaincal on each spw set to handle spectral scans
-                               if solint == 'inf_EB':
+                               if 'inf_EB' in solint:
                                   if nspw_sets == 1 and spws_set[band][vis].ndim == 1:
                                      spwselect=','.join(str(spw) for spw in spws_set[band][vis].tolist())
                                   else:
@@ -498,7 +498,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                  field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                                  interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g'))
                                #
-                               if solint != 'inf_EB':
+                               if 'inf_EB' not in solint:
                                   break
                 else:
                     for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
