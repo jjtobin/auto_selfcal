@@ -33,7 +33,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
    sani_target=sanitize_string(target)
 
    if mode == "cocal":
-        iterjump = len(solints[band]) - 4
+        iterjump = len(solints[band][target]) - 4
         if selfcal_library[target][band]["SC_success"] and not calculate_inf_EB_fb_anyways:
             iterjump += 1
 
@@ -46,18 +46,19 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
            print("No suitable calibrators found, skipping "+target)
            return
 
-   for iteration in range(len(solints[band])):
+   print('Starting selfcal procedure on: '+target+' '+band)
+   for iteration in range(len(solints[band][target])):
       if (iterjump !=-1) and (iteration < iterjump): # allow jumping to amplitude selfcal and not need to use a while loop
          continue
       elif iteration == iterjump:
          iterjump=-1
-      print("Solving for solint="+solints[band][iteration])
+      print("Solving for solint="+solints[band][target][iteration])
 
       # Set some cocal parameters.
-      if solints[band][iteration] in ["inf_EB_fb","inf_fb1"]:
+      if solints[band][target][iteration] in ["inf_EB_fb","inf_fb1"]:
           calculate_inf_EB_fb_anyways = True
           preapply_targets_own_inf_EB = False
-      elif solints[band][iteration] == "inf_fb2":
+      elif solints[band][target][iteration] == "inf_fb2":
           calculate_inf_EB_fb_anyways = False
           preapply_targets_own_inf_EB = False
           # If there was not a successful inf_EB solint, then this duplicates inf_fb1 so skip
@@ -65,27 +66,27 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
               continue
           elif not selfcal_library[target][band][vislist[0]]["inf_EB"]['Pass']:
               continue
-      elif solints[band][iteration] == "inf_fb3":
+      elif solints[band][target][iteration] == "inf_fb3":
           calculate_inf_EB_fb_anyways = False
           preapply_targets_own_inf_EB = True
           # If there was no inf solint (e.g. because each source was observed only a single time, skip this as there are no gain tables to stick together.
-          if "inf" not in solints[band]:
+          if "inf" not in solints[band][target]:
               continue
 
-      if 'ap' in solints[band][iteration] and not do_amp_selfcal:
+      if 'ap' in solints[band][target][iteration] and not do_amp_selfcal:
           break
 
-      if mode == "selfcal" and solint_snr[target][band][solints[band][iteration]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
-         print('*********** estimated SNR for solint='+solints[band][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
-         if iteration > 1 and solmode[band][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
-            iterjump=solmode[band].index('ap') 
+      if mode == "selfcal" and solint_snr[target][band][solints[band][target][iteration]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][target][iteration]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
+         print('*********** estimated SNR for solint='+solints[band][target][iteration]+' too low, measured: '+str(solint_snr[target][band][solints[band][target][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
+         if iteration > 1 and solmode[band][target][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
+            iterjump=solmode[band][target].index('ap') 
             print('****************Attempting amplitude selfcal*************')
             continue
 
-         selfcal_library[target][band]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+solints[band][iteration]
+         selfcal_library[target][band]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+solints[band][target][iteration]
          break
       else:
-         solint=solints[band][iteration]
+         solint=solints[band][target][iteration]
          if iteration == 0:
             print('Starting with solint: '+solint)
          else:
@@ -135,7 +136,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
          # Loop through up to two times. On the first attempt, try applymode = 'calflag' (assuming this is requested by the user). On the
          # second attempt, use applymode = 'calonly'.
-         for applymode in np.unique([applycal_mode[band][iteration],'calonly']):
+         for applymode in np.unique([applycal_mode[band][target][iteration],'calonly']):
              for vis in vislist:
                 ##
                 ## Restore original flagging state each time before applying a new gaintable
@@ -199,15 +200,15 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                      if not checkmask(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
                          print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                                 solmode[band][iteration]+'.g'+" because there is no signal within the primary beam.")
+                                 solmode[band][target][iteration]+'.g'+" because there is no signal within the primary beam.")
                          skip_reason = "No signal"
-                     elif solint_snr_per_field[target][band][fid][solints[band][iteration]] < minsnr_to_proceed and solint not in ['inf_EB','scan_inf']:
+                     elif solint_snr_per_field[target][band][fid][solints[band][target][iteration]] < minsnr_to_proceed and solint not in ['inf_EB','scan_inf']:
                          print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                                 solmode[band][iteration]+'.g'+' because the estimated solint snr is too low.')
+                                 solmode[band][target][iteration]+'.g'+' because the estimated solint snr is too low.')
                          skip_reason = "Estimated SNR"
                      elif updated_intflux > 1.25 * original_intflux:
                          print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                                 solmode[band][iteration]+'.g'+" because there appears to be significant flux missing from the model.")
+                                 solmode[band][target][iteration]+'.g'+" because there appears to be significant flux missing from the model.")
                          skip_reason = "Missing flux"
                      else:
                          new_fields_to_selfcal.append(fid)
@@ -238,21 +239,21 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 ##
                 ## Solve gain solutions per MS, target, solint, and band
                 ##
-                os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'*.g')
+                os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'*.g')
                 ##
                 ## Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
                 ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
                 ## At some point remove the conditional for use_inf_EB_preapply, since there isn't a reason not to do it
                 ##
 
-                if solmode[band][iteration] == 'p':
+                if solmode[band][target][iteration] == 'p':
                     if 'inf_EB' in solint:
                        gaincal_spwmap[vis]=[]
                        gaincal_preapply_gaintable[vis]=[]
                        gaincal_interpolate[vis]=[]
                        gaincal_gaintype=inf_EB_gaintype_dict[target][band][vis]
                        gaincal_solmode=""
-                       gaincal_combine[band][iteration]=inf_EB_gaincal_combine_dict[target][band][vis]+\
+                       gaincal_combine[band][target][iteration]=inf_EB_gaincal_combine_dict[target][band][vis]+\
                                (",field" if "fb" in solint else "")
                        if 'spw' in inf_EB_gaincal_combine_dict[target][band][vis]:
                           applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
@@ -260,8 +261,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                        else:
                           applycal_spwmap[vis]=[]
                        applycal_interpolate[vis]=[applycal_interp[band]]
-                       applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g']
-                    #elif solmode[band][iteration]=='p':
+                       applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g']
+                    #elif solmode[band][target][iteration]=='p':
                     else:
                        gaincal_spwmap[vis]=[]
                        if mode == "cocal":
@@ -275,7 +276,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                #gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_fb_'+str(iteration-1)+'_p.g']
                                previous_solint = "inf_EB_fb"
                        else:
-                           if solmode[band][iteration]=='p':
+                           if solmode[band][target][iteration]=='p':
                                previous_solint = "inf_EB"
                            else:
                                previous_solint = selfcal_library[target][band]['final_phase_solint']
@@ -290,7 +291,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap'],selfcal_library[target][band][vis]['spwmap']]
                           gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                        elif inf_EB_fallback_mode_dict[target][band][vis]=='spwmap':
-                          applycal_spwmap[vis]=[selfcal_library[target][band][vis]['inf_EB']['spwmap'],selfcal_library[target][band][vis]['spwmap']]
+                          applycal_spwmap[vis]=selfcal_library[target][band][vis]['inf_EB']['spwmap'] + [selfcal_library[target][band][vis]['spwmap']]
                           gaincal_spwmap[vis]=selfcal_library[target][band][vis]['inf_EB']['spwmap']
                        else:
                           applycal_spwmap[vis]=[[],selfcal_library[target][band][vis]['spwmap']]
@@ -304,23 +305,23 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                        applycal_spwmap[vis] = [selfcal_library[target][band][vis][previous_solint]['spwmap']] + [selfcal_library[target][band][vis]['spwmap']]
                        applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
-                       applycal_gaintable[vis] = selfcal_library[target][band][vis][previous_solint]['gaintable'] + [sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g']
+                       applycal_gaintable[vis] = selfcal_library[target][band][vis][previous_solint]['gaintable'] + [sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g']
                     selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
                     selfcal_library[target][band][vis][solint]['iteration']=iteration+0
                     selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
-                    selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+                    selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                     selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                    selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                    selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                     for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
                         selfcal_library[target][band][fid][vis][solint]['gaintable']=applycal_gaintable[vis]
                         selfcal_library[target][band][fid][vis][solint]['iteration']=iteration+0
                         selfcal_library[target][band][fid][vis][solint]['spwmap']=applycal_spwmap[vis]
-                        selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+                        selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                         selfcal_library[target][band][fid][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                        selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                        selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
 
                     fallback[vis]=''
-                    if solmode[band][iteration] == 'ap':
+                    if solmode[band][target][iteration] == 'ap':
                        solnorm=True
                     else:
                        solnorm=False
@@ -334,7 +335,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                     if mode == "cocal":
                         # Check which targets are acceptable to use as calibrators.
-                        targets = calibrators[band][iteration - len(solints[band])]
+                        targets = calibrators[band][iteration - len(solints[band][target])]
 
                         include_targets, include_scans = triage_calibrators(vis, target, targets)
                     else:
@@ -394,19 +395,19 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     else:
                         include_scans = [include_scans]
 
-                    if mode == "cocal" and preapply_targets_own_inf_EB and "inf_fb" in solint and "inf" in solints[band]:
+                    if mode == "cocal" and preapply_targets_own_inf_EB and "inf_fb" in solint and "inf" in solints[band][target]:
                         ##
                         ## If we want to pre-apply inf_EB solution from each calibrator to itself, all we do is combine all of thier
                         ## individual inf tables, as these were pre-calculated in that way.
                         ##
-                        destination_table = sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'
+                        destination_table = sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g'
                         for t in include_targets.split(","):
-                            if os.path.exists(sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+solmode[band][iteration]+\
+                            if os.path.exists(sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+solmode[band][target][iteration]+\
                                     '.pre-pass.g'):
-                                table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+solmode[band][iteration]+\
+                                table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+solmode[band][target][iteration]+\
                                         '.pre-pass.g'
                             else:
-                                table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+solmode[band][iteration]+'.g'
+                                table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+solmode[band][target][iteration]+'.g'
                             #t_final_solint = selfcal_library[t][band]["final_phase_solint"]
                             #t_iteration = selfcal_library[t][band][vislist[0]][t_final_solint]["iteration"]
                             #table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+t_final_solint+'_'+str(t_iteration)+'_'+solmode[band][iteration]+'.g'
@@ -475,27 +476,27 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                         for incl_scans, incl_targets in zip(include_scans, include_targets):
                             if solint == 'inf_EB':
-                               if spws_set[vis].ndim == 1:
+                               if spws_set[band][vis].ndim == 1:
                                   nspw_sets=1
                                else:
-                                  nspw_sets=spws_set[vis].shape[0]
+                                  nspw_sets=spws_set[band][vis].shape[0]
                             else: #only necessary to loop over gain cal when in inf_EB to avoid inf_EB solving for all spws
                                nspw_sets=1
                             for i in range(nspw_sets):  # run gaincal on each spw set to handle spectral scans
                                if solint == 'inf_EB':
-                                  if nspw_sets == 1 and spws_set[vis].ndim == 1:
-                                     spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
+                                  if nspw_sets == 1 and spws_set[band][vis].ndim == 1:
+                                     spwselect=','.join(str(spw) for spw in spws_set[band][vis].tolist())
                                   else:
-                                     spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
+                                     spwselect=','.join(str(spw) for spw in spws_set[band][vis][i].tolist())
                                else:
                                   spwselect=selfcal_library[target][band][vis]['spws']
                                gaincal(vis=vis,\
-                                 caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
+                                 caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',\
                                  gaintype=gaincal_gaintype, spw=spwselect,
-                                 refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                                 solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
+                                 refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][target][iteration], solnorm=solnorm if applymode=="calflag" else False,
+                                 solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][target][iteration],
                                  field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
-                                 interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
+                                 interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g'))
                                #
                                if solint != 'inf_EB':
                                   break
@@ -510,8 +511,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                            applycal_spwmap[vis]=[selfcal_library[target][band][fid][vis]['spwmap'],selfcal_library[target][band][fid][vis]['spwmap'],selfcal_library[target][band][fid][vis]['spwmap']]
                            gaincal_spwmap[vis]=[selfcal_library[target][band][fid][vis]['spwmap'],selfcal_library[target][band][fid][vis]['spwmap']]
                         elif inf_EB_fallback_mode_dict[target][band][vis]=='spwmap':
-                           applycal_spwmap[vis]=[selfcal_library[target][band][fid][vis]['inf_EB']['spwmap'],selfcal_library[target][band][fid][vis]['spwmap'],selfcal_library[target][band][fid][vis]['spwmap']]
-                           gaincal_spwmap[vis]=[selfcal_library[target][band][fid][vis]['inf_EB']['spwmap'],selfcal_library[target][band][fid][vis]['spwmap']]
+                           applycal_spwmap[vis]=selfcal_library[target][band][fid][vis]['inf_EB']['spwmap'] + [selfcal_library[target][band][fid][vis]['spwmap'],selfcal_library[target][band][fid][vis]['spwmap']]
+                           gaincal_spwmap[vis]=selfcal_library[target][band][fid][vis]['inf_EB']['spwmap'] + [selfcal_library[target][band][fid][vis]['spwmap']]
                         else:
                            applycal_spwmap[vis]=[[],selfcal_library[target][band][fid][vis]['spwmap'],selfcal_library[target][band][fid][vis]['spwmap']]
                            gaincal_spwmap[vis]=[[],selfcal_library[target][band][fid][vis]['spwmap']]
@@ -521,18 +522,18 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
                         selfcal_library[target][band][vis][solint]['iteration']=iteration+0
                         selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
-                        selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+                        selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                         selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                        selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                        selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                         selfcal_library[target][band][fid][vis][solint]['gaintable']=applycal_gaintable[vis]
                         selfcal_library[target][band][fid][vis][solint]['iteration']=iteration+0
                         selfcal_library[target][band][fid][vis][solint]['spwmap']=applycal_spwmap[vis]
-                        selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+                        selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                         selfcal_library[target][band][fid][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                        selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                        selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
 
                         fallback[vis]=''
-                        if solmode[band][iteration] == 'ap':
+                        if solmode[band][target][iteration] == 'ap':
                            solnorm=True
                         else:
                            solnorm=False
@@ -545,33 +546,33 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                 splinetime = float(splinetime[0:-1])
 
                         gaincal(vis=vis,\
-                             #caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',\
+                             #caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',\
                              caltable="temp.g",\
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][fid][vis]['spws'],
-                             refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][iteration],
+                             refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][target][iteration], solnorm=solnorm if applymode=="calflag" else False,
+                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][target][iteration],
                              field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              #interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+
-                             #solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g'))
+                             #solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g'))
                              interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists('temp.g'), refantmode='flex')
 
                     tb.open("temp.g")
                     subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
                     tb.close()
 
-                    subt.copy(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', deep=True)
+                    subt.copy(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g', deep=True)
                     subt.close()
 
                     os.system("rm -rf temp.g")
 
                 if rerank_refants:
-                    selfcal_library[target][band][vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+                    selfcal_library[target][band][vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
 
                     # If we are falling back to a previous solution interval on the unflagging, we need to make sure all tracks use a common 
                     # reference antenna.
                     if unflag_fb_to_prev_solint:
-                        for it, sint in enumerate(solints[band][0:iteration+1]):
-                            if not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g'):
+                        for it, sint in enumerate(solints[band][target][0:iteration+1]):
+                            if not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][target][it]+'.g'):
                                 continue
 
                             # If a previous iteration went through the unflagging routine, it is possible that some antennas fell back to
@@ -579,13 +580,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             # a different time interval. So to be safe, we go back to the pre-pass solutions and then re-run the passing.
                             # We could probably check more carefully whether this is the case to avoid having to do this... but the 
                             # computing time isn't significant so it's easy just to run through again.
-                            if os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g'):
-                                rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g', \
+                            if os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][target][it]+'.pre-pass.g'):
+                                rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][target][it]+'.pre-pass.g', \
                                         refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' not in sint else 'flex')
 
-                                os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g')
-                                os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.pre-pass.g '+\
-                                        sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g')
+                                os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][target][it]+'.g')
+                                os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][target][it]+'.pre-pass.g '+\
+                                        sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][target][it]+'.g')
 
                                 if sint == "inf_EB" and len(selfcal_library[target][band][vis][sint]["spwmap"][0]) > 0:
                                     unflag_spwmap = selfcal_library[target][band][vis][sint]["spwmap"][0]
@@ -593,17 +594,17 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                     unflag_spwmap = []
 
                                 unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
-                                        solmode[band][it]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
-                                        only_long_baselines=solmode[band][it]=="ap" if unflag_only_lbants and \
+                                        solmode[band][target][it]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                                        only_long_baselines=solmode[band][target][it]=="ap" if unflag_only_lbants and \
                                         unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
-                                        spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=it)
+                                        spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band][target], iteration=it)
                             else:
-                                rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][it]+'.g', \
+                                rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+solmode[band][target][it]+'.g', \
                                         refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' not in sint else 'flex')
                     else:
-                        os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g '+\
-                                sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.pre-rerefant.g')
-                        rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', \
+                        os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g '+\
+                                sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.pre-rerefant.g')
+                        rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g', \
                                 refant=selfcal_library[target][band][vis]["refant"], refantmode=refantmode if 'inf_EB' not in solint else 'flex')
 
                 ##
@@ -615,11 +616,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                    test_gaincal_combine='scan,spw'
                    if selfcal_library[target][band]['obstype']=='mosaic' or mode=="cocal":
                       test_gaincal_combine+=',field'   
-                   for i in range(spws_set[vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
-                      if nspw_sets == 1 and spws_set[vis].ndim == 1:
-                         spwselect=','.join(str(spw) for spw in spws_set[vis].tolist())
+                   for i in range(spws_set[band][vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
+                      if nspw_sets == 1 and spws_set[band][vis].ndim == 1:
+                         spwselect=','.join(str(spw) for spw in spws_set[band][vis].tolist())
                       else:
-                         spwselect=','.join(str(spw) for spw in spws_set[vis][i].tolist())
+                         spwselect=','.join(str(spw) for spw in spws_set[band][vis][i].tolist())
 
                       gaincal(vis=vis,\
                         caltable='test_inf_EB.g',\
@@ -628,30 +629,30 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
                         field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB.g')) 
                    spwlist=selfcal_library[target][band][vis]['spws'].split(',')
-                   fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g',vis,target,'test_inf_EB.g',spectral_scan)
+                   fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',vis,target,'test_inf_EB.g',spectral_scan)
 
                    inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
                    print(solint,fallback[vis],applycal_spwmap_inf_EB)
                    if fallback[vis] != '':
                       if fallback[vis] =='combinespw':
                          gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
-                         gaincal_combine[band][iteration]='scan,spw'
+                         gaincal_combine[band][target][iteration]='scan,spw'
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan,spw'
                          applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
-                         os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
-                         os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+                         os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
+                         os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
                       if fallback[vis] =='spwmap':
                          gaincal_spwmap[vis]=applycal_spwmap_inf_EB
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan'
-                         gaincal_combine[band][iteration]='scan'
+                         gaincal_combine[band][target][iteration]='scan'
                          applycal_spwmap[vis]=[applycal_spwmap_inf_EB]
 
                       # Update the appropriate selfcal_library entries.
                       selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
-                      selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                      selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                       for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
                           selfcal_library[target][band][fid][vis][solint]['spwmap']=applycal_spwmap[vis]
-                          selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                          selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
 
                    os.system('rm -rf test_inf_EB.g')               
 
@@ -660,8 +661,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 if applymode == "calonly":
                     # Make a copy of the caltable before unflagging, for reference.
                     os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][iteration]+'.pre-pass.g')
+                            solmode[band][target][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][target][iteration]+'.pre-pass.g')
 
                     if solint == "inf_EB" and len(applycal_spwmap[vis]) > 0:
                         unflag_spwmap = applycal_spwmap[vis][0]
@@ -669,16 +670,16 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         unflag_spwmap = []
 
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
-                            only_long_baselines=solmode[band][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
+                            solmode[band][target][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                            only_long_baselines=solmode[band][target][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                             unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
-                            fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band], iteration=iteration)
+                            fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band][target], iteration=iteration)
 
                 # Do some post-gaincal cleanup for mosaics.
                 if selfcal_library[target][band]['obstype'] == 'mosaic' or mode == "cocal":
-                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g '+\
-                            sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.pre-drop.g')
-                    tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g', nomodify=False)
+                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g '+\
+                            sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.pre-drop.g')
+                    tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g', nomodify=False)
                     antennas = tb.getcol("ANTENNA1")
                     fields = tb.getcol("FIELD_ID")
                     scans = tb.getcol("SCAN_NUMBER")
@@ -736,7 +737,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         continue
                     ## NEXT TO DO: check % of flagged solutions - DONE, see above
                     ## After that enable option for interpolation through inf - DONE
-                    tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][iteration]+'.g')
+                    tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
                     fields = tb.getcol("FIELD_ID")
                     scans = tb.getcol("SCAN_NUMBER")
 
@@ -907,16 +908,16 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 #selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
                 #selfcal_library[target][band][vis][solint]['iteration']=iteration+0
                 #selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
-                #selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+                #selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                 #selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                 selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                 selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
                 if vis in fallback:
                     selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
                 else:
                     selfcal_library[target][band][vis][solint]['fallback']=''
-                selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
+                selfcal_library[target][band][vis][solint]['solmode']=solmode[band][target][iteration]+''
                 selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
                 selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
                 selfcal_library[target][band][vis][solint]['SNR_NF_post']=post_SNR_NF.copy()
@@ -951,16 +952,16 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][fid][vis][solint]['gaintable']=applycal_gaintable[vis]
                     #selfcal_library[target][band][fid][vis][solint]['iteration']=iteration+0
                     #selfcal_library[target][band][fid][vis][solint]['spwmap']=applycal_spwmap[vis]
-                    #selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+                    #selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                     #selfcal_library[target][band][fid][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                    #selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                    #selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                     selfcal_library[target][band][fid][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                     selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                     if vis in fallback:
                         selfcal_library[target][band][fid][vis][solint]['fallback']=fallback[vis]+''
                     else:
                         selfcal_library[target][band][fid][vis][solint]['fallback']=''
-                    selfcal_library[target][band][fid][vis][solint]['solmode']=solmode[band][iteration]+''
+                    selfcal_library[target][band][fid][vis][solint]['solmode']=solmode[band][target][iteration]+''
                     selfcal_library[target][band][fid][vis][solint]['SNR_post']=post_mosaic_SNR[fid].copy()
                     selfcal_library[target][band][fid][vis][solint]['RMS_post']=post_mosaic_RMS[fid].copy()
                     selfcal_library[target][band][fid][vis][solint]['SNR_NF_post']=post_mosaic_SNR_NF[fid].copy()
@@ -1094,16 +1095,16 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
                     #selfcal_library[target][band][vis][solint]['iteration']=iteration+0
                     #selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
-                    #selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
+                    #selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                     #selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-                    #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+                    #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                     selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                     selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
                     if vis in fallback:
                         selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
                     else:
                         selfcal_library[target][band][vis][solint]['fallback']=''
-                    selfcal_library[target][band][vis][solint]['solmode']=solmode[band][iteration]+''
+                    selfcal_library[target][band][vis][solint]['solmode']=solmode[band][target][iteration]+''
                     selfcal_library[target][band][vis][solint]['SNR_post']=post_SNR.copy()
                     selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
                     selfcal_library[target][band][vis][solint]['SNR_NF_post']=post_SNR_NF.copy()
@@ -1159,10 +1160,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                    selfcal_library[target][band][vis]['gaincal_combine_final']=selfcal_library[target][band][vis][solint]['gaincal_combine']
                    selfcal_library[target][band][vis][solint]['Pass']=True
                    selfcal_library[target][band][vis][solint]['Fail_Reason']='None'
-                if solmode[band][iteration]=='p':            
+                if solmode[band][target][iteration]=='p':            
                    selfcal_library[target][band]['final_phase_solint']=solint
                 selfcal_library[target][band]['final_solint']=solint
-                selfcal_library[target][band]['final_solint_mode']=solmode[band][iteration]
+                selfcal_library[target][band]['final_solint_mode']=solmode[band][target][iteration]
                 selfcal_library[target][band]['iteration']=iteration
 
                 for ind, fid in enumerate(selfcal_library[target][band]['sub-fields-to-selfcal']):
@@ -1177,10 +1178,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                            selfcal_library[target][band][fid][vis]['gaincal_combine_final']=selfcal_library[target][band][fid][vis][solint]['gaincal_combine']
                            selfcal_library[target][band][fid][vis][solint]['Pass']=True
                            selfcal_library[target][band][fid][vis][solint]['Fail_Reason']='None'
-                        if solmode[band][iteration]=='p':            
+                        if solmode[band][target][iteration]=='p':            
                            selfcal_library[target][band][fid]['final_phase_solint']=solint
                         selfcal_library[target][band][fid]['final_solint']=solint
-                        selfcal_library[target][band][fid]['final_solint_mode']=solmode[band][iteration]
+                        selfcal_library[target][band][fid]['final_solint_mode']=solmode[band][target][iteration]
                         selfcal_library[target][band][fid]['iteration']=iteration
                     else:
                         for vis in selfcal_library[target][band][fid]['vislist']:
@@ -1320,17 +1321,17 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          if selfcal_library[target][band][vislist[0]][solint]['Pass'] == True and \
                  np.any([selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]][solint]['Pass'] == True for fid in \
                  selfcal_library[target][band]['sub-fields-to-selfcal']]):
-             if mode == "selfcal" and (iteration < len(solints[band])-1) and (selfcal_library[target][band][vis][solint]['SNR_post'] > \
+             if mode == "selfcal" and (iteration < len(solints[band][target])-1) and (selfcal_library[target][band][vis][solint]['SNR_post'] > \
                      selfcal_library[target][band]['SNR_orig']): #(iteration == 0) and 
-                print('Updating solint = '+solints[band][iteration+1]+' SNR')
-                print('Was: ',solint_snr[target][band][solints[band][iteration+1]])
-                get_SNR_self_update([target],band,vislist,selfcal_library[target][band],n_ants,solint,solints[band][iteration+1],integration_time,solint_snr[target][band])
-                print('Now: ',solint_snr[target][band][solints[band][iteration+1]])
+                print('Updating solint = '+solints[band][target][iteration+1]+' SNR')
+                print('Was: ',solint_snr[target][band][solints[band][target][iteration+1]])
+                get_SNR_self_update([target],band,vislist,selfcal_library[target][band],n_ants,solint,solints[band][target][iteration+1],integration_time,solint_snr[target][band])
+                print('Now: ',solint_snr[target][band][solints[band][target][iteration+1]])
 
                 for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
-                    print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][solints[band][iteration+1]])
-                    get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
-                    print('FIeld '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][iteration+1]])
+                    print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
+                    get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][target][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
+                    print('FIeld '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
@@ -1340,20 +1341,20 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  print("***** NOTE: Amplitude self-calibration turned off because not all fields succeeded at non-inf_EB phase self-calibration")
                  do_amp_selfcal = False
                 
-             if iteration < (len(solints[band])-1):
+             if iteration < (len(solints[band][target])-1):
                 print('****************Selfcal passed, shortening solint*************')
              else:
                 print('****************Selfcal passed for Minimum solint*************')
          elif mode == "cocal" and solint == "inf_EB_fb" and (selfcal_library[target][band][vislist[0]]["inf_EB"]['Pass'] if "inf_EB" in \
                  selfcal_library[target][band][vislist[0]] else False):
             print('****************Selfcal failed for inf_EB_fb, skipping inf_fb1*****************')
-            iterjump = solints[band].index('inf_fb2')
+            iterjump = solints[band][target].index('inf_fb2')
             continue
          else:   
             print('****************Selfcal failed*************')
             print('REASON: '+reason)
-            if mode == "selfcal" and iteration > 1 and solmode[band][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
-               iterjump=solmode[band].index('ap') 
+            if mode == "selfcal" and iteration > 1 and solmode[band][target][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
+               iterjump=solmode[band][target].index('ap') 
                selfcal_library[target][band]['sub-fields-to-selfcal'] = selfcal_library[target][band]['sub-fields']
                print('****************Selfcal halted for phase, attempting amplitude*************')
                continue

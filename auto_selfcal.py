@@ -141,9 +141,10 @@ applycal_interp={}
 for target in all_targets:
     cellsize[target], imsize[target], nterms[target], applycal_interp[target] = {}, {}, {}, {}
     for band in bands:
-       cellsize[target][band],imsize[target][band],nterms[target][band] = \
-               get_image_parameters(vislist,telescope,target,band, \
-               band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
+       if target in mosaic_field[band][vislist[0]].keys():
+          cellsize[target][band],imsize[target][band],nterms[target][band] = \
+                  get_image_parameters(vislist,telescope,target,band, \
+                  band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][target]['mosaic'])
 
        if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
           applycal_interp[target][band]='linearPD'
@@ -234,9 +235,18 @@ gaincal_combine={}
 solmode={}
 applycal_mode={}
 for band in bands:
-   solints[band],integration_time,gaincal_combine[band],solmode[band]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=mosaic_field[band][vislist[0]][all_targets[0]]['mosaic'])
-   print(band,solints[band])
-   applycal_mode[band]=[apply_cal_mode_default]*len(solints[band])
+   solints[band]={}
+   gaincal_combine[band]={}
+   solmode[band]={}
+   applycal_mode[band]={}
+   for target in all_targets:
+      if target in mosaic_field[band][vislist[0]].keys():
+         solints[band][target],integration_time,gaincal_combine[band][target],solmode[band][target]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],\
+                                                                      scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
+                                                                      inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,\
+                                                                      mosaic=mosaic_field[band][vislist[0]][target]['mosaic'])
+         print(band,target,solints[band][target])
+         applycal_mode[band][target]=[apply_cal_mode_default]*len(solints[band][target])
 
 
 
@@ -275,11 +285,11 @@ for target in all_targets:
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
       if spectral_scan:
-         spwmap=np.zeros(np.max(spws_set[vis])+1,dtype='int')
-         spwmap.fill(np.min(spws_set[vis]))
-         for i in range(spws_set[vis].shape[0]):
-            indices=np.arange(np.min(spws_set[vis][i]),np.max(spws_set[vis][i])+1)
-            spwmap[indices]=np.min(spws_set[vis][i])
+         spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
+         spwmap.fill(np.min(spws_set[band][vis]))
+         for i in range(spws_set[band][vis].shape[0]):
+            indices=np.arange(np.min(spws_set[band][vis][i]),np.max(spws_set[band][vis][i])+1)
+            spwmap[indices]=np.min(spws_set[band][vis][i])
          selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
       else:
          selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
@@ -322,11 +332,11 @@ for target in all_targets:
           selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
           selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
           if spectral_scan:
-             spwmap=np.zeros(np.max(spws_set[vis])+1,dtype='int')
-             spwmap.fill(np.min(spws_set[vis]))
-             for i in range(spws_set[vis].shape[0]):
-                indices=np.arange(np.min(spws_set[vis][i]),np.max(spws_set[vis][i])+1)
-                spwmap[indices]=np.min(spws_set[vis][i])
+             spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
+             spwmap.fill(np.min(spws_set[band][vis]))
+             for i in range(spws_set[band][vis].shape[0]):
+                indices=np.arange(np.min(spws_set[band][vis][i]),np.max(spws_set[band][vis][i])+1)
+                spwmap[indices]=np.min(spws_set[band][vis][i])
              selfcal_library[target][band][fid][vis]['spwmap']=spwmap.tolist()
           else:
              selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
@@ -512,28 +522,30 @@ for target in all_targets:
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws
       #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
+      spw_bandwidths_dict={}
+      spw_effective_bandwidths_dict={}
       for vis in selfcal_library[target][band]['vislist']:
          selfcal_library[target][band][vis]['per_spw_stats'] = {}
           
-         spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+         spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
 
          selfcal_library[target][band][vis]['total_bandwidth']=0.0
          selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
-         if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+         if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
             print('cont.dat does not contain all spws; falling back to total bandwidth')
-            for spw in spw_bandwidths.keys():
-               if spw not in spw_effective_bandwidths.keys():
-                  spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+            for spw in spw_bandwidths[vis].keys():
+               if spw not in spw_effective_bandwidths_dict[vis].keys():
+                  spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths_dict[vis][spw]
 
          for spw in selfcal_library[target][band][vis]['spwlist']:
             keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
             if spw not in keylist:
                selfcal_library[target][band][vis]['per_spw_stats'][spw]={}
 
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths[spw]
-            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
+            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths_dict[vis][spw]
 
       for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid]['per_spw_stats']={}
@@ -645,7 +657,7 @@ for target in all_targets:
     inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
     print('Estimated SNR per solint:')
     print(target,band)
-    for solint in solints[band]:
+    for solint in solints[band][target]:
       if solint == 'inf_EB':
          print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
          ''' 
@@ -666,7 +678,7 @@ for target in all_targets:
     for fid in selfcal_library[target][band]['sub-fields']:
         print('Estimated SNR per solint:')
         print(target,band,"field "+str(fid))
-        for solint in solints[band]:
+        for solint in solints[band][target]:
           if solint == 'inf_EB':
              print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
              ''' 
@@ -702,13 +714,13 @@ for target in all_targets:
       dividing_factor=15.0
    nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
 
-   n_ap_solints=sum(1 for solint in solints[band] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
+   n_ap_solints=sum(1 for solint in solints[band][target] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
    if rel_thresh_scaling == 'loge':
-      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band][target])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
    elif rel_thresh_scaling == 'linear':
-      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(solints[band])-n_ap_solints),np.array([3.0]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(solints[band][target])-n_ap_solints),np.array([3.0]*n_ap_solints))
    else: #implicitly making log10 the default
-      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band][target])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
 
    if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
       sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[target][band],cellsize=cellsize[target][band])
@@ -780,19 +792,18 @@ for band in bands:
             inf_EB_fields[band].append(target)
             if selfcal_library[target][band]['final_solint'] != 'inf_EB':
                 inf_fields[band].append(target)
-            elif 'inf' in solints[band]:
+            elif 'inf' in solints[band][target]:
                 fallback_fields[band].append(target)
         else:
             fallback_fields[band].append(target)
 
-    # Update the relevant lists if we are going to do a fallback mode.
-    if len(fallback_fields[band]) > 0:
-        solints[band] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
-        solmode[band] += ["p","p","p","p"]
-        gaincal_combine[band] += [gaincal_combine[band][0], gaincal_combine[band][1], gaincal_combine[band][1], gaincal_combine[band][1]]
-        applycal_mode[band] += [applycal_mode[band][0], applycal_mode[band][1], applycal_mode[band][1], applycal_mode[band][1]]
-        calibrators[band] = [inf_EB_fields[band], inf_fields[band], inf_fields[band], inf_fields[band]]
-        for target in all_targets:
+        # Update the relevant lists if we are going to do a fallback mode.
+        if len(fallback_fields[band]) > 0:
+            solints[band][target] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
+            solmode[band][target] += ["p","p","p","p"]
+            gaincal_combine[band][target] += [gaincal_combine[band][target][0], gaincal_combine[band][target][1], gaincal_combine[band][target][1], gaincal_combine[band][target][1]]
+            applycal_mode[band][target] += [applycal_mode[band][target][0], applycal_mode[band][target][1], applycal_mode[band][target][1], applycal_mode[band][target][1]]
+            calibrators[band] = [inf_EB_fields[band], inf_fields[band], inf_fields[band], inf_fields[band]]
             selfcal_library[target][band]["nsigma"] = np.concatenate((selfcal_library[target][band]["nsigma"],[selfcal_library[target][band]["nsigma"][0], \
                     selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1]]))
 
@@ -1208,6 +1219,7 @@ for target in all_targets:
                 if target+'_field_'+str(fid) not in new_selfcal_library:
                     new_selfcal_library[target+'_field_'+str(fid)] = {}
                 new_selfcal_library[target+'_field_'+str(fid)][band] = selfcal_library[target][band][fid]
+                solints[band][target+'_field_'+str(fid)] = solints[band][target]
 
     if len(new_selfcal_library) > 0:
         generate_weblog(new_selfcal_library,solints,bands,directory='weblog/'+target+'_field-by-field')
