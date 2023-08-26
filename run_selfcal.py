@@ -669,6 +669,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     else:
                         unflag_spwmap = []
 
+                    selfcal_library[target][band][vis][solint]['unflag_spwmap'] = unflag_spwmap
+                    selfcal_library[target][band][vis][solint]['unflagged_lbs'] = True
+
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
                             solmode[band][target][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=solmode[band][target][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \

@@ -2477,7 +2477,14 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                frac_flagged_sols=nflagged_sols/nsols
                plot_ants_flagging_colored(directory+'/images/plot_ants_'+gaintable+'.png',vis,gaintable)
-               htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a><br>\n')
+               htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a>')
+               if 'unflagged_lbs' in sclib[target][band][vis][solints[band][target][i]]:
+                   unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), flagged_fraction=0.25, \
+                           spwmap=sclib[target][band][vis][solints[band][target][i]]['unflag_spwmap'], \
+                           plot=True, plot_directory=directory+'/images/')
+                   htmlOutSolint.writelines('\n<a href="images/'+gaintable.replace('.g.','.pre-pass.pass')+'.png"><img src="images/'+gaintable.replace('.g','.pre-pass.pass')+'.png" ALT="Long baseline unflagging thresholds" HEIGHT=400></a><br>\n')
+               else:
+                   htmlOutSolint.writelines('<br>\n')
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
@@ -2491,6 +2498,7 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                         fallback_mode='SPWMAP'
                      htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
                htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][solints[band][target][i]]['spwmap']))+']</h4>\n')
+
 
                for ant in ant_list:
                   sani_target=sanitize_string(target)
@@ -2787,8 +2795,8 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
-        fb_to_prev_solint=False, solints=[], iteration=0):
-    tb.open(caltable, nomodify=False)
+        fb_to_prev_solint=False, solints=[], iteration=0, plot=False, plot_directory="./"):
+    tb.open(caltable, nomodify=plot) # Because we only modify if we aren't plotting, i.e. in the selfcal loop itself plot=False
     antennas = tb.getcol("ANTENNA1")
     flags = tb.getcol("FLAG")
     cals = tb.getcol("CPARAM")
@@ -2899,37 +2907,72 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
 
     # Make a plot of all of this info
 
-    import matplotlib.pyplot as plt
+    if plot:
+        import matplotlib.pyplot as plt
+        #from matplotlib import rc
+        from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, HPacker, VPacker
 
-    fig, ax1 = plt.subplots()
-    ax2 = ax1.twinx()
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
 
-    ax1.plot(unique_offsets, percentage_flagged, "o")
+        ax1.plot(unique_offsets, percentage_flagged, "o")
 
-    ax1.plot(test_r, fraction_flagged_antennas, "k-")
-    ax2.plot(test_r, derivative / derivative.max(), "g-")
-    if len(positive_velocity_maxima) > 0:
-        ax2.plot(test_r, second_derivative / second_derivative[positive_velocity_maxima].max(), "r-")
-    else:
-        ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
-
-    for m in maxima[::-1]:
-        if second_derivative[m] < 0:
-            continue
-
-        # Estimated change ine the size of the beam.
-        beam_change = np.percentile(offsets, 80) / np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
-                offsets > test_r[m])], 80)
-
-        #if beam_change < 1.05:
-        if test_r[m] == offset_limit:
-            ax1.axvline(test_r[m], linestyle="--")
-            ax1.axhline(fraction_flagged_antennas[m], linestyle="--")
+        ax1.plot(test_r, fraction_flagged_antennas, "k-")
+        ax2.plot(test_r, derivative / derivative.max(), "g-")
+        if len(positive_velocity_maxima) > 0:
+            ax2.plot(test_r, second_derivative / second_derivative[positive_velocity_maxima].max(), "r-")
         else:
-            ax1.axvline(test_r[m])
+            ax2.plot(test_r, second_derivative / second_derivative[maxima].max(), "r-")
 
-    fig.savefig(caltable.replace(".g",".pass.png"))
-    plt.close(fig)
+        for m in maxima[::-1]:
+            if second_derivative[m] < 0:
+                continue
+
+            # Estimated change ine the size of the beam.
+            beam_change = np.percentile(offsets, 80) / np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
+                    offsets > test_r[m])], 80)
+
+            #if beam_change < 1.05:
+            if test_r[m] == offset_limit:
+                ax1.axvline(test_r[m], linestyle="--")
+                ax1.axhline(fraction_flagged_antennas[m], linestyle="--")
+            else:
+                ax1.axvline(test_r[m])
+
+        #rc('text',usetex=True)
+        #rc('text.latex', preamble=r'\usepackage{color}')
+        ax1.set_xlabel("Baseline (m)")
+        ax1.set_ylabel("Flagged Fraction")
+        #ax2.set_ylabel("Normalized Smoothed Flagged Fraction \n Velocity / Acceleration")
+        ybox1 = TextArea("Normalized Smoothed Flagged Fraction ", \
+                textprops=dict(color="k", rotation=90, ha='left',va='bottom'))
+        ybox2 = TextArea("Velocity ", \
+                textprops=dict(color="g", rotation=90, ha='left',va='bottom'))
+        ybox3 = TextArea("Acceleration ", \
+                textprops=dict(color="r", rotation=90, ha='left',va='bottom'))
+        ybox4 = TextArea("/ ", \
+                textprops=dict(color="k", rotation=90, ha='left',va='bottom'))
+        ybox5 = TextArea("\n", \
+                textprops=dict(color="k", rotation=90, ha='left',va='bottom'))
+
+        ybox = VPacker(children=[ybox1], align="bottom", pad=0, sep=5)
+        ybox6 = VPacker(children=[ybox3, ybox4, ybox2], align="bottom", pad=0, sep=5)
+
+        anchored_ybox = AnchoredOffsetbox(loc=8, child=ybox, pad=0., frameon=False, \
+                bbox_to_anchor=(1.15, 0.15), bbox_transform=ax2.transAxes, borderpad=0.)
+        anchored_ybox2 = AnchoredOffsetbox(loc=8, child=ybox6, pad=0., frameon=False, \
+                bbox_to_anchor=(1.2, 0.26), bbox_transform=ax2.transAxes, borderpad=0.)
+
+        ax2.add_artist(anchored_ybox)
+        ax2.add_artist(anchored_ybox2)
+
+        fig.tight_layout()
+        fig.savefig(plot_directory+"/"+caltable.replace(".g",".pass.png"))
+        plt.close(fig)
+
+        tb.close()
+
+        return
 
     # Now combine the cluster of antennas with high flagging fraction with the antennas that actually have enough
     # flagging to warrant passing through to get the list of pass through antennas.
