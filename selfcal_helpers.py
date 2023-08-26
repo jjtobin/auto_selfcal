@@ -2378,7 +2378,7 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
 
          vislist=sclib[target][band]['vislist']
          index_addition=1
-         if sclib[target][band]['final_solint'] != solints[band][-1] and sclib[target][band]['final_solint'] != 'None':
+         if sclib[target][band]['final_solint'] != solints[band][target][-1] and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
          # if it's a dataset where inf_EB == inf, make sure to take out the assumption that there would be an 'inf' solution
          if 'inf' not in solints[band][target]:
@@ -2481,7 +2481,7 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
-               if 'inf_EB' in solints[target][band][i]:
+               if 'inf_EB' in solints[band][target][i]:
                   if 'fallback' in sclib[target][band][vis][solints[band][target][i]].keys():
                      if sclib[target][band][vis][solints[band][target][i]]['fallback'] == '':
                         fallback_mode='None'
