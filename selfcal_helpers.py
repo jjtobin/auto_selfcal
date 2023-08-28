@@ -903,6 +903,7 @@ def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring=''
        print('#')
        sys.exit(0)
    print('Estimated Sensitivity: ',estsens)
+   im.close()
    return estsens
 
 
