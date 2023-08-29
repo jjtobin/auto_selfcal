@@ -3111,12 +3111,12 @@ def triage_calibrators(vis, target, potential_calibrators, max_distance=10.0, ma
     distances = []
     intents = []
     times = []
-    import matplotlib.pyplot as plt
+    #import matplotlib.pyplot as plt
     for t in gaincalibrator_dict.keys():
         dRA = (gaincalibrator_dict[t]["phasecenter"]["m0"]["value"] - gaincalibrator_dict[target]["phasecenter"]["m0"]["value"]) * 360/(2*np.pi)
         dDec = (gaincalibrator_dict[t]["phasecenter"]["m1"]["value"] - gaincalibrator_dict[target]["phasecenter"]["m1"]["value"]) * 360/(2*np.pi)
-        plt.plot(dRA, dDec, "ko")
-        plt.annotate(t, (dRA, dDec))
+        #plt.plot(dRA, dDec, "ko")
+        #plt.annotate(t, (dRA, dDec))
         d = (dRA**2 + dDec**2)**0.5
 
         scans += [gaincalibrator_dict[t]["scans"]]
