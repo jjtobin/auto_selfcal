@@ -1147,6 +1147,7 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
         msmd.close()
         # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
         #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+        trans_spw = -1
         for check_spw in spws[spwname]:
            matching_index=np.where(check_spw == spwsarray)
            if len(matching_index[0]) == 0:
@@ -1154,7 +1155,7 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
            else:
               trans_spw=check_spw
               break
-        if trans_spw==0:
+        if trans_spw==-1:
            print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
            return ''
         #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
@@ -1227,7 +1228,7 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
       msmd.open(vis)
       spws=msmd.spwsfornames(spwname)
       msmd.close()
-      trans_spw=0
+      trans_spw=-1
       # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
       #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
       for check_spw in spws[spwname]:
