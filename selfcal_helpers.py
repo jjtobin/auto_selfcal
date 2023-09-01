@@ -1862,6 +1862,8 @@ def generate_weblog(sclib,solints,bands):
                render_summary_table(htmlOut,sclib,target,band)
                continue
          htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br><br>\n')
+         if 'Found_contdotdat' in sclib[target][band]:
+             htmlout.write("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.<br><br>")
          # Summary table for before/after SC
          render_summary_table(htmlOut,sclib,target,band)
 
