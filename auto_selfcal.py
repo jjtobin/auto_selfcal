@@ -336,7 +336,7 @@ for target in all_targets:
          selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
          if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
             print('cont.dat does not contain all spws; falling back to total bandwidth')
-            for spw in spw_bandwidths[vis].keys():
+            for spw in spw_bandwidths_dict[vis].keys():
                if spw not in spw_effective_bandwidths_dict[vis].keys():
                   spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths_dict[vis][spw]
 
@@ -1084,6 +1084,8 @@ if casaversion[0]>=6 and casaversion[1]>=5 and casaversion[2]>=2:   # new uvcont
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
             contdotdat = parse_contdotdat('cont.dat',target)
+            if len(contdotdat) == 0:
+                selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
             for vis in vislist:
                msmd.open(vis)
@@ -1108,6 +1110,8 @@ if casaversion[0]>=6 and casaversion[1]<=5 and casaversion[2]<2:   # old uvconts
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
             contdotdat = parse_contdotdat('cont.dat',target)
+            if len(contdotdat) == 0:
+                selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
             for vis in vislist:      
                contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray_dict[vis],vislist,spwvisref,contdotdat,return_contfit_range=True)

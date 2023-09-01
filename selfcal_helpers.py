@@ -1175,6 +1175,10 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
                flagchannels_string += '%d~%d;' % (chans[i], chans[i+1])
             fitspw_dict[str(trans_spw)]['chan']=flagchannels_string[:-1]
 
+    if len(fitspw_dict) == 0:
+        print("WARNING: No entry found in cont.dat for target "+target+", fitting all channels for continuum range.")
+        fitspw_dict[','.join(spwsarray.astype(str))] = ''
+
     return fitspw_dict
 
 def get_spw_chanwidths(vis,spwarray):
@@ -2372,6 +2376,10 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
          contdotdat = parse_contdotdat('cont.dat',target)
+         if len(contdotdat) == 0:
+             print("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.")
+             print("No flagging will be done for target "+target)
+             continue
          contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
