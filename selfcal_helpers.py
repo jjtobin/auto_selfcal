@@ -2072,7 +2072,7 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
          if sclib[target][band]['obstype'] == 'mosaic':
              htmlOut.writelines('<a href="'+target+'_field-by-field/index.html">Field-by-Field Summary</a><br><br>\n')
          if 'Found_contdotdat' in sclib[target][band]:
-             htmlout.write("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.<br><br>")
+             htmlOut.write("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.<br><br>")
          # Summary table for before/after SC
          render_summary_table(htmlOut,sclib,target,band,directory=directory)
 
