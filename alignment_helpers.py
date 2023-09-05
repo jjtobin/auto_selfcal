@@ -128,7 +128,7 @@ def grid(grid_vis, grid_nvis, grid_wgts, uu, vv, du, dv, npix, vis, wgts):
     return grid_vis, grid_nvis, grid_wgts
 
 
-def ingest_ms(base_ms, npix, cell_size, grid_needs_to_cover_all_data, spwid=0):
+def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, spwid=0):
     """
     Ingest a measurement set and grid onto a regular grid with ``npix`` cells,
     each with a size ``cell_size`` in [arcsec].
@@ -152,6 +152,11 @@ def ingest_ms(base_ms, npix, cell_size, grid_needs_to_cover_all_data, spwid=0):
 
     # this is an assumption that is valid for exoALMA data, but not in general
     data_desc_id = str(spwid)
+
+    msmd = casatools.msmetadata()
+    msmd.open(base_ms)
+    field_id = str(msmd.fieldsforname(target)[0])
+    msmd.close()
     
     tb = casatools.table()
     tb.open(base_ms+"/SPECTRAL_WINDOW")
@@ -159,7 +164,7 @@ def ingest_ms(base_ms, npix, cell_size, grid_needs_to_cover_all_data, spwid=0):
     tb.close()
     chan_freqs = chan_freqs_all["r"+str(spwid+1)]
     tb.open(base_ms)
-    subt = tb.query("DATA_DESC_ID=="+data_desc_id)
+    subt = tb.query("DATA_DESC_ID=="+data_desc_id+" && FIELD_ID=="+field_id)
     flag = subt.getcol("FLAG")
     uvw = subt.getcol("UVW")
     weight = subt.getcol("WEIGHT")
@@ -295,7 +300,7 @@ def plot_grid_nvis(ax,grid_nvis,grid_uu,grid_vv,vmin=None,vmax=None):
     ax.set_ylabel('v')
     return img
 
-def find_offset(reference_ms, offset_ms, npix=1024, cell_size=0.01, spwid=0,
+def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwid=0,
                 fail_silently=False,verbose=False,plot_uv_grid=False,
                 uv_grid_plot_filename=None):
     """
@@ -324,7 +329,7 @@ def find_offset(reference_ms, offset_ms, npix=1024, cell_size=0.01, spwid=0,
     temporary_ms = []
     ms_for_offset_calculation = {}
     for ms_ID,ms in input_ms.items():
-        phase_center = get_phase_center(measurement_set=ms)
+        phase_center = get_phase_center(measurement_set=ms, target=target)
         frame = get_coord_frame(phase_center)
         if frame == 'J2000':
             if verbose:
@@ -341,7 +346,7 @@ def find_offset(reference_ms, offset_ms, npix=1024, cell_size=0.01, spwid=0,
             sky_coord_phase_center = sky_coord_phase_center.transform_to(
                                                   skycoord_frames['J2000'])
             phase_center_J2000 = f'J2000 {sky_coord_phase_center.to_string("hmsdms")}'
-            casatasks.fixvis(vis=ms,outputvis=J2000_ms,phasecenter=phase_center_J2000)
+            casatasks.fixvis(vis=ms,outputvis=J2000_ms, field=target,phasecenter=phase_center_J2000)
             temporary_ms.append(J2000_ms)
             ms_for_offset_calculation[ms_ID] = J2000_ms
         else:
@@ -350,9 +355,9 @@ def find_offset(reference_ms, offset_ms, npix=1024, cell_size=0.01, spwid=0,
     # Ingest the required measurement sets. Will return a list of ``grid_vis``,
     # ``grid_nvis``, ``grid_uu``, ``grid_vv`` and ``grid_wgts``.
 
-    ms1 = ingest_ms(base_ms=ms_for_offset_calculation['ref'], npix=npix,
+    ms1 = ingest_ms(base_ms=ms_for_offset_calculation['ref'], target=target, npix=npix,
                     cell_size=cell_size,grid_needs_to_cover_all_data=False,spwid=spwid)
-    ms2 = ingest_ms(base_ms=ms_for_offset_calculation['offset'], npix=npix,
+    ms2 = ingest_ms(base_ms=ms_for_offset_calculation['offset'], target=target, npix=npix,
                     cell_size=cell_size, grid_needs_to_cover_all_data=True,spwid=spwid)
 
     # Define the overlap between the two measurement sets.
@@ -416,17 +421,7 @@ def find_offset(reference_ms, offset_ms, npix=1024, cell_size=0.01, spwid=0,
     return res.x
 
 
-def assert_only_one_field_in_ms(ms):
-    msmd = casatools.msmetadata()
-    msmd.open(ms)
-    field_names = msmd.fieldnames()
-    msmd.close()
-    if len(field_names) != 1:
-        raise RuntimeError(f"Multiple fields found: {field_names}."
-                           +" This script assumes that there is only one field")
-
-
-def get_phase_center(measurement_set):
+def get_phase_center(measurement_set, target):
     """
     Read the phase center for the given measurement set.
 
@@ -437,11 +432,9 @@ def get_phase_center(measurement_set):
         phase_center (str): Coordinates of the phase center.
     """
 
-    assert_only_one_field_in_ms(ms=measurement_set)
-
     msmd = casatools.msmetadata()
     msmd.open(measurement_set)
-    phase_center_data = msmd.phasecenter()
+    phase_center_data = msmd.phasecenter(fieldid=msmd.fieldsforname(target)[0])
     msmd.close()
     if phase_center_data['refer'] == "ICRS":
         frame = "icrs"
@@ -514,7 +507,7 @@ def generate_shifted_coords(original_coord,offset,return_J2000):
     return shifted_coord
 
 
-def update_phase_center(vis, new_phase_center, ref_phase_center,
+def update_phase_center(vis, target, new_phase_center, ref_phase_center,
                         suffix='_shift'):
     """
     Apply the updated phase center to the provided measurement set. This will
@@ -523,21 +516,21 @@ def update_phase_center(vis, new_phase_center, ref_phase_center,
 
     Args:
         vis (str): Visibility set to update the phase center of.
+        target (str or int): Target source to update phase center of.
         new_phase_center (str): New phase center to apply in J2000.
         ref_phase_center (str): Reference phase center to update in J2000.
         suffix (optional[str]): Suffix to add prior to '.ms' for the new MS.
     """
-    assert_only_one_field_in_ms(ms=vis)
     for pc in (new_phase_center,ref_phase_center):
         assert get_coord_frame(pc) == 'J2000'
     shifted_vis = vis.replace('.ms', suffix+'.ms')
-    casatasks.fixvis(vis=vis, outputvis=shifted_vis, field='0',
+    casatasks.fixvis(vis=vis, outputvis=shifted_vis, field=target,
                      phasecenter=new_phase_center)
-    casatasks.fixplanets(vis=shifted_vis, field='0', fixuvw=False,
+    casatasks.fixplanets(vis=shifted_vis, field=target, fixuvw=False,
                          direction=ref_phase_center)
 
 
-def align_measurement_sets(reference_ms, align_ms, align_offsets=None,npix=1024,
+def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,npix=1024,
                            cell_size=0.01,spwid=0,plot_uv_grid=False,
                            plot_file_template=None):
     """
@@ -549,6 +542,7 @@ def align_measurement_sets(reference_ms, align_ms, align_offsets=None,npix=1024,
     Args:
         reference_ms (str): The MS to use as a the fixed reference point.
         align_ms (str or list): The MS to align to the reference MS.
+        target(str or int): The target to align.
         align_offsets (optional[list]): list of offsets to be used for the alignment.
             Each element corresponds to an element of align_ms.
             If None, offsets will be calculated.
@@ -563,7 +557,7 @@ def align_measurement_sets(reference_ms, align_ms, align_offsets=None,npix=1024,
     # the call to generate_shifted_coords() is to convert from ICRS to J2000 for
     # the fixplanets() call later which only uses J2000.
 
-    source_phase_center = get_phase_center(measurement_set=reference_ms)
+    source_phase_center = get_phase_center(measurement_set=reference_ms, target=target)
     source_phase_center = generate_shifted_coords(
                               original_coord=source_phase_center,offset=[0.0,0.0],
                               return_J2000=True)
@@ -596,7 +590,7 @@ def align_measurement_sets(reference_ms, align_ms, align_offsets=None,npix=1024,
                                      cell_size=cell_size,spwid=spwid,
                                      plot_uv_grid=plot_uv_grid,
                                      uv_grid_plot_filename=uv_grid_plot_filename)
-        ms_phase_center = get_phase_center(measurement_set=ms)
+        ms_phase_center = get_phase_center(measurement_set=ms, target=target)
         shifted = generate_shifted_coords(original_coord=ms_phase_center,
                                           offset=offset,return_J2000=True)
         if align_offsets is None:
@@ -607,7 +601,7 @@ def align_measurement_sets(reference_ms, align_ms, align_offsets=None,npix=1024,
                 print('#requires a shift of [{:.5g},{:.5g}]\n'.format(*offset))
         else:
             print(f'applying shift {offset} to {ms}')
-        update_phase_center(vis=ms,new_phase_center=shifted,
+        update_phase_center(vis=ms,target=target,new_phase_center=shifted,
                             ref_phase_center=source_phase_center)
 
 
