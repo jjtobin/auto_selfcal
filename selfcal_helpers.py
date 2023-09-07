@@ -1189,47 +1189,42 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
 
 
 def get_spw_map(selfcal_library, vislist, target, band, spwsarray_dict):
-    # If this is an ALMA dataset with a cont.dat, use the EB that that references as the reference SPW for the spw_map.
-    # Otherwise, check which EB has the most SPWs in it.
-    # NOTE: This won't work if there happens to be EBs which are each missing a different SPW, as only one of those will be grabbed... Problem to
-    # solve later?
-    if os.path.exists('cont.dat'):
-        contdotdat=parse_contdotdat('cont.dat',target)
-        spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
-    else:
-        maxspws=0
-        maxspwvis=''
-        for vis in vislist:
-           if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
-              maxspws=selfcal_library[target][band][vis]['n_spws']
-              maxspwvis=vis+''
-        spwvisref=maxspwvis
-    
-    # Now make the mapping between spws in different datasets.
     spw_map = {}
-    for spw in spwsarray_dict[spwvisref]:
-        spw_map[spw] = {}
-        for vis in vislist:
-           msmd.open(spwvisref)
-           spwname=msmd.namesforspws(spw)[0]
-           msmd.close()
-           msmd.open(vis)
-           spws=msmd.spwsfornames(spwname)
-           msmd.close()
-           trans_spw=-1
-           # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-           #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
-           for check_spw in spws[spwname]:
-              matching_index=np.where(check_spw == spwsarray_dict[vis])
-              if len(matching_index[0]) == 0:
-                   continue
-              else:
-                   trans_spw=check_spw
-                   break
-           if trans_spw != -1:
-               spw_map[spw][vis] = trans_spw
+    virtual_index = 0
+    # This code is meant to be generic in order to prepare for cases where multiple EBs might have unique SPWs in them (e.g. inhomogeneous data),
+    # but the criterea for which SPWs match will need to be updated for this to truly generalize.
+    for vis in vislist:
+        for spw in spwsarray_dict[vis]:
+            found_match = False
+            for s in spw_map:
+                for v in spw_map[s].keys():
+                   if vis == v:
+                       continue
 
-    return spwvisref, spw_map
+                   # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
+                   msmd.open(vis)
+                   spwname=msmd.namesforspws(spw)[0]
+                   msmd.close()
+
+                   msmd.open(v)
+                   sname = msmd.namesforspws(spw_map[s][v])[0]
+                   msmd.close()
+
+                   if spwname == sname:
+                       found_match = True
+                       spw_map[s][vis] = spw
+                       break
+
+                if found_match:
+                    break
+
+            if not found_match:
+                spw_map[virtual_index] = {}
+                spw_map[virtual_index][vis] = spw
+                virtual_index += 1
+
+    print(spw_map)
+    return spw_map
 
 
 def largest_prime_factor(n):
