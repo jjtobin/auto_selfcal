@@ -1050,7 +1050,7 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
    visref=vislist[np.argmin(score)]            
    return visref
 
-def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat):
+def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat,return_contfit_range=False):
     """
     Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
 
@@ -1108,15 +1108,78 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
             """
 
         chans = np.sort(chans)
-
-        flagchannels_string += '0~%d;' % (chans[0])
-        for i in range(1,chans.size-1,2):
-            flagchannels_string += '%d~%d;' % (chans[i], chans[i+1])
-        flagchannels_string += '%d~%d, ' % (chans[-1], nchan-1)
-
-    print("# Flagchannels input string for %s in %s from cont.dat file: \'%s\'" % (target, vis, flagchannels_string))
-
+        if not return_contfit_range:
+           flagchannels_string += '0~%d;' % (chans[0])
+           for i in range(1,chans.size-1,2):
+               flagchannels_string += '%d~%d;' % (chans[i], chans[i+1])
+           flagchannels_string += '%d~%d, ' % (chans[-1], nchan-1)
+        else:
+           for i in range(0,chans.size-1,2):
+               flagchannels_string += '%d~%d;' % (chans[i], chans[i+1])
+           flagchannels_string=flagchannels_string[:-1]+ ',' 
+    if not return_contfit_range:
+       print("# Flagchannels input string for %s in %s from cont.dat file: \'%s\'" % (target, vis, flagchannels_string))
+    else:    
+       flagchannels_string=flagchannels_string[:-1]
+       print("# Cont range string for %s in %s from cont.dat file: \'%s\'" % (target, vis, flagchannels_string))
     return flagchannels_string
+
+def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1):
+    """
+    Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
+
+    Parameters
+    ==========
+    ms_dict: Dictionary of information about measurement set
+
+    Returns
+    =======
+    String of channels to be flagged, in a format that can be passed to the spw parameter in CASA's flagdata task. 
+    """
+
+    fitspw_dict = {}
+    #moved out of function to not for each MS for efficiency
+    #contdotdat = parse_contdotdat('cont.dat',target)
+    #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
+    for j,spw in enumerate(contdotdat):
+        msmd.open(spwvisref)
+        spwname=msmd.namesforspws(spw)[0]
+        msmd.close()
+        msmd.open(vis)
+        spws=msmd.spwsfornames(spwname)
+        msmd.close()
+        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
+        trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+        #flagchannels_string += '%d:' % (trans_spw)
+        tb.open(vis+'/SPECTRAL_WINDOW')
+        nchan = tb.getcol('CHAN_FREQ', startrow = trans_spw, nrow = 1).size
+        tb.close()
+
+        chans = np.array([])
+        for k in range(contdotdat[spw].shape[0]):
+            print(trans_spw, contdotdat[spw][k])
+
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat[spw][k],spwsarray),chans))
+
+            """
+            if flagchannels_string == '':
+                flagchannels_string+='%d:%d~%d' % (spw, np.min([chans[0], chans[1]]), np.max([chans[0], chans[1]]))
+            else:
+                flagchannels_string+=', %d:%d~%d' % (spw, np.min([chans[0], chans[1]]), np.max([chans[0], chans[1]]))
+            """
+            chans = np.sort(chans)
+            fitspw_dict[str(trans_spw)] = {}
+            fitspw_dict[str(trans_spw)]['fitorder']=fitorder
+            flagchannels_string=''
+            for i in range(0,chans.size-1,2):
+               flagchannels_string += '%d~%d;' % (chans[i], chans[i+1])
+            fitspw_dict[str(trans_spw)]['chan']=flagchannels_string[:-1]
+
+    if len(fitspw_dict) == 0:
+        print("WARNING: No entry found in cont.dat for target "+target+", fitting all channels for continuum range.")
+        fitspw_dict[','.join(spwsarray.astype(str))] = ''
+
+    return fitspw_dict
 
 def get_spw_chanwidths(vis,spwarray):
    widtharray=np.zeros(len(spwarray))
@@ -1799,6 +1862,8 @@ def generate_weblog(sclib,solints,bands):
                render_summary_table(htmlOut,sclib,target,band)
                continue
          htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br><br>\n')
+         if 'Found_contdotdat' in sclib[target][band]:
+             htmlOut.write('<font color="red">WARNING:</font> No cont.dat entry found for target '+target+', this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.<br><br>')
          # Summary table for before/after SC
          render_summary_table(htmlOut,sclib,target,band)
 
@@ -2313,6 +2378,10 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
          contdotdat = parse_contdotdat('cont.dat',target)
+         if len(contdotdat) == 0:
+             print("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.")
+             print("No flagging will be done for target "+target)
+             continue
          contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
