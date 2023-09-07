@@ -1075,7 +1075,7 @@ for target in all_targets:
 applyCalOut.close()
 
 casaversion=casatasks.version()
-if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[1]==5 and casaversion[2]>=2):   # new uvcontsub format only works in CASA >=6.5.2
+if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[1]==5 and casaversion[2]>=2))):   # new uvcontsub format only works in CASA >=6.5.2
    if os.path.exists("cont.dat"):
       contsub_dict={}
       for vis in vislist:  
