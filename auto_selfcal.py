@@ -322,6 +322,10 @@ for target in all_targets:
    for band in selfcal_library[target].keys():
       selfcal_library[target][band]['per_spw_stats']={}
       vislist=selfcal_library[target][band]['vislist'].copy()
+
+      selfcal_library[target][band]['spwvisref'], selfcal_library[target][band]['spw_map'] = get_spw_map(selfcal_library, 
+              vislist, target, band, spwsarray_dict)
+
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws
       #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
@@ -356,13 +360,13 @@ if check_all_spws:
       for band in selfcal_library[target].keys():
          vislist=selfcal_library[target][band]['vislist'].copy()
          #potential place where diff spws for different VLA EBs could cause problems
-         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
+         spwlist=selfcal_library[target][band][selfcal_library[target][band]['spwvisref']]['spws'].split(',')
          for spw in spwlist:
             keylist=selfcal_library[target][band]['per_spw_stats'].keys()
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
             if not os.path.exists(sani_target+'_'+band+'_'+spw+'_dirty.image.tt0'):
-               spws_per_vis=[spw]*len(vislist)
+               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][int(spw)][vis]) for vis in vislist]
                tclean_wrapper(vislist,sani_target+'_'+band+'_'+spw+'_dirty',
                      band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
@@ -385,7 +389,7 @@ if check_all_spws:
                      sensitivity=sensitivity*4.0 
                else:
                   sensitivity=0.0
-               spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
+               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][int(spw)][vis]) for vis in vislist]
 
                tclean_wrapper(vislist,sani_target+'_'+band+'_'+spw+'_initial',\
                           band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
@@ -967,7 +971,7 @@ if check_all_spws:
       for band in selfcal_library[target].keys():
          vislist=selfcal_library[target][band]['vislist'].copy()
 
-         spwlist=selfcal_library[target][band][vis]['spws'].split(',')
+         spwlist=selfcal_library[target][band][selfcal_library[target][band]['spwvisref']]['spws'].split(',')
          print('Generating final per-SPW images for '+target+' in '+band)
          for spw in spwlist:
    ## omit DR modifiers here since we should have increased DR significantly
@@ -983,7 +987,7 @@ if check_all_spws:
                      sensitivity=sensitivity*4.0 
                else:
                   sensitivity=0.0
-               spws_per_vis=[spw]*len(vislist)  #assumes all spw ids are identical in each MS file
+               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][int(spw)][vis]) for vis in vislist]
                nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
                sensitivity_agg=get_sensitivity(vislist,selfcal_library[target][band],target,selfcal_library[target][band][vis]['spws'],spw=selfcal_library[target][band][vis]['spwsarray'],imsize=imsize[band],cellsize=cellsize[band])
                sensitivity_scale_factor=selfcal_library[target][band]['RMS_curr']/sensitivity_agg

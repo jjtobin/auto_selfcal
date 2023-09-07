@@ -1187,6 +1187,51 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
    return avgarray
 
 
+
+def get_spw_map(selfcal_library, vislist, target, band, spwsarray_dict):
+    # If this is an ALMA dataset with a cont.dat, use the EB that that references as the reference SPW for the spw_map.
+    # Otherwise, check which EB has the most SPWs in it.
+    # NOTE: This won't work if there happens to be EBs which are each missing a different SPW, as only one of those will be grabbed... Problem to
+    # solve later?
+    if os.path.exists('cont.dat'):
+        contdotdat=parse_contdotdat('cont.dat',target)
+        spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
+    else:
+        maxspws=0
+        maxspwvis=''
+        for vis in vislist:
+           if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
+              maxspws=selfcal_library[target][band][vis]['n_spws']
+              maxspwvis=vis+''
+        spwvisref=maxspwvis
+    
+    # Now make the mapping between spws in different datasets.
+    spw_map = {}
+    for spw in spwsarray_dict[spwvisref]:
+        spw_map[spw] = {}
+        for vis in vislist:
+           msmd.open(spwvisref)
+           spwname=msmd.namesforspws(spw)[0]
+           msmd.close()
+           msmd.open(vis)
+           spws=msmd.spwsfornames(spwname)
+           msmd.close()
+           trans_spw=-1
+           # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
+           #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+           for check_spw in spws[spwname]:
+              matching_index=np.where(check_spw == spwsarray_dict[vis])
+              if len(matching_index[0]) == 0:
+                   continue
+              else:
+                   trans_spw=check_spw
+                   break
+           if trans_spw != -1:
+               spw_map[spw][vis] = trans_spw
+
+    return spwvisref, spw_map
+
+
 def largest_prime_factor(n):
     i = 2
     while i * i <= n:
@@ -2048,14 +2093,14 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          htmlOut.writelines('</table>\n')
 
 def render_spw_stats_summary_table(htmlOut,sclib,target,band):
-   spwlist=list(sclib[target][band]['per_spw_stats'].keys())
+   spwlist=list(sclib[target][band][sclib[target][band]['spwvisref']]['per_spw_stats'].keys())
    htmlOut.writelines('<br>Per SPW stats: <br>\n')
    htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
    htmlOut.writelines('	<tr>\n')
    htmlOut.writelines('		<td>\n')
    line='<table>\n  <tr bgcolor="#ffffff">\n    <th></th>\n    '
    for spw in spwlist:
-      line+='<th>'+spw+'</th>\n    '
+      line+='<th>'+str(spw)+'</th>\n    '
    line+='</tr>\n'
    htmlOut.writelines(line)
 
@@ -2063,13 +2108,14 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    for key in quantities:
       line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
       for spw in spwlist:
-         spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
-         if 'SNR' in key and key in spwkeys:
-            line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
-         if 'RMS' in key and key in spwkeys:
-            line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
-         if 'bandwidth' in key and key in spwkeys:
-            line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
+         if str(spw) in sclib[target][band]['per_spw_stats']:
+             spwkeys=sclib[target][band]['per_spw_stats'][str(spw)].keys()
+             if 'SNR' in key and key in spwkeys:
+                line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][str(spw)][key])
+             if 'RMS' in key and key in spwkeys:
+                line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][str(spw)][key]*1000.0)
+         if 'bandwidth' in key and key in sclib[target][band][sclib[target][band]['spwvisref']]['per_spw_stats'][spw].keys():
+            line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band][sclib[target][band]['spwvisref']]['per_spw_stats'][spw][key])
       line+='</tr>\n    '
       htmlOut.writelines(line)
    htmlOut.writelines('</table>\n')
@@ -2077,14 +2123,15 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    htmlOut.writelines('	</tr>\n')
    htmlOut.writelines('</table>\n')
    for spw in spwlist:
-      spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
-      if 'delta_SNR' in spwkeys or 'delta_RMS' in spwkeys or 'delta_beamarea' in spwkeys:
-         if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-            htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
-         if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-            htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
-         if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-            htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
+      if spw in sclib[target][band]['per_spw_stats']:
+          spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
+          if 'delta_SNR' in spwkeys or 'delta_RMS' in spwkeys or 'delta_beamarea' in spwkeys:
+             if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+                htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
+             if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+                htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
+             if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+                htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
 def render_per_solint_QA_pages(sclib,solints,bands):
   ## Per Solint pages
