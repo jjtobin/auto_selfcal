@@ -868,17 +868,14 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
          solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
-def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
-   scalefactor=1.0
-   maxspws=0
-   maxspwvis=''
+def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,specmode='mfs',uvtaper=''):
    for vis in vislist:
-      im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
-      # Also figure out which vis has the max # of spws
-      if selfcal_library[vis]['n_spws'] >= maxspws:
-          maxspws=selfcal_library[vis]['n_spws']
-          maxspwvis=vis+''
-   im.defineimage(mode=specmode,stokes='I',spw=selfcal_library[maxspwvis]['spwsarray'],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
+      if virtual_spw == 'all':
+          im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
+      else:
+          im.selectvis(vis=vis,field=field,spw=selfcal_library['spw_map'][virtual_spw][vis])
+
+   im.defineimage(mode=specmode,stokes='I',spw=[0],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
    im.weight(type='briggs',robust=robust)  
    if uvtaper != '':
       if 'klambda' in uvtaper:
@@ -1223,6 +1220,7 @@ def get_spw_map(selfcal_library, vislist, target, band, spwsarray_dict):
                 spw_map[virtual_index][vis] = spw
                 virtual_index += 1
 
+    print("spw_map:")
     print(spw_map)
     return spw_map
 
@@ -2088,7 +2086,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          htmlOut.writelines('</table>\n')
 
 def render_spw_stats_summary_table(htmlOut,sclib,target,band):
-   spwlist=list(sclib[target][band][sclib[target][band]['spwvisref']]['per_spw_stats'].keys())
+   spwlist=list(sclib[target][band]['per_spw_stats'].keys())
    htmlOut.writelines('<br>Per SPW stats: <br>\n')
    htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
    htmlOut.writelines('	<tr>\n')
@@ -2099,18 +2097,21 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    line+='</tr>\n'
    htmlOut.writelines(line)
 
-   quantities=['bandwidth','effective_bandwidth','SNR_orig','SNR_final','RMS_orig','RMS_final']
+   quantities=sclib[target][band]['vislist'] + ['bandwidth','effective_bandwidth','SNR_orig','SNR_final','RMS_orig','RMS_final']
    for key in quantities:
       line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
       for spw in spwlist:
-         if str(spw) in sclib[target][band]['per_spw_stats']:
-             spwkeys=sclib[target][band]['per_spw_stats'][str(spw)].keys()
+         if spw in sclib[target][band]['per_spw_stats']:
+             spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
              if 'SNR' in key and key in spwkeys:
-                line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][str(spw)][key])
+                line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
              if 'RMS' in key and key in spwkeys:
-                line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][str(spw)][key]*1000.0)
-         if 'bandwidth' in key and key in sclib[target][band][sclib[target][band]['spwvisref']]['per_spw_stats'][spw].keys():
-            line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band][sclib[target][band]['spwvisref']]['per_spw_stats'][spw][key])
+                line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
+         if 'bandwidth' in key and key in sclib[target][band][sclib[target][band]['vislist'][0]]['per_spw_stats'][spw].keys():
+            vis = sclib[target][band]['vislist'][0]
+            line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band][vis]['per_spw_stats'][sclib[target][band]['spw_map'][spw][vis]][key])
+         if key in sclib[target][band]['vislist']:
+            line+='    <td>{:0d}</td>\n'.format(sclib[target][band]['spw_map'][spw][key])
       line+='</tr>\n    '
       htmlOut.writelines(line)
    htmlOut.writelines('</table>\n')
@@ -2122,11 +2123,11 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
           spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
           if 'delta_SNR' in spwkeys or 'delta_RMS' in spwkeys or 'delta_beamarea' in spwkeys:
              if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-                htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
+                htmlOut.writelines('WARNING SPW '+str(spw)+' HAS LOWER SNR POST SELFCAL<br>\n')
              if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-                htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
+                htmlOut.writelines('WARNING SPW '+str(spw)+' HAS HIGHER RMS POST SELFCAL<br>\n')
              if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-                htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
+                htmlOut.writelines('WARNING SPW '+str(spw)+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
 def render_per_solint_QA_pages(sclib,solints,bands):
   ## Per Solint pages
