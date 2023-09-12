@@ -376,7 +376,7 @@ if check_all_spws:
             if telescope!='ACA':
                dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0', las=selfcal_library[target][band]['LAS'])
             else:
-               dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=per_spw_SNR,per_spw_RMS
+               dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=dirty_SNR,dirty_RMS
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0'):
                if telescope=='ALMA' or telescope =='ACA':
                   sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[band],cellsize=cellsize[band])

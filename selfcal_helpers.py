@@ -2107,8 +2107,8 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
                 line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
              if 'RMS' in key and key in spwkeys:
                 line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
-         if 'bandwidth' in key and key in sclib[target][band][sclib[target][band]['vislist'][0]]['per_spw_stats'][spw].keys():
-            vis = sclib[target][band]['vislist'][0]
+         vis = sclib[target][band]['vislist'][0]
+         if 'bandwidth' in key and key in sclib[target][band][vis]['per_spw_stats'][sclib[target][band]['spw_map'][spw][vis]].keys():
             line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band][vis]['per_spw_stats'][sclib[target][band]['spw_map'][spw][vis]][key])
          if key in sclib[target][band]['vislist']:
             line+='    <td>{:0d}</td>\n'.format(sclib[target][band]['spw_map'][spw][key])
