@@ -2086,7 +2086,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          htmlOut.writelines('</table>\n')
 
 def render_spw_stats_summary_table(htmlOut,sclib,target,band):
-   spwlist=list(sclib[target][band]['per_spw_stats'].keys())
+   spwlist=list(sclib[target][band]['spw_map'].keys())
    htmlOut.writelines('<br>Per SPW stats: <br>\n')
    htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
    htmlOut.writelines('	<tr>\n')
