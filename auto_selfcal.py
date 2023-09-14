@@ -12,6 +12,7 @@ import sys
 sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
+from alignment_helpers import align_measurement_sets
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
@@ -152,6 +153,15 @@ for target in all_targets:
           applycal_interp[target][band]='linear'
 
 
+##
+## Align the EBs prior to running selfcal on them.
+##
+
+for target in all_targets:
+    for band in bands:
+        align_measurement_sets(vislist[0], vislist[1:], target, npix=imsize[target][band], 
+                cell_size=float(cellsize[target][band][0:-6]), spwid=0, plot_uv_grid=False, plot_file_template=None, 
+                suffix='')
 
 
 

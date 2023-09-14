@@ -213,8 +213,9 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     grid_vis = np.zeros((npix, npix)).astype('complex')
     grid_wgts = np.zeros((npix, npix))
     grid_nvis = np.zeros((npix, npix))
-    grid_uu, grid_vv = np.mgrid[(-npix/2.0+0.5)*du:(npix/2.0+0.5)*du:du,
-                                (-npix/2.0+0.5)*dv:(npix/2.0+0.5)*dv:dv]
+    grid_uu, grid_vv = np.mgrid[-npix/2:npix/2:1,-npix/2:npix/2:1]
+    grid_uu *= du
+    grid_vv *= dv
     #sometimes mgrid gives the wrong shape, i.e. one element too much
     #for example, cell_size=0.1 and npix=100 leads to grid_uu.shape=(101,101),
     #which then crashes the code
@@ -346,7 +347,7 @@ def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwi
             sky_coord_phase_center = sky_coord_phase_center.transform_to(
                                                   skycoord_frames['J2000'])
             phase_center_J2000 = f'J2000 {sky_coord_phase_center.to_string("hmsdms")}'
-            casatasks.fixvis(vis=ms,outputvis=J2000_ms, field=target,phasecenter=phase_center_J2000)
+            casatasks.fixvis(vis=str(ms),outputvis=J2000_ms, field=target,phasecenter=phase_center_J2000)
             temporary_ms.append(J2000_ms)
             ms_for_offset_calculation[ms_ID] = J2000_ms
         else:
@@ -524,15 +525,15 @@ def update_phase_center(vis, target, new_phase_center, ref_phase_center,
     for pc in (new_phase_center,ref_phase_center):
         assert get_coord_frame(pc) == 'J2000'
     shifted_vis = vis.replace('.ms', suffix+'.ms')
-    casatasks.fixvis(vis=vis, outputvis=shifted_vis, field=target,
+    casatasks.fixvis(vis=str(vis), outputvis=str(shifted_vis), field=target,
                      phasecenter=new_phase_center)
-    casatasks.fixplanets(vis=shifted_vis, field=target, fixuvw=False,
+    casatasks.fixplanets(vis=str(shifted_vis), field=target, fixuvw=False,
                          direction=ref_phase_center)
 
 
 def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,npix=1024,
                            cell_size=0.01,spwid=0,plot_uv_grid=False,
-                           plot_file_template=None):
+                           plot_file_template=None,suffix='_shift'):
     """
     Using ``reference_ms`` as the truth, align all meausrement sets in
     ``align_ms``. This includes calculating the RA and Dec offset between the
@@ -587,14 +588,14 @@ def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,np
                     directory,file_template = os.path.split(plot_file_template)
                     uv_grid_plot_filename = os.path.join(directory,f'{ms}_{file_template}')
                 offset = find_offset(reference_ms=reference_ms,offset_ms=ms,npix=npix,
-                                     cell_size=cell_size,spwid=spwid,
+                                     target=target,cell_size=cell_size,spwid=spwid,
                                      plot_uv_grid=plot_uv_grid,
                                      uv_grid_plot_filename=uv_grid_plot_filename)
         ms_phase_center = get_phase_center(measurement_set=ms, target=target)
         shifted = generate_shifted_coords(original_coord=ms_phase_center,
                                           offset=offset,return_J2000=True)
         if align_offsets is None:
-            print('#New coordinates for {}'.format(ms))
+            print(f'#New coordinates for {target} in {ms}')
             if is_ref_ms:
                 print('#no shift, reference MS.\n')
             else:
@@ -602,7 +603,7 @@ def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,np
         else:
             print(f'applying shift {offset} to {ms}')
         update_phase_center(vis=ms,target=target,new_phase_center=shifted,
-                            ref_phase_center=source_phase_center)
+                            ref_phase_center=source_phase_center,suffix=suffix)
 
 
 def find_disk_center(ms,npix=1024,cell_size=0.01,spwid=0,plot_diagnostics=False,
