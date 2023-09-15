@@ -525,7 +525,11 @@ def update_phase_center(vis, target, new_phase_center, ref_phase_center,
     for pc in (new_phase_center,ref_phase_center):
         assert get_coord_frame(pc) == 'J2000'
     shifted_vis = vis.replace('.ms', suffix+'.ms')
-    casatasks.fixvis(vis=str(vis), outputvis=str(shifted_vis), field=target,
+    if os.path.exists(shifted_vis):
+        input_vis = shifted_vis
+    else:
+        input_vis = vis
+    casatasks.fixvis(vis=str(input_vis), outputvis=str(shifted_vis), field=target,
                      phasecenter=new_phase_center)
     casatasks.fixplanets(vis=str(shifted_vis), field=target, fixuvw=False,
                          direction=ref_phase_center)
@@ -571,6 +575,7 @@ def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,np
         assert len(align_offsets) == len(align_ms),\
                 'number of provided offsets does not correspond to number of ms'
     zero_offset = np.zeros(2)
+    calculated_offsets = {}
     for i,ms in enumerate(align_ms):
         is_ref_ms = (ms == reference_ms)
         if is_ref_ms:
@@ -591,6 +596,9 @@ def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,np
                                      target=target,cell_size=cell_size,spwid=spwid,
                                      plot_uv_grid=plot_uv_grid,
                                      uv_grid_plot_filename=uv_grid_plot_filename)
+
+        calculated_offsets[ms] = offset
+
         ms_phase_center = get_phase_center(measurement_set=ms, target=target)
         shifted = generate_shifted_coords(original_coord=ms_phase_center,
                                           offset=offset,return_J2000=True)
@@ -601,9 +609,11 @@ def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,np
             else:
                 print('#requires a shift of [{:.5g},{:.5g}]\n'.format(*offset))
         else:
-            print(f'applying shift {offset} to {ms}')
+            print(f'applying shift {offset} to {target} in {ms}')
         update_phase_center(vis=ms,target=target,new_phase_center=shifted,
                             ref_phase_center=source_phase_center,suffix=suffix)
+
+    return calculated_offsets
 
 
 def find_disk_center(ms,npix=1024,cell_size=0.01,spwid=0,plot_diagnostics=False,

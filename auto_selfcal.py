@@ -157,9 +157,11 @@ for target in all_targets:
 ## Align the EBs prior to running selfcal on them.
 ##
 
+offsets = {}
 for target in all_targets:
+    offsets[target] = {}
     for band in bands:
-        align_measurement_sets(vislist[0], vislist[1:], target, npix=imsize[target][band], 
+        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target, npix=imsize[target][band], 
                 cell_size=float(cellsize[target][band][0:-6]), spwid=0, plot_uv_grid=False, plot_file_template=None, 
                 suffix='')
 
@@ -980,6 +982,16 @@ for target in all_targets:
        print('Final RMS: ',selfcal_library[target][band][fid]['RMS_final'])
 
 
+
+# Use the already calculated offsets to shift the original MS files into new, shifted MSes
+for target in all_targets:
+    for band in bands:
+        selfcal_library[target][band]['offsets'] = offsets[target][band]
+        align_measurement_sets(vislist[0].replace('.selfcal',''), vislist, target, align_offsets=[offsets[target][band][vis] for vis in vislist], npix=imsize[target][band], 
+                cell_size=float(cellsize[target][band][0:-6]), spwid=0, plot_uv_grid=False, plot_file_template=None, 
+                suffix='.shift')
+
+
 applyCalOut=open('applycal_to_orig_MSes.py','w')
 #apply selfcal solutions back to original ms files
 if apply_to_target_ms:
@@ -991,14 +1003,14 @@ for target in all_targets:
          for vis in vislist: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_dict_orig[vis.replace('.selfcal','')]+'")\n'
+            line='applycal(vis="'+vis.replace('.selfcal','.shift')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_dict_orig[vis.replace('.selfcal','')]+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
-               if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
-                  flagmanager(vis=vis.replace('.selfcal',''), mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+               if os.path.exists(vis.replace('.selfcal','.shift')+".flagversions/flags.starting_flags"):
+                  flagmanager(vis=vis.replace('.selfcal','.shift'), mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
                else:
-                  flagmanager(vis=vis.replace('.selfcal',''),mode='save',versionname='before_final_applycal')
-               applycal(vis=vis.replace('.selfcal',''),\
+                  flagmanager(vis=vis.replace('.selfcal','.shift'),mode='save',versionname='before_final_applycal')
+               applycal(vis=vis.replace('.selfcal','.shift'),\
                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
                     applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_dict_orig[vis.replace('.selfcal','')])
@@ -1026,7 +1038,7 @@ if casaversion[0]>=6 and casaversion[1]>=5 and casaversion[2]>=2:   # new uvcont
       print(contsub_dict)
       uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
       for vis in vislist:  
-         line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", spw="'+spwstring_dict[vis]+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
+         line='uvcontsub(vis="'+vis.replace('.selfcal','.shift')+'", spw="'+spwstring_dict[vis]+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
          uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
@@ -1042,7 +1054,7 @@ if casaversion[0]>=6 and casaversion[1]<=5 and casaversion[2]<2:   # old uvconts
             spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
             for vis in vislist:      
                contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray_dict[vis],vislist,spwvisref,contdotdat,return_contfit_range=True)
-               line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+spwstring_dict[vis]+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
+               line='uvcontsub(vis="'+vis.replace('.selfcal','.shift')+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+spwstring_dict[vis]+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
                uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
