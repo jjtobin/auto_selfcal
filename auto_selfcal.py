@@ -162,7 +162,7 @@ for target in all_targets:
     offsets[target] = {}
     for band in bands:
         offsets[target][band] = align_measurement_sets(vislist[0], vislist, target, npix=imsize[target][band], 
-                cell_size=float(cellsize[target][band][0:-6]), spwid=0, plot_uv_grid=False, plot_file_template=None, 
+                cell_size=float(cellsize[target][band][0:-6]), spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
                 suffix='')
 
 
@@ -988,7 +988,7 @@ for target in all_targets:
     for band in bands:
         selfcal_library[target][band]['offsets'] = offsets[target][band]
         align_measurement_sets(vislist[0].replace('.selfcal',''), vislist, target, align_offsets=[offsets[target][band][vis] for vis in vislist], npix=imsize[target][band], 
-                cell_size=float(cellsize[target][band][0:-6]), spwid=0, plot_uv_grid=False, plot_file_template=None, 
+                cell_size=float(cellsize[target][band][0:-6]), plot_uv_grid=False, plot_file_template=None, 
                 suffix='.shift')
 
 

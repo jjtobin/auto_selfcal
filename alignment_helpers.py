@@ -151,8 +151,6 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     # Use CASA table tools to get required columns.
 
     # this is an assumption that is valid for exoALMA data, but not in general
-    data_desc_id = str(spwid)
-
     msmd = casatools.msmetadata()
     msmd.open(base_ms)
     field_id = str(msmd.fieldsforname(target)[0])
@@ -162,17 +160,35 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     tb.open(base_ms+"/SPECTRAL_WINDOW")
     chan_freqs_all = tb.getvarcol("CHAN_FREQ")
     tb.close()
-    chan_freqs = chan_freqs_all["r"+str(spwid+1)]
+    chan_freqs = np.concatenate([chan_freqs_all["r"+str(spw+1)] for spw in spwid])
+
     tb.open(base_ms)
-    subt = tb.query("DATA_DESC_ID=="+data_desc_id+" && FIELD_ID=="+field_id)
-    flag = subt.getcol("FLAG")
-    uvw = subt.getcol("UVW")
-    weight = subt.getcol("WEIGHT")
-    data = subt.getcol("DATA")
-    ant1 = subt.getcol("ANTENNA1")
-    ant2 = subt.getcol("ANTENNA2")
-    subt.close()
+    if np.ndim(spwid) == 0:
+        spwid = [spwid]
+
+    flag, weight, data = [], [], []
+    for ispw, spw in enumerate(spwid):
+        data_desc_id = str(spw)
+
+        subt = tb.query("DATA_DESC_ID=="+data_desc_id+" && FIELD_ID=="+field_id)
+        if ispw == 0:
+            uvw = subt.getcol("UVW")
+            ant1 = subt.getcol("ANTENNA1")
+            ant2 = subt.getcol("ANTENNA2")
+        else:
+            assert np.all(uvw == subt.getcol("UVW"))
+            assert np.all(ant1 == subt.getcol("ANTENNA1"))
+            assert np.all(ant2 == subt.getcol("ANTENNA2"))
+
+        flag += [subt.getcol("FLAG")]
+        data += [subt.getcol("DATA")]
+        weight += [np.repeat(subt.getcol("WEIGHT")[:, np.newaxis, :], chan_freqs_all["r"+str(spw+1)].size, axis=1)]
+        subt.close()
     tb.close()
+
+    flag = np.concatenate(flag, axis=1)
+    data = np.concatenate(data, axis=1)
+    weight = np.concatenate(weight, axis=1)
 
     # Define visibilities and weights.
 
@@ -187,12 +203,12 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     # Toss out the autocorrelation placeholders.
 
     xc = np.where(ant1 != ant2)[0]
-    uu, vv, vis, wgts = uu[xc], vv[xc], vis[:, xc], wgts[xc]
+    uu, vv, vis, wgts = uu[xc], vv[xc], vis[:, xc], wgts[:, xc]
 
     # Remove flagged visibilities.
 
     flag = np.logical_not(np.prod(flag, axis=(0, 2)).T)
-    uu, vv, vis = uu[:, flag], vv[:, flag], vis[flag]
+    uu, vv, vis, wgts = uu[:, flag], vv[:, flag], vis[flag], wgts[flag]
 
     # Reshape the visibilities, weights and (u,v) points to a single list.
 
@@ -357,9 +373,9 @@ def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwi
     # ``grid_nvis``, ``grid_uu``, ``grid_vv`` and ``grid_wgts``.
 
     ms1 = ingest_ms(base_ms=ms_for_offset_calculation['ref'], target=target, npix=npix,
-                    cell_size=cell_size,grid_needs_to_cover_all_data=False,spwid=spwid)
+                    cell_size=cell_size,grid_needs_to_cover_all_data=False,spwid=spwid[0])
     ms2 = ingest_ms(base_ms=ms_for_offset_calculation['offset'], target=target, npix=npix,
-                    cell_size=cell_size, grid_needs_to_cover_all_data=True,spwid=spwid)
+                    cell_size=cell_size, grid_needs_to_cover_all_data=True,spwid=spwid[1])
 
     # Define the overlap between the two measurement sets.
     overlap = np.logical_and(ms1[1].real >= 1, ms2[1].real >= 1).astype('int')
