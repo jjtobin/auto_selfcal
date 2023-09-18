@@ -324,7 +324,7 @@ for target in all_targets:
       vislist=selfcal_library[target][band]['vislist'].copy()
 
       selfcal_library[target][band]['spw_map'] = get_spw_map(selfcal_library, 
-              vislist, target, band, spwsarray_dict)
+              target, band, telescope)
 
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
       #selects spwlist from the visibilities with the greates number of spws

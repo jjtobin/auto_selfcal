@@ -1185,30 +1185,61 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
 
 
 
-def get_spw_map(selfcal_library, vislist, target, band, spwsarray_dict):
+def get_spw_map(selfcal_library, target, band, telescope):
+    # If we are looking at VLA data, find the EB with the maximum number of SPWs so that we have the fewest "odd man out" SPWs hanging out at the end as possible.
+    if "VLA" in telescope:
+        vislist = selfcal_library[target][band]['vislist'].copy()
+        maxspws=0
+        maxspwvis=''
+        for vis in vislist:
+           if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
+              maxspws=selfcal_library[target][band][vis]['n_spws']
+              maxspwvis=vis+''
+
+        vislist.remove(maxspwvis)
+        vislist = [maxspwvis] + vislist
+
     spw_map = {}
     virtual_index = 0
     # This code is meant to be generic in order to prepare for cases where multiple EBs might have unique SPWs in them (e.g. inhomogeneous data),
     # but the criterea for which SPWs match will need to be updated for this to truly generalize.
     for vis in vislist:
-        for spw in spwsarray_dict[vis]:
+        for spw in selfcal_library[target][band][vis]['spwsarray']:
             found_match = False
             for s in spw_map:
                 for v in spw_map[s].keys():
                    if vis == v:
                        continue
 
-                   # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
-                   msmd.open(vis)
-                   spwname=msmd.namesforspws(spw)[0]
-                   msmd.close()
+                   if telescope == "ALMA" or telescope == "ACA":
+                       # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
+                       msmd.open(vis)
+                       spwname=msmd.namesforspws(spw)[0]
+                       msmd.close()
 
-                   msmd.open(v)
-                   sname = msmd.namesforspws(spw_map[s][v])[0]
-                   msmd.close()
+                       msmd.open(v)
+                       sname = msmd.namesforspws(spw_map[s][v])[0]
+                       msmd.close()
 
-                   if spwname == sname:
-                       found_match = True
+                       if spwname == sname:
+                           found_match = True
+                   elif 'VLA' in telescope:
+                       msmd.open(vis)
+                       bandwidth1 = msmd.bandwidths(spw)
+                       chanwidth1 = msmd.chanwidths(spw)[0]
+                       chanfreq1 = msmd.chanfreqs(spw)[0]
+                       msmd.close()
+
+                       msmd.open(v)
+                       bandwidth2 = msmd.bandwidths(spw_map[s][v])
+                       chanwidth2 = msmd.chanwidths(spw_map[s][v])[0]
+                       chanfreq2 = msmd.chanfreqs(spw_map[s][v])[0]
+                       msmd.close()
+
+                       if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and chanfreq1 == chanfreq2:
+                           found_match = True
+
+                   if found_match:
                        spw_map[s][vis] = spw
                        break
 
