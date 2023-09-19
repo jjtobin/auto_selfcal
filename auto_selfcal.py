@@ -987,7 +987,8 @@ for target in all_targets:
 for target in all_targets:
     for band in bands:
         selfcal_library[target][band]['offsets'] = offsets[target][band]
-        align_measurement_sets(vislist[0].replace('.selfcal',''), vislist, target, align_offsets=[offsets[target][band][vis] for vis in vislist], npix=imsize[target][band], 
+        align_measurement_sets(vislist[0].replace('.selfcal',''), [vis.replace('.selfcal','') for vis in vislist], target, \
+                align_offsets=[offsets[target][band][vis] for vis in vislist], npix=imsize[target][band], 
                 cell_size=float(cellsize[target][band][0:-6]), plot_uv_grid=False, plot_file_template=None, 
                 suffix='.shift')
 
