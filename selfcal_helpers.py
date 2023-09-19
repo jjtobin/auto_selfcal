@@ -1186,9 +1186,11 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
 
 
 def get_spw_map(selfcal_library, target, band, telescope):
+    # Get the list of EBs from the selfcal_library
+    vislist = selfcal_library[target][band]['vislist'].copy()
+
     # If we are looking at VLA data, find the EB with the maximum number of SPWs so that we have the fewest "odd man out" SPWs hanging out at the end as possible.
     if "VLA" in telescope:
-        vislist = selfcal_library[target][band]['vislist'].copy()
         maxspws=0
         maxspwvis=''
         for vis in vislist:
