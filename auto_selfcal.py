@@ -783,6 +783,7 @@ for target in all_targets:
             ##
             ## record self cal results/details for this solint
             ##
+            header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
             selfcal_library[target][band][vis][solint]={}
             selfcal_library[target][band][vis][solint]['SNR_pre']=SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_pre']=RMS.copy()
@@ -796,7 +797,7 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
             selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
             selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-            selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+            selfcal_library[target][band][vis][solint]['gaincal_combine']=inf_EB_gaincal_combine_dict[target][band][vis]+'' if solint == 'inf_EB' else gaincal_combine[band][iteration]+''
             selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
             selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
             selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
