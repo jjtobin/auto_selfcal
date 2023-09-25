@@ -469,10 +469,10 @@ for target in all_targets:
 for target in all_targets:
   for band in selfcal_library[target].keys():
    if band_properties[selfcal_library[target][band]['vislist'][0]][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):
-      dividing_factor=40.0
+      dividing_factor_band=40.0
    elif (dividing_factor ==-99.0):
-      dividing_factor=15.0
-   nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
+      dividing_factor_band=15.0
+   nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor_band,5.0]) # restricts initial nsigma to be at least 5
    
    n_ap_solints=sum(1 for solint in solints[band] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
    if rel_thresh_scaling == 'loge':
