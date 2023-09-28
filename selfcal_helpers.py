@@ -1242,9 +1242,12 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
 def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
    avgarray=np.zeros(len(widtharray))
    for i in range(len(widtharray)):
-      nchan=bwarray[i]/desiredWidth
-      nchan=np.round(nchan)
-      avgarray[i]=chanarray[i]/nchan   
+      if desiredWidth > bwarray[i]:
+         avgarray[i]=chanarray[i]
+      else:
+         nchan=bwarray[i]/desiredWidth
+         nchan=np.round(nchan)
+         avgarray[i]=chanarray[i]/nchan   
       if avgarray[i] < 1.0:
          avgarray[i]=1.0
    return avgarray
