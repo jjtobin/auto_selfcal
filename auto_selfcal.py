@@ -365,8 +365,9 @@ if check_all_spws:
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0'):
-               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vislist]
-               tclean_wrapper(vislist,sani_target+'_'+band+'_'+str(spw)+'_dirty',
+               vlist = [vis if vis in selfcal_library[target][band]['spw_map'][spw] for vis in vislist]
+               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vlist]
+               tclean_wrapper(vlist,sani_target+'_'+band+'_'+str(spw)+'_dirty',
                      band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],nterms=1,
