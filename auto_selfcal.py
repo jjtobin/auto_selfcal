@@ -62,14 +62,12 @@ apply_cal_mode_default='calflag'
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
-check_all_spws=True   # generate per-spw images to check phase transfer did not go poorly for narrow windows
+check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 
-"""
 if 'VLA' in telescope:
    check_all_spws=False
    #inf_EB_gaincal_combine='spw,scan'
-"""
 ##
 ## Import inital MS files to get relevant meta data
 ##
