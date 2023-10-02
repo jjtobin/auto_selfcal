@@ -62,12 +62,14 @@ apply_cal_mode_default='calflag'
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
                        # default is 40 for <8ghz and 15.0 for all other frequencies
-check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
+check_all_spws=True   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 
+"""
 if 'VLA' in telescope:
    check_all_spws=False
    #inf_EB_gaincal_combine='spw,scan'
+"""
 ##
 ## Import inital MS files to get relevant meta data
 ##
@@ -365,7 +367,7 @@ if check_all_spws:
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0'):
-               vlist = [vis if vis in selfcal_library[target][band]['spw_map'][spw] for vis in vislist]
+               vlist = [vis for vis in vislist if vis in selfcal_library[target][band]['spw_map'][spw]]
                spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vlist]
                tclean_wrapper(vlist,sani_target+'_'+band+'_'+str(spw)+'_dirty',
                      band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
@@ -379,19 +381,20 @@ if check_all_spws:
             else:
                dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=dirty_SNR,dirty_RMS
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0'):
+               vlist = [vis for vis in vislist if vis in selfcal_library[target][band]['spw_map'][spw]]
                if telescope=='ALMA' or telescope =='ACA':
-                  sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[band],cellsize=cellsize[band])
+                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[band],cellsize=cellsize[band])
                   dr_mod=1.0
-                  dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
+                  dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vlist)
                   print('DR modifier: ',dr_mod,'SPW: ',spw)
                   sensitivity=sensitivity*dr_mod 
                   if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
                      sensitivity=sensitivity*4.0 
                else:
                   sensitivity=0.0
-               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vislist]
+               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vlist]
 
-               tclean_wrapper(vislist,sani_target+'_'+band+'_'+str(spw)+'_initial',\
+               tclean_wrapper(vlist,sani_target+'_'+band+'_'+str(spw)+'_initial',\
                           band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],\
                           nterms=1,field=target,datacolumn='corrected',\
