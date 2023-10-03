@@ -417,7 +417,7 @@ for target in all_targets:
 
    dr_mod=1.0
    if telescope =='ALMA' or telescope =='ACA':
-      sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[band],cellsize=cellsize[band])
+      sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],cellsize=cellsize[target][band])
       dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
       sensitivity_nomod=sensitivity.copy()
       print('DR modifier: ',dr_mod)
@@ -601,7 +601,7 @@ if check_all_spws:
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0'):
                vlist = [vis for vis in vislist if vis in selfcal_library[target][band]['spw_map'][spw]]
                if telescope=='ALMA' or telescope =='ACA':
-                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[band],cellsize=cellsize[band])
+                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[target][band],cellsize=cellsize[target][band])
                   dr_mod=1.0
                   dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vlist)
                   print('DR modifier: ',dr_mod,'SPW: ',spw)
@@ -729,7 +729,7 @@ for target in all_targets:
       selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band][target])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
 
    if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
-      sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[band],cellsize=cellsize[band])
+      sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],cellsize=cellsize[target][band])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
          sensitivity=sensitivity*4.0 
       if ('VLA' in telescope):
@@ -891,7 +891,7 @@ if check_all_spws:
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0'):
                vlist = [vis for vis in vislist if vis in selfcal_library[target][band]['spw_map'][spw]]
                if telescope=='ALMA' or telescope =='ACA':
-                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[band],cellsize=cellsize[band])
+                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[target][band],cellsize=cellsize[band])
                   dr_mod=1.0
                   if not selfcal_library[target][band]['SC_success']: # fetch the DR modifier if selfcal failed on source
                      dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vlist)
@@ -903,7 +903,7 @@ if check_all_spws:
                   sensitivity=0.0
                spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vlist]
                nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
-               sensitivity_agg=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[band],cellsize=cellsize[band])
+               sensitivity_agg=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],cellsize=cellsize[band])
                sensitivity_scale_factor=selfcal_library[target][band]['RMS_NF_curr']/sensitivity_agg
 
                tclean_wrapper(vlist,sani_target+'_'+band+'_'+str(spw)+'_final',\
