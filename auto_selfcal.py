@@ -469,10 +469,10 @@ for target in all_targets:
 for target in all_targets:
   for band in selfcal_library[target].keys():
    if band_properties[selfcal_library[target][band]['vislist'][0]][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):
-      dividing_factor=40.0
+      dividing_factor_band=40.0
    elif (dividing_factor ==-99.0):
-      dividing_factor=15.0
-   nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor,5.0]) # restricts initial nsigma to be at least 5
+      dividing_factor_band=15.0
+   nsigma_init=np.max([selfcal_library[target][band]['SNR_orig']/dividing_factor_band,5.0]) # restricts initial nsigma to be at least 5
    
    n_ap_solints=sum(1 for solint in solints[band] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
    if rel_thresh_scaling == 'loge':
@@ -783,6 +783,7 @@ for target in all_targets:
             ##
             ## record self cal results/details for this solint
             ##
+            header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0')
             selfcal_library[target][band][vis][solint]={}
             selfcal_library[target][band][vis][solint]['SNR_pre']=SNR.copy()
             selfcal_library[target][band][vis][solint]['RMS_pre']=RMS.copy()
@@ -796,7 +797,7 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['spwmap']=applycal_spwmap[vis]
             selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][iteration]+''
             selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
-            selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][iteration]+''
+            selfcal_library[target][band][vis][solint]['gaincal_combine']=inf_EB_gaincal_combine_dict[target][band][vis]+'' if solint == 'inf_EB' else gaincal_combine[band][iteration]+''
             selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_curr']
             selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
             selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
@@ -806,9 +807,9 @@ for target in all_targets:
             selfcal_library[target][band][vis][solint]['SNR_NF_post']=post_SNR_NF.copy()
             selfcal_library[target][band][vis][solint]['RMS_NF_post']=post_RMS_NF.copy()
             ## Update RMS value if necessary
-            if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr']:
+            if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr'] and vis == vislist[-1]:
                selfcal_library[target][band]['RMS_curr']=selfcal_library[target][band][vis][solint]['RMS_post'].copy()
-            if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr']:
+            if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr'] and vis == vislist[-1]:
                selfcal_library[target][band]['RMS_NF_curr']=selfcal_library[target][band][vis][solint]['RMS_NF_post'].copy()
             header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
             selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
