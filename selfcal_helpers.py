@@ -2201,15 +2201,20 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
    htmlOut.writelines('	<tr>\n')
    htmlOut.writelines('		<td>\n')
-   line='<table>\n  <tr bgcolor="#ffffff">\n    <th></th>\n    '
+   line='<table>\n  <tr bgcolor="#ffffff">\n    <th>Virtual SPW ID:</th>\n    '
    for spw in spwlist:
       line+='<th>'+str(spw)+'</th>\n    '
    line+='</tr>\n'
+   line+='<tr bgcolor="#ffffff">\n    <td colspan="{0:d}" style="text-align: center">Virtual SPW to real SPW mapping</td>\n</tr>\n'.format(len(spwlist)+1)
    htmlOut.writelines(line)
 
    quantities=sclib[target][band]['vislist'] + ['bandwidth','effective_bandwidth','SNR_orig','SNR_final','RMS_orig','RMS_final']
    for key in quantities:
-      line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
+      if key == 'bandwidth':
+         line = '<tr bgcolor="#ffffff">\n    <td colspan="{0:d}" style="text-align: center">Metadata and Statistics</td>\n</tr>\n'.format(len(spwlist)+1)
+      else:
+         line = ''
+      line+='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
       for spw in spwlist:
          if spw in sclib[target][band]['per_spw_stats']:
              spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
