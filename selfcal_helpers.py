@@ -868,17 +868,14 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
          solint_snr[target][band][solint_next]=selfcal_library[target][band][vislist[0]][solint_curr]['SNR_post']/((n_ant-3)**0.5*(selfcal_library[target][band]['Total_TOS']/solint_float)**0.5)
 
 
-def get_sensitivity(vislist,selfcal_library,field='',specmode='mfs',spwstring='',spw=[],chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,uvtaper=''):
-   scalefactor=1.0
-   maxspws=0
-   maxspwvis=''
+def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,specmode='mfs',uvtaper=''):
    for vis in vislist:
-      im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
-      # Also figure out which vis has the max # of spws
-      if selfcal_library[vis]['n_spws'] >= maxspws:
-          maxspws=selfcal_library[vis]['n_spws']
-          maxspwvis=vis+''
-   im.defineimage(mode=specmode,stokes='I',spw=selfcal_library[maxspwvis]['spwsarray'],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
+      if virtual_spw == 'all':
+          im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
+      else:
+          im.selectvis(vis=vis,field=field,spw=selfcal_library['spw_map'][virtual_spw][vis])
+
+   im.defineimage(mode=specmode,stokes='I',spw=[0],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
    im.weight(type='briggs',robust=robust)  
    if uvtaper != '':
       if 'klambda' in uvtaper:
@@ -1149,7 +1146,19 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
         spws=msmd.spwsfornames(spwname)
         msmd.close()
         # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-        trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+        #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
+        trans_spw = -1
+        for check_spw in spws[spwname]:
+           matching_index=np.where(check_spw == spwsarray)
+           if len(matching_index[0]) == 0:
+              continue
+           else:
+              trans_spw=check_spw
+              break
+        if trans_spw==-1:
+           print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
+           return ''
+        #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
         #flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
         nchan = tb.getcol('CHAN_FREQ', startrow = trans_spw, nrow = 1).size
@@ -1219,7 +1228,7 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
       msmd.open(vis)
       spws=msmd.spwsfornames(spwname)
       msmd.close()
-      trans_spw=0
+      trans_spw=-1
       # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
       #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
       for check_spw in spws[spwname]:
@@ -1251,6 +1260,80 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
       if avgarray[i] < 1.0:
          avgarray[i]=1.0
    return avgarray
+
+
+
+def get_spw_map(selfcal_library, target, band, telescope):
+    # Get the list of EBs from the selfcal_library
+    vislist = selfcal_library[target][band]['vislist'].copy()
+
+    # If we are looking at VLA data, find the EB with the maximum number of SPWs so that we have the fewest "odd man out" SPWs hanging out at the end as possible.
+    if "VLA" in telescope:
+        maxspws=0
+        maxspwvis=''
+        for vis in vislist:
+           if selfcal_library[target][band][vis]['n_spws'] >= maxspws:
+              maxspws=selfcal_library[target][band][vis]['n_spws']
+              maxspwvis=vis+''
+
+        vislist.remove(maxspwvis)
+        vislist = [maxspwvis] + vislist
+
+    spw_map = {}
+    virtual_index = 0
+    # This code is meant to be generic in order to prepare for cases where multiple EBs might have unique SPWs in them (e.g. inhomogeneous data),
+    # but the criterea for which SPWs match will need to be updated for this to truly generalize.
+    for vis in vislist:
+        for spw in selfcal_library[target][band][vis]['spwsarray']:
+            found_match = False
+            for s in spw_map:
+                for v in spw_map[s].keys():
+                   if vis == v:
+                       continue
+
+                   if telescope == "ALMA" or telescope == "ACA":
+                       # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
+                       msmd.open(vis)
+                       spwname=msmd.namesforspws(spw)[0]
+                       msmd.close()
+
+                       msmd.open(v)
+                       sname = msmd.namesforspws(spw_map[s][v])[0]
+                       msmd.close()
+
+                       if spwname == sname:
+                           found_match = True
+                   elif 'VLA' in telescope:
+                       msmd.open(vis)
+                       bandwidth1 = msmd.bandwidths(spw)
+                       chanwidth1 = msmd.chanwidths(spw)[0]
+                       chanfreq1 = msmd.chanfreqs(spw)[0]
+                       msmd.close()
+
+                       msmd.open(v)
+                       bandwidth2 = msmd.bandwidths(spw_map[s][v])
+                       chanwidth2 = msmd.chanwidths(spw_map[s][v])[0]
+                       chanfreq2 = msmd.chanfreqs(spw_map[s][v])[0]
+                       msmd.close()
+
+                       if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and chanfreq1 == chanfreq2:
+                           found_match = True
+
+                   if found_match:
+                       spw_map[s][vis] = spw
+                       break
+
+                if found_match:
+                    break
+
+            if not found_match:
+                spw_map[virtual_index] = {}
+                spw_map[virtual_index][vis] = spw
+                virtual_index += 1
+
+    print("spw_map:")
+    print(spw_map)
+    return spw_map
 
 
 def largest_prime_factor(n):
@@ -2116,28 +2199,39 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
          htmlOut.writelines('</table>\n')
 
 def render_spw_stats_summary_table(htmlOut,sclib,target,band):
-   spwlist=list(sclib[target][band]['per_spw_stats'].keys())
+   spwlist=list(sclib[target][band]['spw_map'].keys())
    htmlOut.writelines('<br>Per SPW stats: <br>\n')
    htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
    htmlOut.writelines('	<tr>\n')
    htmlOut.writelines('		<td>\n')
-   line='<table>\n  <tr bgcolor="#ffffff">\n    <th></th>\n    '
+   line='<table>\n  <tr bgcolor="#ffffff">\n    <th>Virtual SPW ID:</th>\n    '
    for spw in spwlist:
-      line+='<th>'+spw+'</th>\n    '
+      line+='<th>'+str(spw)+'</th>\n    '
    line+='</tr>\n'
+   line+='<tr bgcolor="#ffffff">\n    <td colspan="{0:d}" style="text-align: center">Virtual SPW to real SPW mapping</td>\n</tr>\n'.format(len(spwlist)+1)
    htmlOut.writelines(line)
 
-   quantities=['bandwidth','effective_bandwidth','SNR_orig','SNR_final','RMS_orig','RMS_final']
+   quantities=sclib[target][band]['vislist'] + ['bandwidth','effective_bandwidth','SNR_orig','SNR_final','RMS_orig','RMS_final']
    for key in quantities:
-      line='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
+      if key == 'bandwidth':
+         line = '<tr bgcolor="#ffffff">\n    <td colspan="{0:d}" style="text-align: center">Metadata and Statistics</td>\n</tr>\n'.format(len(spwlist)+1)
+      else:
+         line = ''
+      line+='<tr bgcolor="#ffffff">\n    <td>'+key+': </td>\n'
       for spw in spwlist:
-         spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
-         if 'SNR' in key and key in spwkeys:
-            line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
-         if 'RMS' in key and key in spwkeys:
-            line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
-         if 'bandwidth' in key and key in spwkeys:
-            line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
+         if spw in sclib[target][band]['per_spw_stats']:
+             spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
+             if 'SNR' in key and key in spwkeys:
+                line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
+             if 'RMS' in key and key in spwkeys:
+                line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
+         vis = list(sclib[target][band]['spw_map'][spw].keys())[0]
+         if 'bandwidth' in key and key in sclib[target][band][vis]['per_spw_stats'][sclib[target][band]['spw_map'][spw][vis]].keys():
+            line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band][vis]['per_spw_stats'][sclib[target][band]['spw_map'][spw][vis]][key])
+         if key in sclib[target][band]['vislist'] and key in sclib[target][band]['spw_map'][spw]:
+            line+='    <td>{:0d}</td>\n'.format(sclib[target][band]['spw_map'][spw][key])
+         elif key in sclib[target][band]['vislist'] and key not in sclib[target][band]['spw_map'][spw]:
+            line+='    <td>-</td>\n'
       line+='</tr>\n    '
       htmlOut.writelines(line)
    htmlOut.writelines('</table>\n')
@@ -2145,14 +2239,15 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
    htmlOut.writelines('	</tr>\n')
    htmlOut.writelines('</table>\n')
    for spw in spwlist:
-      spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
-      if 'delta_SNR' in spwkeys or 'delta_RMS' in spwkeys or 'delta_beamarea' in spwkeys:
-         if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
-            htmlOut.writelines('WARNING SPW '+spw+' HAS LOWER SNR POST SELFCAL<br>\n')
-         if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
-            htmlOut.writelines('WARNING SPW '+spw+' HAS HIGHER RMS POST SELFCAL<br>\n')
-         if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
-            htmlOut.writelines('WARNING SPW '+spw+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
+      if spw in sclib[target][band]['per_spw_stats']:
+          spwkeys=sclib[target][band]['per_spw_stats'][spw].keys()
+          if 'delta_SNR' in spwkeys or 'delta_RMS' in spwkeys or 'delta_beamarea' in spwkeys:
+             if sclib[target][band]['per_spw_stats'][spw]['delta_SNR'] < 0.0:
+                htmlOut.writelines('WARNING SPW '+str(spw)+' HAS LOWER SNR POST SELFCAL<br>\n')
+             if sclib[target][band]['per_spw_stats'][spw]['delta_RMS'] > 0.0:
+                htmlOut.writelines('WARNING SPW '+str(spw)+' HAS HIGHER RMS POST SELFCAL<br>\n')
+             if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
+                htmlOut.writelines('WARNING SPW '+str(spw)+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
 def render_per_solint_QA_pages(sclib,solints,bands):
   ## Per Solint pages
