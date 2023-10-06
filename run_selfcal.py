@@ -44,6 +44,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
        include_targets, include_scans = triage_calibrators(vislist[0], target, calibrators[band][0])
        if include_targets == "":
            print("No suitable calibrators found, skipping "+target)
+           selfcal_library[target][band]['Stop_Reason'] += '; No suitable co-calibrators'
            return
 
    print('Starting selfcal procedure on: '+target+' '+band)
