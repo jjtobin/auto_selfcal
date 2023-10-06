@@ -1047,9 +1047,9 @@ def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_cu
 def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,specmode='mfs',uvtaper=''):
    for vis in vislist:
       if virtual_spw == 'all':
-          im.selectvis(vis=vis,field=field,spw=selfcal_library[vis]['spws'])
+          im.selectvis(vis=vis,field=selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]],spw=selfcal_library[vis]['spws'])
       else:
-          im.selectvis(vis=vis,field=field,spw=selfcal_library['spw_map'][virtual_spw][vis])
+          im.selectvis(vis=vis,field=selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]],spw=selfcal_library['spw_map'][virtual_spw][vis])
 
    im.defineimage(mode=specmode,stokes='I',spw=[0],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
    im.weight(type='briggs',robust=robust)  
