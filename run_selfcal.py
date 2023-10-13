@@ -266,7 +266,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                           gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                        else:
-                          applycal_spwmap[vis]=[]
+                          applycal_spwmap[vis]=[[]]
                        applycal_interpolate[vis]=[applycal_interp[band]]
                        applycal_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g']
                     #elif solmode[band][target][iteration]=='p':
@@ -310,7 +310,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                            if selfcal_library[target][band]['final_solint'] == 'inf_EB' and calculate_inf_EB_fb_anyways:
                                previous_solint = "inf_EB"
 
-                       applycal_spwmap[vis] = [selfcal_library[target][band][vis][previous_solint]['spwmap']] + [selfcal_library[target][band][vis]['spwmap']]
+                       applycal_spwmap[vis] = selfcal_library[target][band][vis][previous_solint]['spwmap'] + [selfcal_library[target][band][vis]['spwmap']]
                        applycal_interpolate[vis]=[applycal_interp[band],applycal_interp[band]]
                        applycal_gaintable[vis] = selfcal_library[target][band][vis][previous_solint]['gaintable'] + [sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g']
                     selfcal_library[target][band][vis][solint]['gaintable']=applycal_gaintable[vis]
