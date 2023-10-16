@@ -555,6 +555,7 @@ for target in all_targets:
 
       for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid]['per_spw_stats']={}
+          selfcal_library[target][band][fid]['spw_map'] = selfcal_library[target][band]['spw_map']
           for vis in selfcal_library[target][band][fid]['vislist']:
               selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
 
