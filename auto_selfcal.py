@@ -77,6 +77,11 @@ dividing_factor=-99.0  # number that the peak SNR is divided by to determine fir
                        # default is 40 for <8ghz and 15.0 for all other frequencies
 check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
+sort_targets_and_EBs=False
+
+if sort_targets_and_EBs:
+    all_targets.sort()
+    vislist.sort()
 
 if 'VLA' in telescope:
    check_all_spws=False
@@ -116,6 +121,9 @@ spwstring_dict_orig=spwstring_dict.copy()
 spwsarray_dict_orig =spwsarray_dict.copy()
 
 vislist=glob.glob('*selfcal.ms')
+if sort_targets_and_EBs:
+    vislist.sort()
+
 listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
 integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
 
