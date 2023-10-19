@@ -2971,8 +2971,10 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # Pick the shortest baseline "significant" maximum.
     if len(positive_velocity_maxima) > 0:
         good = second_derivative[maxima] / second_derivative[positive_velocity_maxima].max() > 0.5
-    else:
+    elif len(maxima) > 0:
         good = second_derivative[maxima] / second_derivative[maxima].max() > 0.5
+    else:
+        good = []
 
     if len(maxima) == 0 or np.all(good == False):
         maxima = np.array([0])
