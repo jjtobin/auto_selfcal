@@ -86,6 +86,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      nterms=selfcal_library[target][band]['nterms'],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
+         # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
+         # code will break.
+         if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
+             selfcal_library[target][band]['Stop_Reason'] = 'Empty model for solint '+solint
+             break # breakout of loop because the model is empty and gaincal will therefore fail
+
          if iteration == 0:
             gaincal_preapply_gaintable={}
             gaincal_spwmap={}
@@ -791,12 +797,6 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 selfcal_library[target][band][vis][solint]['RMS_post']=post_RMS.copy()
                 selfcal_library[target][band][vis][solint]['SNR_NF_post']=post_SNR_NF.copy()
                 selfcal_library[target][band][vis][solint]['RMS_NF_post']=post_RMS_NF.copy()
-                ## Update RMS value if necessary
-                if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr'] and vis == vislist[-1]:
-                   selfcal_library[target][band]['RMS_curr']=selfcal_library[target][band][vis][solint]['RMS_post'].copy()
-                if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr'] and \
-                        selfcal_library[target][band][vis][solint]['RMS_NF_post'] > 0 and vis == vislist[-1]:
-                   selfcal_library[target][band]['RMS_NF_curr']=selfcal_library[target][band][vis][solint]['RMS_NF_post'].copy()
                 header=imhead(imagename=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0')
                 selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
                 selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
@@ -847,6 +847,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     selfcal_library[target][band][fid][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
                     selfcal_library[target][band][fid][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
                     selfcal_library[target][band][fid][vis][solint]['intflux_post'],selfcal_library[target][band][fid][vis][solint]['e_intflux_post']=get_intflux(imagename+'_post.image.tt0',post_RMS, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+
+                ## Update RMS value if necessary
+                if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr'] and vis == vislist[-1]:
+                   selfcal_library[target][band]['RMS_curr']=selfcal_library[target][band][vis][solint]['RMS_post'].copy()
+                if selfcal_library[target][band][vis][solint]['RMS_NF_post'] < selfcal_library[target][band]['RMS_NF_curr'] and \
+                        selfcal_library[target][band][vis][solint]['RMS_NF_post'] > 0 and vis == vislist[-1]:
+                   selfcal_library[target][band]['RMS_NF_curr']=selfcal_library[target][band][vis][solint]['RMS_NF_post'].copy()
 
              ##
              ## compare beam relative to original image to ensure we are not incrementally changing the beam in each iteration
