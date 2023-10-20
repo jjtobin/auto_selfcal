@@ -71,6 +71,7 @@ rerank_refants=False
 allow_gain_interpolation=False
 guess_scan_combine=False
 aca_use_nfmask=False
+allow_cocal=False
 scale_fov=1.0   # option to make field of view larger than the default
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
@@ -771,6 +772,131 @@ for target in all_targets:
            aca_use_nfmask=aca_use_nfmask)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+
+
+if allow_cocal:
+    ##
+    ## Save the flags following the main iteration of self-calibration since we will need to revert to the beginning for the fallback mode.
+    ##
+    # PS: I don't need this anymore?
+    for vis in vislist:
+       if not os.path.exists(vis+'.flagversions/flags.fb_selfcal_starting_flags'):
+          flagmanager(vis=vis,mode='save',versionname='fb_selfcal_starting_flags')
+       else:
+          flagmanager(vis=vis,mode='restore',versionname='fb_selfcal_starting_flags')
+    
+    ##
+    ## For sources that self-calibration failed, try to use the inf_EB and the inf solutions from the sources that
+    ## were successful.
+    
+    for target in selfcal_library.keys():
+        for band in selfcal_library[target].keys():
+            print(target, selfcal_library[target][band]["final_solint"])
+    
+    inf_EB_fields = {}
+    inf_fields = {}
+    fallback_fields = {}
+    calibrators = {}
+    for band in bands:
+        # Initialize the lists for this band.
+        inf_EB_fields[band] = []
+        inf_fields[band] = []
+        fallback_fields[band] = []
+    
+        # Loop through and identify which sources belong where.
+        for target in selfcal_library.keys():
+            if selfcal_library[target][band]['SC_success'] and 'fb' not in selfcal_library[target][band]['final_solint']:
+                inf_EB_fields[band].append(target)
+                if selfcal_library[target][band]['final_solint'] != 'inf_EB':
+                    inf_fields[band].append(target)
+                elif 'inf' in solints[band][target]:
+                    fallback_fields[band].append(target)
+            else:
+                fallback_fields[band].append(target)
+    
+            # Update the relevant lists if we are going to do a fallback mode.
+            if len(fallback_fields[band]) > 0:
+                solints[band][target] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
+                solmode[band][target] += ["p","p","p","p"]
+                gaincal_combine[band][target] += [gaincal_combine[band][target][0], gaincal_combine[band][target][1], gaincal_combine[band][target][1], gaincal_combine[band][target][1]]
+                applycal_mode[band][target] += [applycal_mode[band][target][0], applycal_mode[band][target][1], applycal_mode[band][target][1], applycal_mode[band][target][1]]
+                calibrators[band] = [inf_EB_fields[band], inf_fields[band], inf_fields[band], inf_fields[band]]
+                selfcal_library[target][band]["nsigma"] = np.concatenate((selfcal_library[target][band]["nsigma"],[selfcal_library[target][band]["nsigma"][0], \
+                        selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1]]))
+    
+    print(inf_EB_fields)
+    print(inf_fields)
+    print(fallback_fields)
+    
+    ##
+    ## Reset the inf_EB informational dictionaries.
+    ##
+    
+    for target in all_targets:
+     for band in solint_snr[target].keys():
+       # If the target had a successful inf_EB solution, no need to reset.
+       if target in inf_EB_fields[band]:
+           continue
+    
+       for vis in vislist:
+        inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
+        if selfcal_library[target][band]['obstype']=='mosaic':
+           inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
+        inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
+        inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
+    
+    
+    calculate_inf_EB_fb_anyways = True
+    preapply_targets_own_inf_EB = False
+    
+    ## The below sets the calibrations back to what they were prior to starting the fallback mode. It should not be needed
+    ## for the final version of the codue, but is used for testing.
+    
+    
+    for target in all_targets:
+     sani_target=sanitize_string(target)
+     for band in selfcal_library[target].keys():
+       if target not in fallback_fields[band]:
+           continue
+       if 'gaintable_final' in selfcal_library[target][band][vislist[0]]:
+          print('****************Reapplying previous solint solutions*************')
+          for vis in vislist:
+             print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+' '+band+'*************')
+             ## NOTE: should this be selfcal_starting_flags instead of fb_selfcal_starting_flags ???
+             flagmanager(vis=vis,mode='delete',versionname='fb_selfcal_starting_flags_'+sani_target)
+             applycal(vis=vis,\
+                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
+                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'],\
+                     calwt=True,spwmap=selfcal_library[target][band][vis]['spwmap_final'],\
+                     applymode=selfcal_library[target][band][vis]['applycal_mode_final'],\
+                     field=target,spw=selfcal_library[target][band][vis]['spws'])    
+       else:            
+          print('****************Removing all calibrations for '+target+' '+band+'**************')
+          for vis in vislist:
+             flagmanager(vis=vis,mode='delete',versionname='fb_selfcal_starting_flags_'+sani_target)
+             clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
+    ## END
+                
+    
+    ##
+    ## Begin fallback self-cal loops
+    ##
+    for target in all_targets:
+     for band in selfcal_library[target].keys():
+       if target not in fallback_fields[band]:
+           continue
+    
+       run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize[target], imsize[target], \
+               inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp[target], integration_time, spectral_scan, spws_set,\
+               gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
+               inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
+               unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
+               second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
+               mode="cocal", calibrators=calibrators, calculate_inf_EB_fb_anyways=calculate_inf_EB_fb_anyways, \
+               preapply_targets_own_inf_EB=preapply_targets_own_inf_EB, gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=True)
+    
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+
 ##
 ## If we want to try amplitude selfcal, should we do it as a function out of the main loop or a separate loop?
 ## Mechanics are likely to be a bit more simple since I expect we'd only try a single solint=inf solution
