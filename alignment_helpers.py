@@ -150,12 +150,6 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
 
     # Use CASA table tools to get required columns.
 
-    # this is an assumption that is valid for exoALMA data, but not in general
-    msmd = casatools.msmetadata()
-    msmd.open(base_ms)
-    field_id = str(msmd.fieldsforname(target)[0])
-    msmd.close()
-    
     tb = casatools.table()
     tb.open(base_ms+"/SPECTRAL_WINDOW")
     chan_freqs_all = tb.getvarcol("CHAN_FREQ")
@@ -166,6 +160,17 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     if np.ndim(spwid) == 0:
         spwid = [spwid]
 
+    # this is an assumption that is valid for exoALMA data, but not in general
+    msmd = casatools.msmetadata()
+    msmd.open(base_ms)
+    for field_id in msmd.fieldsforname(target):
+        subt = tb.query("FIELD_ID=="+str(field_id))
+        if subt.nrows() > 0:
+            field_id = str(field_id)
+            break
+    subt.close()
+    msmd.close()
+    
     flag, weight, data = [], [], []
     for ispw, spw in enumerate(spwid):
         data_desc_id = str(spw)
