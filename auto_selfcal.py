@@ -12,6 +12,7 @@ import sys
 sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
+from image_analysis_helpers import *
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
@@ -397,11 +398,9 @@ for target in all_targets:
                      threshold='0.0Jy',niter=1, gain=0.00001,
                      savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=nterms[target][band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'])
-   dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_dirty.image.tt0')
-   if telescope!='ACA' or aca_use_nfmask:
-      dirty_NF_SNR,dirty_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_dirty.image.tt0', las=selfcal_library[target][band]['LAS'])
-   else:
-      dirty_NF_SNR,dirty_NF_RMS=dirty_SNR,dirty_RMS
+
+   dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_dirty.image.tt0', sani_target+'_'+band+'_dirty.mask',
+            '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
 
    mosaic_dirty_SNR, mosaic_dirty_RMS, mosaic_dirty_NF_SNR, mosaic_dirty_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
@@ -410,12 +409,9 @@ for target in all_targets:
        else:
            imagename = sani_target+'_'+band+'_dirty.image.tt0'
 
-       mosaic_dirty_SNR[fid], mosaic_dirty_RMS[fid] = estimate_SNR(imagename, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope !='ACA' or aca_use_nfmask:
-          mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'], \
-                  mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       else:
-          mosaic_dirty_NF_SNR[fid],mosaic_dirty_NF_RMS[fid]=mosaic_dirty_SNR[fid],mosaic_dirty_RMS[fid]
+       mosaic_dirty_SNR[fid], mosaic_dirty_RMS[fid], mosaic_dirty_NF_SNR[fid], mosaic_dirty_NF_RMS[fid] = get_image_stats(imagename, 
+               imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty',
+               mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
    if "VLA" in telescope or (selfcal_library[target][band]['obstype'] == 'mosaic' and \
            selfcal_library[target][band]['Median_scan_time'] / selfcal_library[target][band]['Median_fields_per_scan'] < 60.) \
@@ -442,11 +438,9 @@ for target in all_targets:
                      threshold=str(sensitivity*4.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=nterms[target][band],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=dirty_NF_RMS/dirty_RMS, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'])
-   initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0')
-   if telescope!='ACA' or aca_use_nfmask:
-      initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0', las=selfcal_library[target][band]['LAS'])
-   else:
-      initial_NF_SNR,initial_NF_RMS=initial_SNR,initial_RMS
+
+   initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', 
+           sani_target+'_'+band+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
 
    mosaic_initial_SNR, mosaic_initial_RMS, mosaic_initial_NF_SNR, mosaic_initial_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
@@ -455,44 +449,23 @@ for target in all_targets:
        else:
            imagename = sani_target+'_'+band+'_initial.image.tt0'
 
-       mosaic_initial_SNR[fid], mosaic_initial_RMS[fid] = estimate_SNR(imagename, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope !='ACA' or aca_use_nfmask:
-          mosaic_initial_NF_SNR[fid],mosaic_initial_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'], \
-                  mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       else:
-          mosaic_initial_NF_SNR[fid],mosaic_initial_NF_RMS[fid]=mosaic_initial_SNR[fid],mosaic_initial_RMS[fid]
+       mosaic_initial_SNR[fid], mosaic_initial_RMS[fid], mosaic_initial_NF_SNR[fid],mosaic_initial_NF_RMS[fid] = get_image_stats(imagename, 
+               imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig',
+               mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
-   header=imhead(imagename=sani_target+'_'+band+'_initial.image.tt0')
+
    if telescope =='ALMA' or telescope == 'ACA':
       selfcal_library[target][band]['theoretical_sensitivity']=sensitivity_nomod
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
-   selfcal_library[target][band]['SNR_orig']=initial_SNR
+
    if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
       selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
-   selfcal_library[target][band]['RMS_orig']=initial_RMS
-   selfcal_library[target][band]['SNR_NF_orig']=initial_NF_SNR
-   selfcal_library[target][band]['RMS_NF_orig']=initial_NF_RMS
+
    selfcal_library[target][band]['RMS_curr']=initial_RMS
    selfcal_library[target][band]['RMS_NF_curr']=initial_NF_RMS if initial_NF_RMS > 0 else initial_RMS
-   selfcal_library[target][band]['SNR_dirty']=dirty_SNR
-   selfcal_library[target][band]['RMS_dirty']=dirty_RMS
-   selfcal_library[target][band]['Beam_major_orig']=header['restoringbeam']['major']['value']
-   selfcal_library[target][band]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
-   selfcal_library[target][band]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
-   goodMask=checkmask(imagename=sani_target+'_'+band+'_initial.image.tt0')
-   if goodMask:
-      selfcal_library[target][band]['intflux_orig'],selfcal_library[target][band]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_initial.image.tt0',initial_RMS)
-   else:
-      selfcal_library[target][band]['intflux_orig'],selfcal_library[target][band]['e_intflux_orig']=-99.0,-99.0
 
    for fid in selfcal_library[target][band]['sub-fields']:
-       if selfcal_library[target][band]['obstype'] == 'mosaic':
-           imagename = sani_target+'_field_'+str(fid)+'_'+band+'_initial.image.tt0'
-       else:
-           imagename = sani_target+'_'+band+'_initial.image.tt0'
-
-       header=imhead(imagename=imagename)
        if telescope =='ALMA' or telescope == 'ACA':
           selfcal_library[target][band][fid]['theoretical_sensitivity']=sensitivity_nomod
        if 'VLA' in telescope:
@@ -500,22 +473,9 @@ for target in all_targets:
        selfcal_library[target][band][fid]['SNR_orig']=mosaic_initial_SNR[fid]
        if selfcal_library[target][band][fid]['SNR_orig'] > 500.0:
           selfcal_library[target][band][fid]['nterms']=2
-       selfcal_library[target][band][fid]['RMS_orig']=mosaic_initial_RMS[fid]
-       selfcal_library[target][band][fid]['SNR_NF_orig']=mosaic_initial_NF_SNR[fid]
-       selfcal_library[target][band][fid]['RMS_NF_orig']=mosaic_initial_NF_RMS[fid]
+
        selfcal_library[target][band][fid]['RMS_curr']=mosaic_initial_RMS[fid]
        selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid] if mosaic_initial_NF_RMS[fid] > 0 else mosaic_initial_RMS[fid]
-       selfcal_library[target][band][fid]['SNR_dirty']=mosaic_dirty_SNR[fid]
-       selfcal_library[target][band][fid]['RMS_dirty']=mosaic_dirty_RMS[fid]
-       selfcal_library[target][band][fid]['Beam_major_orig']=header['restoringbeam']['major']['value']
-       selfcal_library[target][band][fid]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
-       selfcal_library[target][band][fid]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
-       goodMask=checkmask(imagename=imagename)
-       if goodMask:
-          selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=get_intflux(imagename,\
-                  mosaic_initial_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       else:
-          selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=-99.0,-99.0
 
 
 
@@ -917,12 +877,11 @@ for target in all_targets:
                nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', \
                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'],\
                cyclefactor=selfcal_library[target][band]['cyclefactor'])
-   final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_final.image.tt0')
-   if telescope !='ACA' or aca_use_nfmask:
-      final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_final.image.tt0', las=selfcal_library[target][band]['LAS'])
-   else:
-      final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
 
+   final_SNR, final_RMS, final_NF_SNR, final_NF_RMS = get_image_stats(sani_target+'_'+band+'_final.image.tt0', sani_target+'_'+band+'_final.mask',
+           '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'final', 'final')
+
+   # Calculate final image stats.
    mosaic_final_SNR, mosaic_final_RMS, mosaic_final_NF_SNR, mosaic_final_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
        if selfcal_library[target][band]['obstype'] == 'mosaic':
@@ -930,80 +889,24 @@ for target in all_targets:
        else:
            imagename = sani_target+'_'+band+'_final.image.tt0'
 
-       mosaic_final_SNR[fid], mosaic_final_RMS[fid] = estimate_SNR(imagename, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope !='ACA' or aca_use_nfmask:
-          mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid]=estimate_near_field_SNR(imagename, las=selfcal_library[target][band]['LAS'], \
-                  mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       else:
-          mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid]=mosaic_final_SNR[fid],mosaic_final_RMS[fid]
+       mosaic_final_SNR[fid], mosaic_final_RMS[fid], mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid] = get_image_stats(imagename, 
+               imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope !='ACA' or aca_use_nfmask), 'final', 'final',
+               mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
-   selfcal_library[target][band]['SNR_final']=final_SNR
-   selfcal_library[target][band]['RMS_final']=final_RMS
-   selfcal_library[target][band]['SNR_NF_final']=final_NF_SNR
-   selfcal_library[target][band]['RMS_NF_final']=final_NF_RMS
-   header=imhead(imagename=sani_target+'_'+band+'_final.image.tt0')
-   selfcal_library[target][band]['Beam_major_final']=header['restoringbeam']['major']['value']
-   selfcal_library[target][band]['Beam_minor_final']=header['restoringbeam']['minor']['value']
-   selfcal_library[target][band]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
    #recalc inital stats using final mask
-   final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
-   if telescope!='ACA' or aca_use_nfmask:
-      final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask', las=selfcal_library[target][band]['LAS'])
-   else:
-      final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
-   selfcal_library[target][band]['SNR_orig']=final_SNR
-   selfcal_library[target][band]['RMS_orig']=final_RMS
-   selfcal_library[target][band]['SNR_NF_orig']=final_NF_SNR
-   selfcal_library[target][band]['RMS_NF_orig']=final_NF_RMS
-   goodMask=checkmask(imagename=sani_target+'_'+band+'_final.image.tt0')
-   if goodMask:
-      selfcal_library[target][band]['intflux_final'],selfcal_library[target][band]['e_intflux_final']=get_intflux(sani_target+'_'+band+'_final.image.tt0',final_RMS)
-      selfcal_library[target][band]['intflux_orig'],selfcal_library[target][band]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_initial.image.tt0',selfcal_library[target][band]['RMS_orig'],maskname=sani_target+'_'+band+'_final.mask')
-   else:
-      selfcal_library[target][band]['intflux_final'],selfcal_library[target][band]['e_intflux_final']=-99.0,-99.0
+   final_SNR, final_RMS, final_NF_SNR, final_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', sani_target+'_'+band+'_final.mask',
+           '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'orig', 'orig')
 
+   mosaic_final_SNR, mosaic_final_RMS, mosaic_final_NF_SNR, mosaic_final_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
        if selfcal_library[target][band]['obstype'] == 'mosaic':
            imagename = sani_target+'_field_'+str(fid)+'_'+band
        else:
            imagename = sani_target+'_'+band
 
-       selfcal_library[target][band][fid]['SNR_final']=mosaic_final_SNR[fid]
-       selfcal_library[target][band][fid]['RMS_final']=mosaic_final_RMS[fid]
-       selfcal_library[target][band][fid]['SNR_NF_final']=mosaic_final_NF_SNR[fid]
-       selfcal_library[target][band][fid]['RMS_NF_final']=mosaic_final_NF_RMS[fid]
-       header=imhead(imagename=imagename+'_final.image.tt0')
-       selfcal_library[target][band][fid]['Beam_major_final']=header['restoringbeam']['major']['value']
-       selfcal_library[target][band][fid]['Beam_minor_final']=header['restoringbeam']['minor']['value']
-       selfcal_library[target][band][fid]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
-       #recalc inital stats using final mask
-       mosaic_initial_final_SNR,mosaic_initial_final_RMS=estimate_SNR(imagename+'_initial.image.tt0',maskname=imagename+'_final.mask', \
+       mosaic_final_SNR[fid], mosaic_final_RMS[fid], mosaic_final_NF_SNR[fid],mosaic_final_NF_RMS[fid] = get_image_stats(imagename+'_initial.image.tt0',
+               imagename+'_final.mask', '', selfcal_library[target][band][fid], (telescope !='ACA' or aca_use_nfmask), 'orig', 'orig',
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       if telescope!='ACA' or aca_use_nfmask:
-          mosaic_initial_final_NF_SNR,mosaic_initial_final_NF_RMS=estimate_near_field_SNR(imagename+'_initial.image.tt0', \
-                  maskname=imagename+'_final.mask', las=selfcal_library[target][band]['LAS'], \
-                  mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       else:
-          mosaic_initial_final_NF_SNR,mosaic_initial_final_NF_RMS=mosaic_initial_final_SNR,mosaic_initial_final_RMS
-       selfcal_library[target][band][fid]['SNR_orig']=mosaic_initial_final_SNR
-       selfcal_library[target][band][fid]['RMS_orig']=mosaic_initial_final_RMS
-       selfcal_library[target][band][fid]['SNR_NF_orig']=mosaic_initial_final_NF_SNR
-       selfcal_library[target][band][fid]['RMS_NF_orig']=mosaic_initial_final_NF_RMS
-
-       if selfcal_library[target][band]['obstype'] == 'mosaic':
-           imagename = sani_target+'_field_'+str(fid)+'_'+band
-       else:
-           imagename = sani_target+'_'+band
-
-       goodMask=checkmask(imagename=imagename+'_final.image.tt0')
-       if goodMask:
-          selfcal_library[target][band][fid]['intflux_final'],selfcal_library[target][band][fid]['e_intflux_final']=\
-                  get_intflux(imagename+'_final.image.tt0', mosaic_final_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-          selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=\
-                  get_intflux(imagename+'_initial.image.tt0', selfcal_library[target][band][fid]['RMS_orig'], \
-                  maskname=imagename+'_final.mask', mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
-       else:
-          selfcal_library[target][band][fid]['intflux_final'],selfcal_library[target][band][fid]['e_intflux_final']=-99.0,-99.0
 
 
 
