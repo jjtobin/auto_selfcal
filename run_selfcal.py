@@ -8,6 +8,7 @@ from selfcal_helpers import *
 from gaincal_wrapper import gaincal_wrapper
 from image_analysis_helpers import *
 from mosaic_helpers import *
+from applycal_wrapper import applycal_wrapper
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
@@ -193,30 +194,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  selfcal_library[target][band]['sub-fields-to-selfcal'] = evaluate_subfields_after_gaincal(selfcal_library, target, band, 
                          solint, iteration, solmode, allow_gain_interpolation=allow_gain_interpolation)
 
+             ##
+             ## Apply gain solutions per MS, target, solint, and band
+             ##
              for vis in vislist:
-                ##
-                ## Apply gain solutions per MS, target, solint, and band
-                ##
-                if mode == "cocal":
-                    flagmanager(vis=vis, mode = 'restore', versionname = 'fb_selfcal_starting_flags_'+sani_target, comment = 'Flag states at start of the fallback reduction')
-                for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                    if fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
-                        applycal(vis=vis,\
-                                 gaintable=selfcal_library[target][band][fid][vis][solint]['gaintable'],\
-                                 interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=False,\
-                                 spwmap=selfcal_library[target][band][fid][vis][solint]['spwmap'],\
-                                 #applymode=applymode,field=target,spw=selfcal_library[target][band][vis]['spws'])
-                                 applymode='calflag',field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                 spw=selfcal_library[target][band][vis]['spws'])
-                    else:
-                        if selfcal_library[target][band][fid]['SC_success']:
-                            applycal(vis=vis,\
-                                    gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
-                                    interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
-                                    calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
-                                    applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
-                                    field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                    spw=selfcal_library[target][band][vis]['spws'])    
+                applycal_wrapper(vis, target, band, solint, selfcal_library, 
+                        current=lambda f: f in selfcal_library[target][band]['sub-fields-to-selfcal'],
+                        final=lambda f: f not in selfcal_library[target][band]['sub-fields-to-selfcal'],
+                        restore_flags='fb_selfcal_starting_flags_'+sani_target if mode == "cocal" else None)
 
              ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
              ##
@@ -322,31 +307,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  field_by_field_success_dict = dict(zip(selfcal_library[target][band]['sub-fields-to-selfcal'], field_by_field_success))
                  print('****************Not all fields were successful, so re-applying and re-making _post image*************')
                  for vis in vislist:
-                     flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
-                     for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                         if fid not in field_by_field_success_dict or not field_by_field_success_dict[fid]:
-                             if selfcal_library[target][band][fid]['SC_success']:
-                                 print('****************Applying '+str(selfcal_library[target][band][fid][vis]['gaintable_final'])+' to '+target+' field '+\
-                                         str(fid)+' '+band+'*************')
-                                 applycal(vis=vis,\
-                                         gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
-                                         interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
-                                         calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
-                                         applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
-                                         field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                         spw=selfcal_library[target][band][vis]['spws'])    
-                             else:
-                                 print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
-                                 clearcal(vis=vis,field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                         spw=selfcal_library[target][band][vis]['spws'])
-                         else:
-                             applycal(vis=vis,\
-                                      gaintable=selfcal_library[target][band][fid][vis][solint]['gaintable'],\
-                                      interp=selfcal_library[target][band][fid][vis][solint]['applycal_interpolate'], calwt=False,\
-                                      spwmap=selfcal_library[target][band][fid][vis][solint]['spwmap'],\
-                                      #applymode=applymode,field=target,spw=selfcal_library[target][band][vis]['spws'])
-                                      applymode='calflag',field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                      spw=selfcal_library[target][band][vis]['spws'])
+                     applycal_wrapper(vis, target, band, solint, selfcal_library, 
+                             current=lambda f: f in field_by_field_success_dict and field_by_field_success_dict[f],
+                             final=lambda f: (f not in field_by_field_success_dict or not field_by_field_success_dict[f]) and 
+                                 selfcal_library[target][band][f]['SC_success'],
+                             clear=lambda f: (f not in field_by_field_success_dict or not field_by_field_success_dict[f]) and 
+                                 not selfcal_library[target][band][f]['SC_success'],
+                             restore_flags='selfcal_starting_flags_'+sani_target)
+
 
                  files = glob.glob(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+"_post.*")
                  for f in files:
@@ -463,19 +431,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round
                     print('****************Reapplying previous solint solutions*************')
                     for vis in vislist:
-                       versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target
-                       flagmanager(vis=vis,mode='restore',versionname=versionname)
-                       for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                           if selfcal_library[target][band][fid]['SC_success']:
-                               print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+\
-                                       ' field '+str(fid)+' '+band+'*************')
-                               applycal(vis=vis,\
-                                       gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
-                                       interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
-                                       calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
-                                       applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
-                                       field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                       spw=selfcal_library[target][band][vis]['spws'])    
+                       applycal_wrapper(vis, target, band, solint, selfcal_library, 
+                               final=lambda f: f in selfcal_library[target][band][f]['SC_success'],
+                               restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target)
                  else:
                     for vis in vislist:
                        inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
@@ -557,23 +515,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      print('FIELD: '+str(fid)+', REASON: Failed earlier solint')
              print('****************Reapplying previous solint solutions where available*************')
              for vis in vislist:
-                 versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target
-                 flagmanager(vis=vis,mode='restore',versionname=versionname)
+                 applycal_wrapper(vis, target, band, solint, selfcal_library, 
+                         final=lambda f: selfcal_library[target][band][f]['SC_success'],
+                         clear=lambda f: not selfcal_library[target][band][f]['SC_success'], 
+                         restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target)
+
                  for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                     if selfcal_library[target][band][fid]['SC_success']:
-                         print('****************Applying '+str(selfcal_library[target][band][fid][vis]['gaintable_final'])+' to '+target+' field '+\
-                                 str(fid)+' '+band+'*************')
-                         applycal(vis=vis,\
-                                 gaintable=selfcal_library[target][band][fid][vis]['gaintable_final'],\
-                                 interp=selfcal_library[target][band][fid][vis]['applycal_interpolate_final'],\
-                                 calwt=False,spwmap=selfcal_library[target][band][fid][vis]['spwmap_final'],\
-                                 applymode=selfcal_library[target][band][fid][vis]['applycal_mode_final'],\
-                                 field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                 spw=selfcal_library[target][band][vis]['spws'])    
-                     else:
-                         print('****************Removing all calibrations for '+target+' '+str(fid)+' '+band+'**************')
-                         clearcal(vis=vis,field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),\
-                                 spw=selfcal_library[target][band][vis]['spws'])
+                     if not selfcal_library[target][band][fid]['SC_success']:
                          selfcal_library[target][band]['SNR_post']=selfcal_library[target][band]['SNR_orig'].copy()
                          selfcal_library[target][band]['RMS_post']=selfcal_library[target][band]['RMS_orig'].copy()
 
