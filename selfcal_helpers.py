@@ -21,20 +21,20 @@ msmd = msmdtool()
 ia = image()
 im = imager()
 
-def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
-                   nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
+def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
+                   nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
-                   lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
-                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False, image_mosaic_fields_separately=False, mosaic_field_phasecenters={}, mosaic_field_fid_map={}):
+                   lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
+                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
     """
-    msmd.open(vis[0])
+    msmd.open(selfcal_library['vislist'][0])
     fieldid=msmd.fieldsforname(field)
     msmd.done()
-    tb.open(vis[0]+'/FIELD')
+    tb.open(selfcal_library['vislist'][0]+'/FIELD')
     try:
        ephem_column=tb.getcol('EPHEMERIS_ID')
        tb.close()
@@ -44,8 +44,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        tb.close()
        phasecenter=''
 
-    if obstype=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(vis[0],field)
+    if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
 
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
@@ -64,8 +64,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        lownoisethreshold=1.5*nfrms_multiplier
        cycleniter=-1
        #cyclefactor=1.0
-       print(band_properties)
-       if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:
+       #print(band_properties)
+       if selfcal_library['75thpct_uv'] > 2000.0:
           sidelobethreshold=2.0
 
     if telescope=='ACA':
@@ -90,19 +90,56 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        gridder='wproject'
        wplanes=384 # normalized to S-band A-config
        #scale by 75th percentile uv distance divided by A-config value
-       wplanes=wplanes * band_properties[vis[0]][band]['75thpct_uv']/20000.0
+       wplanes=wplanes * selfcal_library['75thpct_uv']/20000.0
        if band=='EVLA_L':
           wplanes=wplanes*2.0 # compensate for 1.5 GHz being 2x longer than 3 GHz
 
 
        wprojplanes=int(wplanes)
-    if (band=='EVLA_L' or band =='EVLA_S') and obstype=='mosaic':
+    if (band=='EVLA_L' or band =='EVLA_S') and selfcal_library['obstype']=='mosaic':
        print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
-    if obstype=='mosaic':
+    if selfcal_library['obstype']=='mosaic':
        gridder='mosaic'
     else:
        if gridder !='wproject':
           gridder='standard' 
+
+    if spw == 'all':
+        vlist = selfcal_library['vislist']
+        spws_per_vis = selfcal_library['spws_per_vis']
+        nterms = selfcal_library['nterms']
+    else:
+        vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
+        spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
+        nterms = 1
+
+    if "theoretical" in threshold:
+        dr_mod=1.0
+        if telescope =='ALMA' or telescope =='ACA':
+           sensitivity=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,
+                   imsize=selfcal_library['imsize'],cellsize=selfcal_library['cellsize'])
+           dr_mod=get_dr_correction(telescope,selfcal_library['SNR_dirty']*selfcal_library['RMS_dirty'],sensitivity,vlist)
+           sensitivity_nomod=sensitivity.copy()
+           print('DR modifier: ',dr_mod)
+
+           sensitivity=sensitivity*dr_mod   # apply DR modifier
+           if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+               sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
+
+           selfcal_library['theoretical_sensitivity']=sensitivity_nomod
+           for fid in selfcal_library['sub-fields']:
+               selfcal_library[fid]['theoretical_sensitivity']=sensitivity_nomod
+        else:
+           sensitivity=0.0
+           selfcal_library['theoretical_sensitivity']=-99.0
+           for fid in selfcal_library['sub-fields']:
+               selfcal_library[fid]['theoretical_sensitivity']=-99.0
+
+        if threshold == "theoretical_with_drmod":
+            threshold = str(4.0*sensitivity)+'Jy'
+        else:
+            threshold = str(4.0*sensitivity_nomod)+'Jy'
+
 
     if gridder=='mosaic' and startmodel!='':
        parallel=False
@@ -110,7 +147,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
         if not resume:
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
-        tclean(vis= vis, 
+        tclean(vis=vlist, 
                imagename = imagename, 
                field=field,
                specmode = 'mfs', 
@@ -120,14 +157,14 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                weighting='briggs', 
                robust = robust,
                gain = gain,
-               imsize = imsize,
-               cell = cellsize, 
+               imsize = selfcal_library['imsize'],
+               cell = selfcal_library['cellsize'], 
                smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
                niter = niter, #we want to end on the threshold
                interactive = interactive,
                nsigma=nsigma,    
                cycleniter = cycleniter,
-               cyclefactor = cyclefactor, 
+               cyclefactor = selfcal_library['cyclefactor'], 
                uvtaper = uvtaper, 
                savemodel = 'none',
                mask=mask,
@@ -139,26 +176,26 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                pbmask=pbmask,
                pblimit=pblimit,
                nterms = nterms,
-               uvrange=uvrange,
+               uvrange=selfcal_library['uvrange'],
                threshold=threshold,
                parallel=parallel,
                phasecenter=phasecenter,
                startmodel=startmodel,
-               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True)
+               datacolumn=datacolumn,spw=spws_per_vis,wprojplanes=wprojplanes, verbose=True)
 
-        if image_mosaic_fields_separately:
-            for field_id in mosaic_field_phasecenters:
+        if image_mosaic_fields_separately and selfcal_library['obstype'] == 'mosaic':
+            for field_id in selfcal_library['sub-fields-phasecenters']:
                 if 'VLA' in telescope:
-                   fov=45.0e9/band_properties[vis[0]][band]['meanfreq']*60.0*1.5*0.5
-                   if band_properties[vis[0]][band]['meanfreq'] < 12.0e9:
+                   fov=45.0e9/selfcal_library['meanfreq']*60.0*1.5*0.5
+                   if selfcal_library['meanfreq'] < 12.0e9:
                       fov=fov*2.0
                 if telescope=='ALMA':
-                   fov=63.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5*1.15
+                   fov=63.0*100.0e9/selfcal_library['meanfreq']*1.5*0.5*1.15
                 if telescope=='ACA':
-                   fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
+                   fov=108.0*100.0e9/selfcal_library['meanfreq']*1.5*0.5
 
-                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(mosaic_field_phasecenters[field_id]['m0']['value'], \
-                        mosaic_field_phasecenters[field_id]['m1']['value'], fov)
+                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(selfcal_library['sub-fields-phasecenters'][field_id]['m0']['value'], \
+                        selfcal_library['sub-fields-phasecenters'][field_id]['m1']['value'], fov)
 
                 for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
                     target = sanitize_string(field)
@@ -177,23 +214,23 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                             os.system("rm -rf "+imagename.replace(target,target+"_field_"+str(field_id))+ext.replace("pb","mospb.tmp"))
 
                 # Make an image of the primary beam for each sub-field.
-                if type(vis) == list:
-                    for v in vis:
+                if type(selfcal_library['vislist']) == list:
+                    for v in selfcal_library['vislist']:
                         # Since not every field is in every v, we need to check them all so that we don't accidentally get a v without a given field_id
-                        if field_id in mosaic_field_fid_map[v]:
-                            fid = mosaic_field_fid_map[v][field_id]
+                        if field_id in selfcal_library['sub-fields-fid_map'][v]:
+                            fid = selfcal_library['sub-fields-fid_map'][v][field_id]
                             break
 
                     im.open(v)
                 else:
-                    fid = mosaic_field_fid_map[vis][field_id]
+                    fid = selfcal_library['sub-fields-fid_map'][selfcal_library['vislist']][field_id]
                     im.open(vis)
 
                 nx, ny, nfreq, npol = imhead(imagename=imagename.replace(target,target+"_field_"+str(field_id))+".image.tt0", mode="get", \
                         hdkey="shape")
 
-                im.selectvis(field=str(fid), spw=spw)
-                im.defineimage(nx=nx, ny=ny, cellx=cellsize, celly=cellsize, phasecenter=fid, mode="mfs", spw=spw)
+                im.selectvis(field=str(fid), spw=spws_per_vis)
+                im.defineimage(nx=nx, ny=ny, cellx=selfcal_library['cellsize'], celly=selfcal_library['cellsize'], phasecenter=fid, mode="mfs", spw=spw)
                 im.setvp(dovp=True)
                 im.makeimage(type="pb", image=imagename.replace(target,target+"_field_"+str(field_id)) + ".pb.tt0")
                 im.close()
@@ -203,7 +240,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if savemodel=='modelcolumn':
           print("")
           print("Running tclean a second time to save the model...")
-          tclean(vis= vis, 
+          tclean(vis= vlist, 
                  imagename = imagename, 
                  field=field,
                  specmode = 'mfs', 
@@ -213,14 +250,14 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  weighting='briggs', 
                  robust = robust,
                  gain = gain,
-                 imsize = imsize,
-                 cell = cellsize, 
+                 imsize = selfcal_library['imsize'],
+                 cell = selfcal_library['cellsize'], 
                  smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
                  niter = 0, 
                  interactive = False,
                  nsigma=0.0, 
                  cycleniter = cycleniter,
-                 cyclefactor = cyclefactor, 
+                 cyclefactor = selfcal_library['cyclefactor'], 
                  uvtaper = uvtaper, 
                  usemask='user',
                  savemodel = savemodel,
@@ -234,10 +271,10 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  calcpsf = False,
                  restoration = False,
                  nterms = nterms,
-                 uvrange=uvrange,
+                 uvrange=selfcal_library['uvrange'],
                  threshold=threshold,
                  parallel=False,
-                 phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
+                 phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
     
 
 
@@ -941,26 +978,67 @@ def rank_refants(vis, caltable=None):
      return ','.join(numpy.array(ids)[numpy.argsort(score)].astype(str))
 
 
-def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype):
+def get_SNR_self(selfcal_library,selfcal_plan,n_ant,inf_EB_gaincal_combine,inf_EB_gaintype):
    solint_snr={}
    solint_snr_per_field={}
    solint_snr_per_spw={}
    solint_snr_per_field_per_spw={}
-   for target in all_targets:
+   minsolint_spw=100
+   for target in selfcal_library:
     solint_snr[target]={}
     solint_snr_per_field[target]={}
     solint_snr_per_spw[target]={}
     solint_snr_per_field_per_spw[target]={}
     for band in selfcal_library[target].keys():
-      if target in solints[band].keys():
-         solint_snr[target][band], solint_snr_per_spw[target][band] = get_SNR_self_individual(vislist, selfcal_library[target][band], n_ant, \
-              solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
+      solint_snr[target][band], solint_snr_per_spw[target][band] = get_SNR_self_individual(selfcal_library[target][band]['vislist'], \
+              selfcal_library[target][band], n_ant, selfcal_plan[target][band]['solints'], selfcal_plan[target][band]['integration_time'], \
+              inf_EB_gaincal_combine, inf_EB_gaintype)
 
-         solint_snr_per_field[target][band] = {}
-         solint_snr_per_field_per_spw[target][band] = {}
-         for fid in selfcal_library[target][band]['sub-fields']:
-             solint_snr_per_field[target][band][fid], solint_snr_per_field_per_spw[target][band][fid] = get_SNR_self_individual(vislist, \
-                     selfcal_library[target][band][fid], n_ant, solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
+      print('Estimated SNR per solint:')
+      print(target,band)
+      for solint in selfcal_plan[target][band]['solints']:
+        if solint == 'inf_EB':
+           print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
+           '''
+           for spw in solint_snr_per_spw[target][band][solint].keys():
+              print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+              if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
+                 minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
+           if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
+              print('Switching Gaintype to T for: '+target)
+              inf_EB_gaintype_dict[target][band]='T'
+           elif minsolint_spw < 2.5 and inf_EB_override==False:
+              print('Switching Gaincal combine to spw,scan for: '+target)
+              inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
+           '''
+        else:
+           print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
+
+      solint_snr_per_field[target][band] = {}
+      solint_snr_per_field_per_spw[target][band] = {}
+      for fid in selfcal_library[target][band]['sub-fields']:
+          solint_snr_per_field[target][band][fid], solint_snr_per_field_per_spw[target][band][fid] = get_SNR_self_individual(selfcal_library[target][band]['vislist'], \
+                  selfcal_library[target][band][fid], n_ant, selfcal_plan[target][band]['solints'], selfcal_plan[target][band]['integration_time'], inf_EB_gaincal_combine, inf_EB_gaintype)
+
+          print('Estimated SNR per solint:')
+          print(target,band,"field "+str(fid))
+          for solint in selfcal_plan[target][band]['solints']:
+            if solint == 'inf_EB':
+               print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
+               '''
+               for spw in solint_snr_per_spw[target][band][solint].keys():
+                  print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+                  if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
+                     minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
+               if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
+                  print('Switching Gaintype to T for: '+target)
+                  inf_EB_gaintype_dict[target][band]='T'
+               elif minsolint_spw < 2.5 and inf_EB_override==False:
+                  print('Switching Gaincal combine to spw,scan for: '+target)
+                  inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
+               '''
+            else:
+               print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
 
    return solint_snr, solint_snr_per_spw, solint_snr_per_field, solint_snr_per_field_per_spw
 
@@ -1521,28 +1599,28 @@ def largest_prime_factor(n):
     return n
 
 
-def get_image_parameters(vislist,telescope,target,band,band_properties,scale_fov=1.0,mosaic=False):
+def get_image_parameters(vislist,telescope,target,band,selfcal_library,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
-      im.selectvis(vis=vislist[i],spw=band_properties[vislist[i]][band]['spwarray'])
+      im.selectvis(vis=vislist[i],spw=selfcal_library[target][band][vislist[i]]['spwsarray'])
       adviseparams= im.advise() 
       cells[i]=adviseparams[2]['value']/2.0
       im.close()
    cell=np.min(cells)
    cellsize='{:0.3f}arcsec'.format(cell)
    nterms=1
-   if band_properties[vislist[0]][band]['fracbw'] > 0.1:
+   if selfcal_library[target][band]['fracbw'] > 0.1:
       nterms=2
 
    if 'VLA' in telescope:
-      fov=45.0e9/band_properties[vislist[0]][band]['meanfreq']*60.0*1.5
-      if band_properties[vislist[0]][band]['meanfreq'] < 12.0e9:
+      fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
+      if selfcal_library[target][band]['meanfreq'] < 12.0e9:
          fov=fov*2.0
    if telescope=='ALMA':
-      fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
+      fov=63.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
    if telescope=='ACA':
-      fov=108.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
+      fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
    fov=fov*scale_fov
    if mosaic:
        msmd.open(vislist[0])
@@ -2833,10 +2911,10 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable)
    eff_bws=np.zeros(len(spwlist))
    total_bws=np.zeros(len(spwlist))
-   keylist=list(selfcal_library[target][band][vis]['per_spw_stats'].keys())
+   keylist=list(selfcal_library[vis]['per_spw_stats'].keys())
    for i in range(len(spwlist)):
-      eff_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
-      total_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['bandwidth']
+      eff_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['bandwidth']
    minimum_flagged_ants_per_spw=np.min(nflags)/2.0
    minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
                                                            # the impression of a lot of flagging

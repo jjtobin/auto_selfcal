@@ -13,6 +13,7 @@ sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
 from image_analysis_helpers import *
+from prepare_selfcal import prepare_selfcal
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
@@ -33,20 +34,6 @@ if len(vislist) == 0:
       vislist=glob.glob('*_cont.ms')   # adaptation for PL2022 output
    elif len(vislist)==0:
       sys.exit('No Measurement sets found in current working directory, exiting')
-
-##
-## save starting flags or restore to the starting flags
-##
-for vis in vislist:
-   if os.path.exists(vis+".flagversions/flags.starting_flags"):
-      flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
-   else:
-      flagmanager(vis=vis,mode='save',versionname='starting_flags')
-
-## 
-## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
-##
-all_targets=fetch_targets(vislist[0])
 
 ##
 ## Global environment variables for control of selfcal
@@ -81,93 +68,14 @@ check_all_spws=False   # generate per-spw images to check phase transfer did not
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
 
-if sort_targets_and_EBs:
-    all_targets.sort()
-    vislist.sort()
-
-if 'VLA' in telescope:
-   check_all_spws=False
-   #inf_EB_gaincal_combine='spw,scan'
 ##
-## Import inital MS files to get relevant meta data
+## Get all of the relevant data from the MS files
 ##
-listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
-
-##
-## flag spectral lines in MS(es) if there is a cont.dat file present
-##
-if os.path.exists("cont.dat"):
-   flag_spectral_lines(vislist,all_targets,spwsarray_dict)
+selfcal_library, selfcal_plan, gaincalibrator_dict = prepare_selfcal(vislist, spectral_average=spectral_average, 
+        sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
+        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal)
 
 
-##
-## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
-##
-split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
-
-##
-## put flagging back at original state for originally input ms for when they are used next time
-##
-for vis in vislist:
-    if os.path.exists(vis+".flagversions/flags.before_line_flags"):
-       flagmanager(vis=vis,mode='restore',versionname='before_line_flags')     
-
-
-##
-## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
-##
-spwslist_dict_orig=spwslist_dict.copy()
-vislist_orig=vislist.copy()
-spwstring_dict_orig=spwstring_dict.copy()
-spwsarray_dict_orig =spwsarray_dict.copy()
-
-vislist=glob.glob('*selfcal.ms')
-if sort_targets_and_EBs:
-    vislist.sort()
-
-listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
-
-##
-## Save/restore starting flags
-##
-
-for vis in vislist:
-   if os.path.exists(vis+'.flagversions/flags.selfcal_starting_flags'):
-      flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags')
-   else:
-      flagmanager(vis=vis,mode='save',versionname='selfcal_starting_flags')
-
-
-##
-## set image parameters based on the visibility data properties and frequency
-##
-cellsize={}
-imsize={}
-nterms={}
-applycal_interp={}
-
-for target in all_targets:
-    cellsize[target], imsize[target], nterms[target], applycal_interp[target] = {}, {}, {}, {}
-    for band in bands:
-       if target in mosaic_field[band][vislist[0]].keys():
-          cellsize[target][band],imsize[target][band],nterms[target][band] = \
-                  get_image_parameters(vislist,telescope,target,band, \
-                  band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][target]['mosaic'])
-
-       if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
-          applycal_interp[target][band]='linearPD'
-       else:
-          applycal_interp[target][band]='linear'
-
-
-
-
-
-###################################################################################################
-################################# End Metadata gathering for Selfcal ##############################
-###################################################################################################
 
 
 
@@ -175,229 +83,27 @@ for target in all_targets:
 ############################# Start Actual important stuff for selfcal ############################
 ###################################################################################################
 
-##
-## begin setting up a selfcal_library with all relevant metadata to keep track of during selfcal
-## 
-selfcal_library={}
-
-for target in all_targets:
-   selfcal_library[target]={}
-   for band in bands:
-      if target in scantimesdict[band][vislist[0]].keys():
-         selfcal_library[target][band]={}
-      else:
-         continue
-      for vis in vislist:
-         selfcal_library[target][band][vis]={}
-
-      if mosaic_field[band][vislist[0]][target]['mosaic']:
-         selfcal_library[target][band]['obstype']='mosaic'
-      else:
-         selfcal_library[target][band]['obstype']='single-point'
-
-      # Make sure the fields get mapped properly, in case the order in which they are observed changes from EB to EB.
-
-      selfcal_library[target][band]['sub-fields-fid_map'] = {}
-      all_phasecenters = []
-      for vis in vislist:
-          selfcal_library[target][band]['sub-fields-fid_map'][vis] = {}
-          for i in range(len(mosaic_field[band][vis][target]['field_ids'])):
-              found = False
-              for j in range(len(all_phasecenters)):
-                  distance = ((all_phasecenters[j]["m0"]["value"] - mosaic_field[band][vis][target]['phasecenters'][i]["m0"]["value"])**2 + \
-                          (all_phasecenters[j]["m1"]["value"] - mosaic_field[band][vis][target]['phasecenters'][i]["m1"]["value"])**2)**0.5
-
-                  if distance < 4.84814e-6:
-                      selfcal_library[target][band]['sub-fields-fid_map'][vis][j] = mosaic_field[band][vis][target]['field_ids'][i]
-                      found = True
-                      break
-
-              if not found:
-                  all_phasecenters.append(mosaic_field[band][vis][target]['phasecenters'][i])
-                  selfcal_library[target][band]['sub-fields-fid_map'][vis][len(all_phasecenters)-1] = mosaic_field[band][vis][target]['field_ids'][i]
-
-      selfcal_library[target][band]['sub-fields'] = list(range(len(all_phasecenters)))
-      selfcal_library[target][band]['sub-fields-to-selfcal'] = list(range(len(all_phasecenters)))
-      selfcal_library[target][band]['sub-fields-phasecenters'] = dict(zip(selfcal_library[target][band]['sub-fields'], all_phasecenters))
-
-      # Now we can start to create a sub-field selfcal_library entry for each sub-field.
-
-      for fid in selfcal_library[target][band]['sub-fields']:
-          selfcal_library[target][band][fid] = {}
-
-          for vis in vislist:
-              if not fid in selfcal_library[target][band]['sub-fields-fid_map'][vis]:
-                  continue
-
-              selfcal_library[target][band][fid][vis] = {}
-
-import json
-print(json.dumps(selfcal_library, indent=4))
-##
-## finds solints, starting with inf, ending with int, and tries to align
-## solints with number of integrations
-## solints reduce by factor of 2 in each self-cal interation
-## e.g., inf, max_scan_time/2.0, prev_solint/2.0, ..., int
-## starting solints will have solint the length of the entire EB to correct bulk offsets
-##
-solints={}
-gaincal_combine={}
-solmode={}
-applycal_mode={}
-for band in bands:
-   solints[band]={}
-   gaincal_combine[band]={}
-   solmode[band]={}
-   applycal_mode[band]={}
-   for target in all_targets:
-      if target in mosaic_field[band][vislist[0]].keys():
-         solints[band][target],integration_time,gaincal_combine[band][target],solmode[band][target]=get_solints_simple(vislist,scantimesdict[band],scannfieldsdict[band],\
-                                                                      scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
-                                                                      inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,\
-                                                                      mosaic=mosaic_field[band][vislist[0]][target]['mosaic'])
-         print(band,target,solints[band][target])
-         applycal_mode[band][target]=[apply_cal_mode_default]*len(solints[band][target])
 
 
-
-##
-## puts stuff in right place from other MS metadata to perform proper data selections
-## in tclean, gaincal, and applycal
-## Also gets relevant times on source to estimate SNR per EB/scan
-##
-for target in all_targets:
- for band in selfcal_library[target].keys():
-   print(target, band)
-   selfcal_library[target][band]['SC_success']=False
-   selfcal_library[target][band]['final_solint']='None'
-   selfcal_library[target][band]['Total_TOS']=0.0
-   selfcal_library[target][band]['spws']=[]
-   selfcal_library[target][band]['spws_per_vis']=[]
-   selfcal_library[target][band]['nterms']=nterms[target][band]
-   selfcal_library[target][band]['vislist']=vislist.copy()
-   allscantimes=np.array([])
-   allscannfields=np.array([])
-   for vis in vislist:
-      selfcal_library[target][band][vis]['gaintable']=[]
-      selfcal_library[target][band][vis]['TOS']=np.sum(scantimesdict[band][vis][target])
-      selfcal_library[target][band][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target])
-      selfcal_library[target][band][vis]['Median_fields_per_scan']=np.median(scannfieldsdict[band][vis][target])
-      allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
-      allscannfields=np.append(allscannfields,scannfieldsdict[band][vis][target])
-      selfcal_library[target][band][vis]['refant'] = rank_refants(vis)
-      #n_spws,minspw,spwsarray=fetch_spws([vis],[target])
-      #spwslist=spwsarray.tolist()
-      #spwstring=','.join(str(spw) for spw in spwslist)
-      selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
-      selfcal_library[target][band][vis]['spwsarray']=band_properties[vis][band]['spwarray']
-
-      selfcal_library[target][band][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
-      selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
-      selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
-      if spectral_scan:
-         spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
-         spwmap.fill(np.min(spws_set[band][vis]))
-         for i in range(spws_set[band][vis].shape[0]):
-            indices=np.arange(np.min(spws_set[band][vis][i]),np.max(spws_set[band][vis][i])+1)
-            spwmap[indices]=np.min(spws_set[band][vis][i])
-         selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
-      else:
-         selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
-      selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
-      selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
-   selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
-   selfcal_library[target][band]['Median_fields_per_scan']=np.median(allscannfields)
-   selfcal_library[target][band]['uvrange']=get_uv_range(band,band_properties,vislist)
-   selfcal_library[target][band]['75thpct_uv']=band_properties[vislist[0]][band]['75thpct_uv']
-   selfcal_library[target][band]['LAS']=band_properties[vislist[0]][band]['LAS']
-   selfcal_library[target][band]['fracbw']=band_properties[vislist[0]][band]['fracbw']
-   print(selfcal_library[target][band]['uvrange'])
-
-   for fid in selfcal_library[target][band]['sub-fields']:
-       selfcal_library[target][band][fid]['SC_success']=False
-       selfcal_library[target][band][fid]['final_solint']='None'
-       selfcal_library[target][band][fid]['Total_TOS']=0.0
-       selfcal_library[target][band][fid]['spws']=[]
-       selfcal_library[target][band][fid]['spws_per_vis']=[]
-       selfcal_library[target][band][fid]['nterms']=nterms[target][band]
-       selfcal_library[target][band][fid]['vislist']=[vis for vis in vislist if fid in selfcal_library[target][band]['sub-fields-fid_map'][vis]]
-       selfcal_library[target][band][fid]['obstype'] = 'single-point'
-       allscantimes=np.array([])
-       allscannfields=np.array([])
-       for vis in selfcal_library[target][band][fid]['vislist']:
-          good = np.array([str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]) in scan_fields for scan_fields in scanfieldsdict[band][vis][target]])
-          selfcal_library[target][band][fid][vis]['gaintable']=[]
-          selfcal_library[target][band][fid][vis]['TOS']=np.sum(scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
-          selfcal_library[target][band][fid][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
-          selfcal_library[target][band][fid][vis]['Median_fields_per_scan']=1
-          allscantimes=np.append(allscantimes,scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
-          allscannfields=np.append(allscannfields,[1])
-          selfcal_library[target][band][fid][vis]['refant'] = selfcal_library[target][band][vis]['refant']
-          #n_spws,minspw,spwsarray=fetch_spws([vis],[target])
-          #spwslist=spwsarray.tolist()
-          #spwstring=','.join(str(spw) for spw in spwslist)
-          selfcal_library[target][band][fid][vis]['spws']=band_properties[vis][band]['spwstring']
-          selfcal_library[target][band][fid][vis]['spwsarray']=band_properties[vis][band]['spwarray']
-          selfcal_library[target][band][fid][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
-          selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
-          selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
-          if spectral_scan:
-             spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
-             spwmap.fill(np.min(spws_set[band][vis]))
-             for i in range(spws_set[band][vis].shape[0]):
-                indices=np.arange(np.min(spws_set[band][vis][i]),np.max(spws_set[band][vis][i])+1)
-                spwmap[indices]=np.min(spws_set[band][vis][i])
-             selfcal_library[target][band][fid][vis]['spwmap']=spwmap.tolist()
-          else:
-             selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
-
-          selfcal_library[target][band][fid]['Total_TOS']=selfcal_library[target][band][fid][vis]['TOS']+selfcal_library[target][band][fid]['Total_TOS']
-          selfcal_library[target][band][fid]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
-       selfcal_library[target][band][fid]['Median_scan_time']=np.median(allscantimes)
-       selfcal_library[target][band][fid]['Median_fields_per_scan']=np.median(allscannfields)
-       selfcal_library[target][band][fid]['uvrange']=get_uv_range(band,band_properties,vislist)
-       selfcal_library[target][band][fid]['75thpct_uv']=band_properties[vislist[0]][band]['75thpct_uv']
-       selfcal_library[target][band][fid]['LAS']=band_properties[vislist[0]][band]['LAS']
-
-class NpEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
-
-##
-## 
-## 
-for target in all_targets:
- for band in selfcal_library[target].keys():
-      if selfcal_library[target][band]['Total_TOS'] == 0.0:
-         selfcal_library[target].pop(band)
-
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
 ## create initial images for each target to evaluate SNR and beam
 ## replicates what a preceding hif_makeimages would do
 ## Enables before/after comparison and thresholds to be calculated
 ## based on the achieved S/N in the real data
 ##
-for target in all_targets:
+for target in selfcal_library:
  sani_target=sanitize_string(target)
- for band in selfcal_library[target].keys():
+ for band in selfcal_library[target]:
    #make images using the appropriate tclean heuristics for each telescope
    if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
       # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
       # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
       # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
-      tclean_wrapper(vislist,sani_target+'_'+band+'_dirty',
-                     band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
+      tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_dirty',
+                     band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=1, gain=0.00001,
-                     savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=nterms[target][band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'])
+                     savemodel='none',parallel=parallel,
+                     field=target)
 
    dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_dirty.image.tt0', sani_target+'_'+band+'_dirty.mask',
             '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
@@ -413,31 +119,12 @@ for target in all_targets:
                imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty',
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
-   if "VLA" in telescope or (selfcal_library[target][band]['obstype'] == 'mosaic' and \
-           selfcal_library[target][band]['Median_scan_time'] / selfcal_library[target][band]['Median_fields_per_scan'] < 60.) \
-           or selfcal_library[target][band]['75thpct_uv'] > 2000.0:
-       selfcal_library[target][band]['cyclefactor'] = 3.0
-   else:
-       selfcal_library[target][band]['cyclefactor'] = 1.0
-
-   dr_mod=1.0
-   if telescope =='ALMA' or telescope =='ACA':
-      sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],cellsize=cellsize[target][band])
-      dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
-      sensitivity_nomod=sensitivity.copy()
-      print('DR modifier: ',dr_mod)
    if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0'):
-      if telescope=='ALMA' or telescope =='ACA':
-         sensitivity=sensitivity*dr_mod   # apply DR modifier
-         if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-            sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
-      else:
-         sensitivity=0.0
-      tclean_wrapper(vislist,sani_target+'_'+band+'_initial',
-                     band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold=str(sensitivity*4.0)+'Jy',
-                     savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=nterms[target][band],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=dirty_NF_RMS/dirty_RMS, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'])
+      tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_initial',
+                     band,telescope=telescope,nsigma=4.0, scales=[0],
+                     threshold='theoretical_with_drmod',
+                     savemodel='none',parallel=parallel,
+                     field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS)
 
    initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', 
            sani_target+'_'+band+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
@@ -454,11 +141,6 @@ for target in all_targets:
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
 
-   if telescope =='ALMA' or telescope == 'ACA':
-      selfcal_library[target][band]['theoretical_sensitivity']=sensitivity_nomod
-   if 'VLA' in telescope:
-      selfcal_library[target][band]['theoretical_sensitivity']=-99.0
-
    if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
       selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
 
@@ -466,11 +148,6 @@ for target in all_targets:
    selfcal_library[target][band]['RMS_NF_curr']=initial_NF_RMS if initial_NF_RMS > 0 else initial_RMS
 
    for fid in selfcal_library[target][band]['sub-fields']:
-       if telescope =='ALMA' or telescope == 'ACA':
-          selfcal_library[target][band][fid]['theoretical_sensitivity']=sensitivity_nomod
-       if 'VLA' in telescope:
-          selfcal_library[target][band][fid]['theoretical_sensitivity']=-99.0
-       selfcal_library[target][band][fid]['SNR_orig']=mosaic_initial_SNR[fid]
        if selfcal_library[target][band][fid]['SNR_orig'] > 500.0:
           selfcal_library[target][band][fid]['nterms']=2
 
@@ -478,6 +155,16 @@ for target in all_targets:
        selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid] if mosaic_initial_NF_RMS[fid] > 0 else mosaic_initial_RMS[fid]
 
 
+import json
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ####MAKE DIRTY PER SPW IMAGES TO PROPERLY ASSESS DR MODIFIERS
@@ -485,68 +172,8 @@ print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ## Make a initial image per spw images to assess overall improvement
 ##   
 
-for target in all_targets:
-   for band in selfcal_library[target].keys():
-      selfcal_library[target][band]['per_spw_stats']={}
-      vislist=selfcal_library[target][band]['vislist'].copy()
-
-      selfcal_library[target][band]['spw_map'] = get_spw_map(selfcal_library, 
-              target, band, telescope)
-
-      #code to work around some VLA data not having the same number of spws due to missing BlBPs
-      #selects spwlist from the visibilities with the greates number of spws
-      #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
-      spw_bandwidths_dict={}
-      spw_effective_bandwidths_dict={}
-      for vis in selfcal_library[target][band]['vislist']:
-         selfcal_library[target][band][vis]['per_spw_stats'] = {}
-          
-         spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
-
-         selfcal_library[target][band][vis]['total_bandwidth']=0.0
-         selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
-         if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
-            print('cont.dat does not contain all spws; falling back to total bandwidth')
-            for spw in spw_bandwidths_dict[vis].keys():
-               if spw not in spw_effective_bandwidths_dict[vis].keys():
-                  spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths_dict[vis][spw]
-
-         for spw in selfcal_library[target][band][vis]['spwlist']:
-            keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
-            if spw not in keylist:
-               selfcal_library[target][band][vis]['per_spw_stats'][spw]={}
-
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths_dict[vis][spw]
-            selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths_dict[vis][spw]
-            selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
-            selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths_dict[vis][spw]
-
-      for fid in selfcal_library[target][band]['sub-fields']:
-          selfcal_library[target][band][fid]['per_spw_stats']={}
-          selfcal_library[target][band][fid]['spw_map'] = selfcal_library[target][band]['spw_map']
-          for vis in selfcal_library[target][band][fid]['vislist']:
-              selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
-
-              spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
-
-              selfcal_library[target][band][fid][vis]['total_bandwidth']=0.0
-              selfcal_library[target][band][fid][vis]['total_effective_bandwidth']=0.0
-              if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
-                 print('cont.dat does not contain all spws; falling back to total bandwidth')
-                 for spw in spw_bandwidths.keys():
-                    if spw not in spw_effective_bandwidths.keys():
-                       spw_effective_bandwidths[spw]=spw_bandwidths[spw]
-              for spw in selfcal_library[target][band][fid][vis]['spwlist']:
-                 keylist=selfcal_library[target][band][fid][vis]['per_spw_stats'].keys()
-                 if spw not in keylist:
-                    selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]={}
-                 selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-                 selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-                 selfcal_library[target][band][fid][vis]['total_bandwidth']+=spw_bandwidths[spw]
-                 selfcal_library[target][band][fid][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
-
 if check_all_spws:
-   for target in all_targets:
+   for target in selfcal_library:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          #potential place where diff spws for different VLA EBs could cause problems
@@ -555,39 +182,22 @@ if check_all_spws:
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0'):
-               vlist = [vis for vis in selfcal_library[target][band]['vislist'] if vis in selfcal_library[target][band]['spw_map'][spw]]
-               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vlist]
-               tclean_wrapper(vlist,sani_target+'_'+band+'_'+str(spw)+'_dirty',
-                     band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
+               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
+                     band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=0,
-                     savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=1,
-                     field=target,spw=spws_per_vis,
-                     uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'])
+                     savemodel='none',parallel=parallel,
+                     field=target,spw=spw)
             dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0')
             if telescope!='ACA' or aca_use_nfmask:
                dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0', las=selfcal_library[target][band]['LAS'])
             else:
                dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=dirty_SNR,dirty_RMS
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0'):
-               vlist = [vis for vis in vislist if vis in selfcal_library[target][band]['spw_map'][spw]]
-               if telescope=='ALMA' or telescope =='ACA':
-                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[target][band],cellsize=cellsize[target][band])
-                  dr_mod=1.0
-                  dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vlist)
-                  print('DR modifier: ',dr_mod,'SPW: ',spw)
-                  sensitivity=sensitivity*dr_mod 
-                  if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
-                     sensitivity=sensitivity*4.0 
-               else:
-                  sensitivity=0.0
-               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vlist]
-
-               tclean_wrapper(vlist,sani_target+'_'+band+'_'+str(spw)+'_initial',\
-                          band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*4.0)+'Jy',scales=[0],\
-                          savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],\
-                          nterms=1,field=target,datacolumn='corrected',\
-                          spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], \
-                          nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS, cyclefactor=selfcal_library[target][band]['cyclefactor'])
+               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_initial',\
+                          band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
+                          savemodel='none',parallel=parallel,\
+                          field=target,datacolumn='corrected',\
+                          spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
 
             per_spw_SNR,per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0')
             if telescope!='ACA' or aca_use_nfmask:
@@ -611,66 +221,8 @@ if check_all_spws:
 ##
 ## estimate per scan/EB S/N using time on source and median scan times
 ##
-inf_EB_gaincal_combine_dict={} #'scan'
-inf_EB_gaintype_dict={} #'G'
-inf_EB_fallback_mode_dict={} #'scan'
 
-solint_snr,solint_snr_per_spw,solint_snr_per_field,solint_snr_per_field_per_spw=get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ants,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype)
-minsolint_spw=100.0
-for target in all_targets:
- inf_EB_gaincal_combine_dict[target]={} #'scan'
- inf_EB_fallback_mode_dict[target]={} #'scan'
- inf_EB_gaintype_dict[target]={} #'G'
- for band in solint_snr[target].keys():
-   inf_EB_gaincal_combine_dict[target][band]={}
-   inf_EB_gaintype_dict[target][band]={}
-   inf_EB_fallback_mode_dict[target][band]={}
-   for vis in vislist:
-    inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
-    if selfcal_library[target][band]['obstype']=='mosaic':
-       inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
-    inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
-    inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
-    print('Estimated SNR per solint:')
-    print(target,band)
-    for solint in solints[band][target]:
-      if solint == 'inf_EB':
-         print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
-         ''' 
-         for spw in solint_snr_per_spw[target][band][solint].keys():
-            print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
-            if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
-               minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
-         if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
-            print('Switching Gaintype to T for: '+target)
-            inf_EB_gaintype_dict[target][band]='T'
-         elif minsolint_spw < 2.5 and inf_EB_override==False:
-            print('Switching Gaincal combine to spw,scan for: '+target)
-            inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
-         '''
-      else:
-         print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
-
-    for fid in selfcal_library[target][band]['sub-fields']:
-        print('Estimated SNR per solint:')
-        print(target,band,"field "+str(fid))
-        for solint in solints[band][target]:
-          if solint == 'inf_EB':
-             print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
-             ''' 
-             for spw in solint_snr_per_spw[target][band][solint].keys():
-                print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
-                if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
-                   minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
-             if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
-                print('Switching Gaintype to T for: '+target)
-                inf_EB_gaintype_dict[target][band]='T'
-             elif minsolint_spw < 2.5 and inf_EB_override==False:
-                print('Switching Gaincal combine to spw,scan for: '+target)
-                inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
-             '''
-          else:
-             print('{}: {:0.2f}'.format(solint,solint_snr_per_field[target][band][fid][solint]))
+solint_snr,solint_snr_per_spw,solint_snr_per_field,solint_snr_per_field_per_spw=get_SNR_self(selfcal_library,selfcal_plan,n_ants,inf_EB_gaincal_combine,inf_EB_gaintype)
 
 ##
 ## Set clean selfcal thresholds
@@ -682,24 +234,24 @@ for target in all_targets:
 ## Switch to a sensitivity for low frequency that is based on the residuals of the initial image for the
 # first couple rounds and then switch to straight nsigma? Determine based on fraction of pixels that the # initial mask covers to judge very extended sources?
 
-for target in all_targets:
+for target in selfcal_library:
   for band in selfcal_library[target].keys():
-   if band_properties[selfcal_library[target][band]['vislist'][0]][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):
+   if selfcal_library[target][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):
       dividing_factor_band=40.0
    elif (dividing_factor ==-99.0):
       dividing_factor_band=15.0
    nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor_band,5.0]) # restricts initial nsigma to be at least 5
 
-   n_ap_solints=sum(1 for solint in solints[band][target] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
+   n_ap_solints=sum(1 for solint in selfcal_plan[target][band]['solints'] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
    if rel_thresh_scaling == 'loge':
-      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(solints[band][target])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(selfcal_plan[target][band]['solints'])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
    elif rel_thresh_scaling == 'linear':
-      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(solints[band][target])-n_ap_solints),np.array([3.0]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(selfcal_plan[target][band]['solints'])-n_ap_solints),np.array([3.0]*n_ap_solints))
    else: #implicitly making log10 the default
-      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(solints[band][target])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
+      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(selfcal_plan[target][band]['solints'])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
 
    if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
-      sensitivity=get_sensitivity(vislist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],cellsize=cellsize[target][band])
+      sensitivity=get_sensitivity(selfcal_library[target][band]['vislist'],selfcal_library[target][band],target,virtual_spw='all',imsize=selfcal_library[target][band]['imsize'],cellsize=selfcal_library[target][band]['cellsize'])
       if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
          sensitivity=sensitivity*4.0 
       if ('VLA' in telescope):
@@ -720,10 +272,9 @@ with open('selfcal_library.pickle', 'wb') as handle:
 ##
 ## Begin Self-cal loops
 ##
-for target in all_targets:
+for target in selfcal_library:
  for band in selfcal_library[target].keys():
-   run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize[target], imsize[target], \
-           inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp[target], integration_time, spectral_scan, spws_set,\
+   run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, solint_snr, solint_snr_per_field, telescope, n_ants, \
            gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
@@ -739,7 +290,7 @@ if allow_cocal:
     ## Save the flags following the main iteration of self-calibration since we will need to revert to the beginning for the fallback mode.
     ##
     # PS: I don't need this anymore?
-    for vis in vislist:
+    for vis in selfcal_library[target][band]['vislist']:
        if not os.path.exists(vis+'.flagversions/flags.fb_selfcal_starting_flags'):
           flagmanager(vis=vis,mode='save',versionname='fb_selfcal_starting_flags')
        else:
@@ -769,16 +320,16 @@ if allow_cocal:
                 inf_EB_fields[band].append(target)
                 if selfcal_library[target][band]['final_solint'] != 'inf_EB':
                     inf_fields[band].append(target)
-                elif 'inf' in solints[band][target]:
+                elif 'inf' in selfcal_plan[target][band]['solints']:
                     fallback_fields[band].append(target)
             else:
                 fallback_fields[band].append(target)
     
             # Update the relevant lists if we are going to do a fallback mode.
             if len(fallback_fields[band]) > 0:
-                solints[band][target] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
-                solmode[band][target] += ["p","p","p","p"]
-                gaincal_combine[band][target] += [gaincal_combine[band][target][0], gaincal_combine[band][target][1], gaincal_combine[band][target][1], gaincal_combine[band][target][1]]
+                selfcal_plan[target][band]['solints'] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
+                selfcal_plan[target][band]['solmode'] += ["p","p","p","p"]
+                selfcal_plan[target][band]['gaincal_combine'] += [selfcal_plan[target][band]['gaincal_combine'][0], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1]]
                 applycal_mode[band][target] += [applycal_mode[band][target][0], applycal_mode[band][target][1], applycal_mode[band][target][1], applycal_mode[band][target][1]]
                 calibrators[band] = [inf_EB_fields[band], inf_fields[band], inf_fields[band], inf_fields[band]]
                 selfcal_library[target][band]["nsigma"] = np.concatenate((selfcal_library[target][band]["nsigma"],[selfcal_library[target][band]["nsigma"][0], \
@@ -792,18 +343,18 @@ if allow_cocal:
     ## Reset the inf_EB informational dictionaries.
     ##
     
-    for target in all_targets:
+    for target in selfcal_library:
      for band in solint_snr[target].keys():
        # If the target had a successful inf_EB solution, no need to reset.
        if target in inf_EB_fields[band]:
            continue
     
-       for vis in vislist:
-        inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
+       for vis in selfcal_library[target][band]['vislist']:
+        selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']=inf_EB_gaincal_combine #'scan'
         if selfcal_library[target][band]['obstype']=='mosaic':
-           inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
-        inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
-        inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
+           selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']+=',field'   
+        selfcal_plan[target][band][vis]['inf_EB_gaintype']=inf_EB_gaintype #G
+        selfcal_plan[target][band][vis]['inf_EB_fallback_mode']='' #'scan'
     
     
     calculate_inf_EB_fb_anyways = True
@@ -813,14 +364,14 @@ if allow_cocal:
     ## for the final version of the codue, but is used for testing.
     
     
-    for target in all_targets:
+    for target in selfcal_library:
      sani_target=sanitize_string(target)
      for band in selfcal_library[target].keys():
        if target not in fallback_fields[band]:
            continue
        if 'gaintable_final' in selfcal_library[target][band][vislist[0]]:
           print('****************Reapplying previous solint solutions*************')
-          for vis in vislist:
+          for vis in selfcal_library[target][band]['vislist']:
              print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+' '+band+'*************')
              ## NOTE: should this be selfcal_starting_flags instead of fb_selfcal_starting_flags ???
              flagmanager(vis=vis,mode='delete',versionname='fb_selfcal_starting_flags_'+sani_target)
@@ -832,7 +383,7 @@ if allow_cocal:
                      field=target,spw=selfcal_library[target][band][vis]['spws'])    
        else:            
           print('****************Removing all calibrations for '+target+' '+band+'**************')
-          for vis in vislist:
+          for vis in selfcal_library[target][band]['vislist']:
              flagmanager(vis=vis,mode='delete',versionname='fb_selfcal_starting_flags_'+sani_target)
              clearcal(vis=vis,field=target,spw=selfcal_library[target][band][vis]['spws'])
     ## END
@@ -841,13 +392,13 @@ if allow_cocal:
     ##
     ## Begin fallback self-cal loops
     ##
-    for target in all_targets:
+    for target in selfcal_library:
      for band in selfcal_library[target].keys():
        if target not in fallback_fields[band]:
            continue
     
-       run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize[target], imsize[target], \
-               inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp[target], integration_time, spectral_scan, spws_set,\
+       run_selfcal(selfcal_library[target][band], target, band, selfcal_plan[target][band]['solints'], solint_snr, solint_snr_per_field, applycal_mode, solmode, telescope, n_ants, \
+               gaincal_combine, \
                gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
                inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
                unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
@@ -865,18 +416,17 @@ if allow_cocal:
 ##
 ## Make a final image per target to assess overall improvement
 ##
-for target in all_targets:
+for target in selfcal_library:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
-   tclean_wrapper(vislist,sani_target+'_'+band+'_final',\
-               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
-               savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],
-               nterms=selfcal_library[target][band]['nterms'],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], \
-               nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', \
-               mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'],\
-               cyclefactor=selfcal_library[target][band]['cyclefactor'])
+   tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_final',\
+               band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
+               savemodel='none',parallel=parallel,
+               field=target,datacolumn='corrected',\
+               nfrms_multiplier=nfsnr_modifier)
+               
 
    final_SNR, final_RMS, final_NF_SNR, final_NF_RMS = get_image_stats(sani_target+'_'+band+'_final.image.tt0', sani_target+'_'+band+'_final.mask',
            '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'final', 'final')
@@ -918,18 +468,17 @@ print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ## Make a final image per spw images to assess overall improvement
 ##
 if check_all_spws:
-   for target in all_targets:
+   for target in selfcal_library:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
-         vislist=selfcal_library[target][band]['vislist'].copy()
+         selfcal_library[target][band]['vislist']=selfcal_library[target][band]['vislist'].copy()
 
          print('Generating final per-SPW images for '+target+' in '+band)
          for spw in selfcal_library[target][band]['spw_map']:
    ## omit DR modifiers here since we should have increased DR significantly
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0'):
-               vlist = [vis for vis in vislist if vis in selfcal_library[target][band]['spw_map'][spw]]
                if telescope=='ALMA' or telescope =='ACA':
-                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=imsize[target][band],cellsize=cellsize[band])
+                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=selfcal_library[target][band]['imsize'],cellsize=cellsize[band])
                   dr_mod=1.0
                   if not selfcal_library[target][band]['SC_success']: # fetch the DR modifier if selfcal failed on source
                      dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vlist)
@@ -939,17 +488,15 @@ if check_all_spws:
                      sensitivity=sensitivity*4.0 
                else:
                   sensitivity=0.0
-               spws_per_vis=[str(selfcal_library[target][band]['spw_map'][spw][vis]) for vis in vlist]
                nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
-               sensitivity_agg=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],cellsize=cellsize[band])
+               sensitivity_agg=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw='all',imsize=selfcal_library[target][band]['imsize'],cellsize=cellsize[band])
                sensitivity_scale_factor=selfcal_library[target][band]['RMS_NF_curr']/sensitivity_agg
 
-               tclean_wrapper(vlist,sani_target+'_'+band+'_'+str(spw)+'_final',\
-                          band_properties,band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*sensitivity_scale_factor*4.0)+'Jy',scales=[0],\
-                          savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],\
-                          nterms=1,field=target,datacolumn='corrected',\
-                          spw=spws_per_vis,uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'],
-                          nfrms_multiplier=nfsnr_modifier, cyclefactor=selfcal_library[target][band]['cyclefactor'])
+               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_final',\
+                          band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*sensitivity_scale_factor*4.0)+'Jy',scales=[0],\
+                          savemodel='none',parallel=parallel,\
+                          field=target,datacolumn='corrected',\
+                          spw=spw,nfrms_multiplier=nfsnr_modifier)
             final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0')
             if telescope !='ACA' or aca_use_nfmask:
                final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0', las=selfcal_library[target][band]['LAS'])
@@ -989,7 +536,7 @@ if check_all_spws:
 ##
 ## Print final results
 ##
-for target in all_targets:
+for target in selfcal_library:
  for band in selfcal_library[target].keys():
    print(target+' '+band+' Summary')
    print('At least 1 successful selfcal iteration?: ', selfcal_library[target][band]['SC_success'])
@@ -1019,13 +566,13 @@ applyCalOut=open('applycal_to_orig_MSes.py','w')
 if apply_to_target_ms:
    for vis in vislist_orig:
       clearcal(vis=vis)
-for target in all_targets:
+for target in selfcal_library:
    for band in selfcal_library[target].keys():
       if selfcal_library[target][band]['SC_success']:
-         for vis in vislist: 
+         for vis in selfcal_library[target][band]['vislist']: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+spwstring_dict_orig[vis.replace('.selfcal','')]+'")\n'
+            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+selfcal_library[target][band][vis]['spws_orig']+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
                if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
@@ -1035,7 +582,7 @@ for target in all_targets:
                applycal(vis=vis.replace('.selfcal',''),\
                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
-                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=spwstring_dict_orig[vis.replace('.selfcal','')])
+                    applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=selfcal_library[target][band][vis]['spws_orig'])
 
 applyCalOut.close()
 
@@ -1043,26 +590,26 @@ casaversion=casatasks.version()
 if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[1]==5 and casaversion[2]>=2))):   # new uvcontsub format only works in CASA >=6.5.2
    if os.path.exists("cont.dat"):
       contsub_dict={}
-      for vis in vislist:  
+      for vis in selfcal_library[target][band]['vislist']:  
          contsub_dict[vis]={}  
-      for target in all_targets:
+      for target in selfcal_library:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
             contdotdat = parse_contdotdat('cont.dat',target)
             if len(contdotdat) == 0:
                 selfcal_library[target][band]['Found_contdotdat'] = False
-            spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
-            for vis in vislist:
+            spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
+            for vis in selfcal_library[target][band]['vislist']:
                msmd.open(vis)
                field_num_array=msmd.fieldsforname(target)
                msmd.close()
                for fieldnum in field_num_array:
-                  contsub_dict[vis][str(fieldnum)]=get_fitspw_dict(vis.replace('.selfcal',''),target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
+                  contsub_dict[vis][str(fieldnum)]=get_fitspw_dict(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat)
                   print(contsub_dict[vis][str(fieldnum)])
       print(contsub_dict)
       uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
-      for vis in vislist:  
-         line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", spw="'+spwstring_dict[vis]+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
+      for vis in selfcal_library[target][band]['vislist']:  
+         line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
          uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
@@ -1071,16 +618,16 @@ else:   # old uvcontsub formatting, requires splitting out per target, new one i
       uvcontsubOut=open('uvcontsub_orig_MSes_old.py','w')
       line='import os\n'
       uvcontsubOut.writelines(line)
-      for target in all_targets:
+      for target in selfcal_library:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
             contdotdat = parse_contdotdat('cont.dat',target)
             if len(contdotdat) == 0:
                 selfcal_library[target][band]['Found_contdotdat'] = False
-            spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
-            for vis in vislist:      
-               contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,spwsarray_dict[vis],vislist,spwvisref,contdotdat,return_contfit_range=True)
-               line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+spwstring_dict[vis]+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
+            spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
+            for vis in selfcal_library[target][band]['vislist']:      
+               contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat,return_contfit_range=True)
+               line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
                uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
@@ -1091,7 +638,7 @@ else:   # old uvcontsub formatting, requires splitting out per target, new one i
 # Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration
 #
 if check_all_spws:
-   for target in all_targets:
+   for target in selfcal_library:
       sani_target=sanitize_string(target)
       for band in selfcal_library[target].keys():
          vislist=selfcal_library[target][band]['vislist'].copy()
@@ -1124,17 +671,20 @@ import pickle
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open('solints.pickle', 'wb') as handle:
-    pickle.dump(solints, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open('selfcal_plan.pickle', 'wb') as handle:
+    pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-with open('bands.pickle', 'wb') as handle:
-    pickle.dump(bands, handle, protocol=pickle.HIGHEST_PROTOCOL)
+#with open('solints.pickle', 'wb') as handle:
+#    pickle.dump(solints, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+#with open('bands.pickle', 'wb') as handle:
+#    pickle.dump(bands, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 generate_weblog(selfcal_library,solints,bands,directory='weblog')
 
 # For simplicity, instead of redoing all of the weblog code, create a new selfcal_library dictionary where all of the sub-fields exist at the
 # same level as the main field so that they all get their own entry in the weblog, in addition to the entry for the main field.
-for target in all_targets:
+for target in selfcal_library:
     new_selfcal_library = {}
     for band in selfcal_library[target].keys():
         if selfcal_library[target][band]['obstype'] == 'mosaic':
@@ -1142,7 +692,7 @@ for target in all_targets:
                 if target+'_field_'+str(fid) not in new_selfcal_library:
                     new_selfcal_library[target+'_field_'+str(fid)] = {}
                 new_selfcal_library[target+'_field_'+str(fid)][band] = selfcal_library[target][band][fid]
-                solints[band][target+'_field_'+str(fid)] = solints[band][target]
+                solints[band][target+'_field_'+str(fid)] = selfcal_plan[target][band]['solints']
 
     if len(new_selfcal_library) > 0:
         generate_weblog(new_selfcal_library,solints,bands,directory='weblog/'+target+'_field-by-field')
