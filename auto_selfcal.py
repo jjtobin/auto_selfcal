@@ -184,14 +184,14 @@ if check_all_spws:
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0'):
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
                      band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold='0.0Jy',niter=0,
+                     threshold='0.0Jy',niter=1,gain=0.00001,
                      savemodel='none',parallel=parallel,
                      field=target,spw=spw)
-            dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0')
-            if telescope!='ACA' or aca_use_nfmask:
-               dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0', las=selfcal_library[target][band]['LAS'])
-            else:
-               dirty_per_spw_NF_SNR,dirty_per_spw_NF_RMS=dirty_SNR,dirty_RMS
+
+            dirty_SNR, dirty_RMS, dirty_per_spw_NF_SNR, dirty_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
+                    '_dirty.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_dirty.mask','', selfcal_library[target][band], 
+                    (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty', spw=spw)
+
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0'):
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_initial',\
                           band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
@@ -199,20 +199,9 @@ if check_all_spws:
                           field=target,datacolumn='corrected',\
                           spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
 
-            per_spw_SNR,per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0')
-            if telescope!='ACA' or aca_use_nfmask:
-               initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0', las=selfcal_library[target][band]['LAS'])
-            else:
-               initial_per_spw_NF_SNR,initial_per_spw_NF_RMS=per_spw_SNR,per_spw_RMS
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig']=per_spw_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']=per_spw_RMS
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_orig']=initial_per_spw_NF_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_orig']=initial_per_spw_NF_RMS
-            goodMask=checkmask(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0')
-            if goodMask:
-               selfcal_library[target][band]['per_spw_stats'][spw]['intflux_orig'],selfcal_library[target][band]['per_spw_stats'][spw]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0',per_spw_RMS)
-            else:
-               selfcal_library[target][band]['per_spw_stats'][spw]['intflux_orig'],selfcal_library[target][band]['per_spw_stats'][spw]['e_intflux_orig']=-99.0,-99.0               
+            per_spw_SNR, per_spw_RMS, initial_per_spw_NF_SNR, initial_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
+                    '_initial.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_initial.mask', '', selfcal_library[target][band], 
+                    (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig', spw=spw)
 
 
 
@@ -234,31 +223,7 @@ solint_snr,solint_snr_per_spw,solint_snr_per_field,solint_snr_per_field_per_spw=
 ## Switch to a sensitivity for low frequency that is based on the residuals of the initial image for the
 # first couple rounds and then switch to straight nsigma? Determine based on fraction of pixels that the # initial mask covers to judge very extended sources?
 
-for target in selfcal_library:
-  for band in selfcal_library[target].keys():
-   if selfcal_library[target][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):
-      dividing_factor_band=40.0
-   elif (dividing_factor ==-99.0):
-      dividing_factor_band=15.0
-   nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor_band,5.0]) # restricts initial nsigma to be at least 5
-
-   n_ap_solints=sum(1 for solint in selfcal_plan[target][band]['solints'] if 'ap' in solint)  # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
-   if rel_thresh_scaling == 'loge':
-      selfcal_library[target][band]['nsigma']=np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),len(selfcal_plan[target][band]['solints'])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
-   elif rel_thresh_scaling == 'linear':
-      selfcal_library[target][band]['nsigma']=np.append(np.linspace(nsigma_init,3.0,len(selfcal_plan[target][band]['solints'])-n_ap_solints),np.array([3.0]*n_ap_solints))
-   else: #implicitly making log10 the default
-      selfcal_library[target][band]['nsigma']=np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),len(selfcal_plan[target][band]['solints'])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
-
-   if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
-      sensitivity=get_sensitivity(selfcal_library[target][band]['vislist'],selfcal_library[target][band],target,virtual_spw='all',imsize=selfcal_library[target][band]['imsize'],cellsize=selfcal_library[target][band]['cellsize'])
-      if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-         sensitivity=sensitivity*4.0 
-      if ('VLA' in telescope):
-         sensitivity=sensitivity*0.0 # empirical correction, VLA estimates for sensitivity have tended to be a factor of ~3 low
-   else:
-      sensitivity=0.0
-   selfcal_library[target][band]['thresholds']=selfcal_library[target][band]['nsigma']*sensitivity
+set_clean_thresholds(selfcal_library, selfcal_plan)
 
 ##
 ## Save self-cal library
@@ -419,7 +384,6 @@ if allow_cocal:
 for target in selfcal_library:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
-   vislist=selfcal_library[target][band]['vislist'].copy()
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
    tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_final',\
                band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
@@ -477,54 +441,25 @@ if check_all_spws:
          for spw in selfcal_library[target][band]['spw_map']:
    ## omit DR modifiers here since we should have increased DR significantly
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0'):
-               if telescope=='ALMA' or telescope =='ACA':
-                  sensitivity=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw=spw,imsize=selfcal_library[target][band]['imsize'],cellsize=cellsize[band])
-                  dr_mod=1.0
-                  if not selfcal_library[target][band]['SC_success']: # fetch the DR modifier if selfcal failed on source
-                     dr_mod=get_dr_correction(telescope,selfcal_library[target][band]['SNR_dirty']*selfcal_library[target][band]['RMS_dirty'],sensitivity,vlist)
-                  print('DR modifier: ',dr_mod, 'SPW: ',spw)
-                  sensitivity=sensitivity*dr_mod 
-                  if ((band =='Band_9') or (band == 'Band_10')) and dr_mod != 1.0:   # adjust for DSB noise increase
-                     sensitivity=sensitivity*4.0 
-               else:
-                  sensitivity=0.0
                nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
-               sensitivity_agg=get_sensitivity(vlist,selfcal_library[target][band],target,virtual_spw='all',imsize=selfcal_library[target][band]['imsize'],cellsize=cellsize[band])
-               sensitivity_scale_factor=selfcal_library[target][band]['RMS_NF_curr']/sensitivity_agg
 
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_final',\
-                          band,telescope=telescope,nsigma=4.0, threshold=str(sensitivity*sensitivity_scale_factor*4.0)+'Jy',scales=[0],\
+                          band,telescope=telescope,nsigma=4.0, threshold='theoretical',scales=[0],\
                           savemodel='none',parallel=parallel,\
                           field=target,datacolumn='corrected',\
                           spw=spw,nfrms_multiplier=nfsnr_modifier)
-            final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0')
-            if telescope !='ACA' or aca_use_nfmask:
-               final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0', las=selfcal_library[target][band]['LAS'])
-            else:
-               final_per_spw_NF_SNR,final_per_spw_NF_RMS=final_per_spw_SNR,final_per_spw_RMS
 
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_final']=final_per_spw_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_final']=final_per_spw_RMS
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_final']=final_per_spw_NF_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_final']=final_per_spw_NF_RMS
+            final_per_spw_SNR, final_per_spw_RMS, final_per_spw_NF_SNR, final_per_spw_NF_RMS = get_image_stats(
+                    sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_final.mask',
+                    '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'final', 'final', spw=spw)
+
             #reccalc initial stats with final mask
-            final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+str(spw)+'_final.mask')
-            if telescope !='ACA' or aca_use_nfmask:
-               final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+str(spw)+'_final.mask', las=selfcal_library[target][band]['LAS'])
-            else:
-               final_per_spw_NF_SNR,final_per_spw_NF_RMS=final_per_spw_SNR,final_per_spw_RMS
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig']=final_per_spw_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']=final_per_spw_RMS
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_orig']=final_per_spw_NF_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_orig']=final_per_spw_NF_RMS
+            final_per_spw_SNR, final_per_spw_RMS, final_per_spw_NF_SNR, final_per_spw_NF_RMS = get_image_stats(
+                    sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_final.mask',
+                    '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'orig', 'orig', spw=spw)
 
 
 
-            goodMask=checkmask(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0')
-            if goodMask:
-               selfcal_library[target][band]['per_spw_stats'][spw]['intflux_final'],selfcal_library[target][band]['per_spw_stats'][spw]['e_intflux_final']=get_intflux(sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0',final_per_spw_RMS)
-            else:
-               selfcal_library[target][band]['per_spw_stats'][spw]['intflux_final'],selfcal_library[target][band]['per_spw_stats'][spw]['e_intflux_final']=-99.0,-99.0               
 
 
 
@@ -674,13 +609,7 @@ with open('selfcal_library.pickle', 'wb') as handle:
 with open('selfcal_plan.pickle', 'wb') as handle:
     pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-#with open('solints.pickle', 'wb') as handle:
-#    pickle.dump(solints, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-#with open('bands.pickle', 'wb') as handle:
-#    pickle.dump(bands, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-generate_weblog(selfcal_library,solints,bands,directory='weblog')
+generate_weblog(selfcal_library,selfcal_plan,directory='weblog')
 
 # For simplicity, instead of redoing all of the weblog code, create a new selfcal_library dictionary where all of the sub-fields exist at the
 # same level as the main field so that they all get their own entry in the weblog, in addition to the entry for the main field.
@@ -692,9 +621,9 @@ for target in selfcal_library:
                 if target+'_field_'+str(fid) not in new_selfcal_library:
                     new_selfcal_library[target+'_field_'+str(fid)] = {}
                 new_selfcal_library[target+'_field_'+str(fid)][band] = selfcal_library[target][band][fid]
-                solints[band][target+'_field_'+str(fid)] = selfcal_plan[target][band]['solints']
+                selfcal_plan[target+'_field_'+str(fid)][band] = selfcal_plan[target][band]
 
     if len(new_selfcal_library) > 0:
-        generate_weblog(new_selfcal_library,solints,bands,directory='weblog/'+target+'_field-by-field')
+        generate_weblog(new_selfcal_library,selfcal_plan,directory='weblog/'+target+'_field-by-field')
 
 

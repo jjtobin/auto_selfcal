@@ -403,3 +403,40 @@ def prepare_selfcal(vislist,
         selfcal_plan[target][band][vis]['inf_EB_fallback_mode']='' #'scan'
 
     return selfcal_library, selfcal_plan, gaincalibrator_dict
+
+
+def set_clean_thresholds(selfcal_library, selfcal_plan)
+    for target in selfcal_library:
+        for band in selfcal_library[target].keys():
+            if selfcal_library[target][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):
+               dividing_factor_band=40.0
+            elif (dividing_factor ==-99.0):
+               dividing_factor_band=15.0
+
+            # restricts initial nsigma to be at least 5
+            nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor_band,5.0])
+
+            # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
+            n_ap_solints=sum(1 for solint in selfcal_plan[target][band]['solints'] if 'ap' in solint)
+
+            if rel_thresh_scaling == 'loge':
+                selfcal_library[target][band]['nsigma'] = np.append(np.exp(np.linspace(np.log(nsigma_init),np.log(3.0),\
+                        len(selfcal_plan[target][band]['solints'])-n_ap_solints)),np.array([np.exp(np.log(3.0))]*n_ap_solints))
+            elif rel_thresh_scaling == 'linear':
+                selfcal_library[target][band]['nsigma'] = np.append(np.linspace(nsigma_init,3.0,len(selfcal_plan[target][band]['solints'])-\
+                        n_ap_solints),np.array([3.0]*n_ap_solints))
+            else: #implicitly making log10 the default
+                selfcal_library[target][band]['nsigma'] = np.append(10**np.linspace(np.log10(nsigma_init),np.log10(3.0),\
+                        len(selfcal_plan[target][band]['solints'])-n_ap_solints),np.array([10**(np.log10(3.0))]*n_ap_solints))
+
+            if telescope=='ALMA' or telescope =='ACA': #or ('VLA' in telescope) 
+               sensitivity=get_sensitivity(selfcal_library[target][band]['vislist'],selfcal_library[target][band],target,virtual_spw='all',\
+                       imsize=selfcal_library[target][band]['imsize'],cellsize=selfcal_library[target][band]['cellsize'])
+               if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+                  sensitivity=sensitivity*4.0 
+               if ('VLA' in telescope):
+                  sensitivity=sensitivity*0.0 # empirical correction, VLA estimates for sensitivity have tended to be a factor of ~3 low
+            else:
+               sensitivity=0.0
+            selfcal_library[target][band]['thresholds']=selfcal_library[target][band]['nsigma']*sensitivity
+

@@ -120,11 +120,11 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                    imsize=selfcal_library['imsize'],cellsize=selfcal_library['cellsize'])
            dr_mod=get_dr_correction(telescope,selfcal_library['SNR_dirty']*selfcal_library['RMS_dirty'],sensitivity,vlist)
            sensitivity_nomod=sensitivity.copy()
-           print('DR modifier: ',dr_mod)
+           print('DR modifier: ',dr_mod, 'SPW: ',spw)
 
            sensitivity=sensitivity*dr_mod   # apply DR modifier
-           if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-               sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
+           if (band =='Band_9' or band == 'Band_10') and spw != 'all':   # adjust for DSB noise increase
+               sensitivity=4.0*sensitivity   #*4.0  might be unnecessary with DR mods
 
            selfcal_library['theoretical_sensitivity']=sensitivity_nomod
            for fid in selfcal_library['sub-fields']:
@@ -138,7 +138,13 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
         if threshold == "theoretical_with_drmod":
             threshold = str(4.0*sensitivity)+'Jy'
         else:
-            threshold = str(4.0*sensitivity_nomod)+'Jy'
+            if spw == 'all':
+                sensitivity_scale_factor = 1.0
+            else:
+                sensitivity_agg=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,imsize=selfcal_library['imsize'],
+                        cellsize=selfcal_library['cellsize'])
+                sensitivity_scale_factor=selfcal_library['RMS_NF_curr']/sensitivity_agg
+            threshold = str(4.0*sensitivity_nomod*sensitivity_scale_factor)+'Jy'
 
 
     if gridder=='mosaic' and startmodel!='':
@@ -2172,7 +2178,7 @@ def gaussian_norm(x, mean, sigma):
    norm_gauss_dist=gauss_dist/np.max(gauss_dist)
    return norm_gauss_dist
 
-def generate_weblog(sclib,solints,bands,directory='weblog'):
+def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    from datetime import datetime
    os.system('rm -rf '+directory)
    os.system('mkdir '+directory)
@@ -2191,11 +2197,12 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
    for target in targets:
       htmlOut.writelines('<a href="#'+target+'">'+target+'</a><br>\n')
    htmlOut.writelines('<h2>Bands:</h2>\n')
+   bands = np.unique(np.concatenate([list(sclib[target].keys()) for target in sclib])).tolist()
    bands_string=', '.join([str(elem) for elem in bands])
    htmlOut.writelines(''+bands_string+'\n')
    htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
    for band in bands:
-      solints_string=', '.join([str(elem) for elem in solints[band][target]])
+      solints_string=', '.join([str(elem) for elem in selfcal_plan[target][band]['solints']])
       htmlOut.writelines('<br>'+band+': '+solints_string)
 
    for target in targets:
@@ -2245,7 +2252,7 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png"><img src="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png" ALT="Noise Characteristics" WIDTH=300 HEIGHT=300></a><br>\n')
          
          # Solint summary table
-         render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints)
+         render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan)
 
          # PER SPW STATS TABLE
          if 'per_spw_stats' in sclib[target][band].keys():
@@ -2257,7 +2264,7 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
    htmlOut.close()
    
    # Pages for each solint
-   render_per_solint_QA_pages(sclib,solints,bands,directory=directory)
+   render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory=directory)
  
 
 def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
@@ -2353,10 +2360,10 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
          htmlOut.writelines('	</tr>\n')
          htmlOut.writelines('</table>\n')
 
-def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
+def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
          #  SELFCAL SUMMARY TABLE   
          vislist=sclib[target][band]['vislist']
-         solint_list=solints[band][target]
+         solint_list=selfcal_plan[target][band]['solints']
          htmlOut.writelines('<br>Per solint stats: <br>\n')
          htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
          htmlOut.writelines('	<tr>\n')
@@ -2538,7 +2545,7 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
              if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
                 htmlOut.writelines('WARNING SPW '+str(spw)+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
-def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
+def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
   ## Per Solint pages
    targets=list(sclib.keys())
    for target in targets:
@@ -2547,21 +2554,21 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
          if sclib[target][band]['final_solint'] == 'None':
             final_solint_index=0
          else:
-            final_solint_index=solints[band][target].index(sclib[target][band]['final_solint']) 
+            final_solint_index=selfcal_plan[target][band]['solints'].index(sclib[target][band]['final_solint']) 
 
          vislist=sclib[target][band]['vislist']
          index_addition=1
-         if sclib[target][band]['final_solint'] != solints[band][target][-1] and sclib[target][band]['final_solint'] != 'None':
+         if sclib[target][band]['final_solint'] != selfcal_plan[target][band]['solints'][-1] and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
          # if it's a dataset where inf_EB == inf, make sure to take out the assumption that there would be an 'inf' solution
-         if 'inf' not in solints[band][target]:
+         if 'inf' not in selfcal_plan[target][band]['solints']:
             index_addition=index_addition-1
          #add an additional check to make sure the final index will be in the array
-         if final_solint_index+index_addition-1 > (len(solints[band][target])-1):
-            index_addition=(final_solint_index+index_addition-1) - (len(solints[band][target])-1)
+         if final_solint_index+index_addition-1 > (len(selfcal_plan[target][band]['solints'])-1):
+            index_addition=(final_solint_index+index_addition-1) - (len(selfcal_plan[target][band]['solints'])-1)
          
 
-         final_solint_to_plot=solints[band][target][final_solint_index+index_addition-1]
+         final_solint_to_plot=selfcal_plan[target][band]['solints'][final_solint_index+index_addition-1]
          keylist=sclib[target][band][vislist[0]].keys()
          if index_addition == 2 and final_solint_to_plot not in keylist:
            index_addition=index_addition-1
@@ -2569,11 +2576,11 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
 
          
          #for i in range(final_solint_index+index_addition):
-         for i in range(len(solints[band][target])):
+         for i in range(len(selfcal_plan[target][band]['solints'])):
 
-            if solints[band][target][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]['Pass'] == 'None':
+            if selfcal_plan[target][band]['solints'][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]['Pass'] == 'None':
                continue
-            htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+solints[band][target][i]+'.html','w')
+            htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'.html','w')
             htmlOutSolint.writelines('<html>\n')
             htmlOutSolint.writelines('<title>SelfCal Weblog</title>\n')
             htmlOutSolint.writelines('<head>\n')
@@ -2586,19 +2593,19 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
             keylist=sclib[target][band][vislist[0]].keys()
             solints_string=''
             for j in range(final_solint_index+index_addition):
-               if solints[band][target][j] not in keylist:
+               if selfcal_plan[target][band]['solints'][j] not in keylist:
                   continue
-               solints_string+='<a href="'+target+'_'+band+'_'+solints[band][target][j]+'.html">'+solints[band][target][j]+'  </a><br>\n'
+               solints_string+='<a href="'+target+'_'+band+'_'+selfcal_plan[target][band]['solints'][j]+'.html">'+selfcal_plan[target][band]['solints'][j]+'  </a><br>\n'
             htmlOutSolint.writelines('<br>Solints: '+solints_string)
 
-            htmlOutSolint.writelines('<h3>Solint: '+solints[band][target][i]+'</h3>\n')       
+            htmlOutSolint.writelines('<h3>Solint: '+selfcal_plan[target][band]['solints'][i]+'</h3>\n')       
             keylist_top=sclib[target][band].keys()
             htmlOutSolint.writelines('<a href="index.html#'+target+'_'+band+'">Back to Main Target/Band</a><br>\n')
 
 
             #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
-            if "Pass" in sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]:
-                passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]['Pass']
+            if "Pass" in sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]:
+                passed=sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]['Pass']
             else:
                 passed = 'None'
 
@@ -2619,41 +2626,41 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
 
             htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png', \
+            plot_image(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0',\
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png', \
                       zoom=2 if directory=="weblog" else 1) 
-            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
+            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0')
+            plot_image(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0',\
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
                       zoom=2 if directory=="weblog" else 1) 
 
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['SNR_pre'])+'<br><br>\n')
-            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['RMS_pre'])+' Jy/beam<br>\n')
-            htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_PA_post'])+'<br>\n')
-            htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_PA_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_pre'])+' Jy/beam<br>\n')
+            htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_post'])+'<br>\n')
+            htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_pre'])+'<br><br>\n')
 
 
-            if 'inf_EB' in solints[band][target][i]:
+            if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
                htmlOutSolint.writelines('<h3>Phase vs. Frequency Plots:</h3>\n')
             else:
                htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
             for vis in vislist:
                htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
-               if 'gaintable' not in sclib[target][band][vis][solints[band][target][i]]:
+               if 'gaintable' not in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
                     htmlOutSolint.writelines('No gaintable available <br><br>')
                     continue
                ant_list=get_ant_list(vis)
-               gaintable=sclib[target][band][vis][solints[band][target][i]]['gaintable'][len(sclib[target][band][vis][solints[band][target][i]]['gaintable'])-1]
+               gaintable=sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['gaintable'][len(sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['gaintable'])-1]
                print('******************'+gaintable+'***************')
                nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                frac_flagged_sols=nflagged_sols/nsols
                plot_ants_flagging_colored(directory+'/images/plot_ants_'+gaintable+'.png',vis,gaintable)
                htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a>')
-               if 'unflagged_lbs' in sclib[target][band][vis][solints[band][target][i]]:
+               if 'unflagged_lbs' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
                    unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), flagged_fraction=0.25, \
-                           spwmap=sclib[target][band][vis][solints[band][target][i]]['unflag_spwmap'], \
+                           spwmap=sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['unflag_spwmap'], \
                            plot=True, plot_directory=directory+'/images/')
                    htmlOutSolint.writelines('\n<a href="images/'+gaintable.replace('.g.','.pre-pass.pass')+'.png"><img src="images/'+gaintable.replace('.g','.pre-pass.pass')+'.png" ALT="Long baseline unflagging thresholds" HEIGHT=400></a><br>\n')
                else:
@@ -2661,25 +2668,25 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
-               if 'inf_EB' in solints[band][target][i]:
-                  if 'fallback' in sclib[target][band][vis][solints[band][target][i]].keys():
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == '':
+               if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
+                  if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys():
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == '':
                         fallback_mode='None'
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'combinespw':
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'combinespw':
                         fallback_mode='Combine SPW'
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'spwmap':
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'spwmap':
                         fallback_mode='SPWMAP'
                      htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
-               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][solints[band][target][i]]['spwmap']))+']</h4>\n')
+               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
 
 
                for ant in ant_list:
                   sani_target=sanitize_string(target)
-                  if 'inf_EB' in solints[band][target][i]:
+                  if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
                      xaxis='frequency'
                   else:
                      xaxis='time'
-                  if 'ap' in solints[band][target][i]:
+                  if 'ap' in selfcal_plan[target][band]['solints'][i]:
                      yaxis='amp'
                      plotrange=[0,0,0,2.0]
                   else:

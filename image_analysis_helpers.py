@@ -3,7 +3,7 @@ import sys
 sys.path.append("./")
 from selfcal_helpers import *
 
-def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solint, suffix, mosaic_sub_field=False):
+def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solint, suffix, mosaic_sub_field=False, spw='all'):
     ##
     ## Do the assessment of the post- (and pre-) selfcal images.
     ##
@@ -17,7 +17,10 @@ def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solin
 
     for vis in selfcal_library['vislist']:
        if suffix in ['dirty','orig','initial','final']:
-           update_dict = selfcal_library
+           if spw == 'all':
+               update_dict = selfcal_library
+           else:
+               update_dict = selfcal_library['per_spw_stats'][spw]
        else:
            update_dict = selfcal_library[vis][solint]
 
