@@ -4,7 +4,7 @@ import sys
 sys.path.append("./")
 from selfcal_helpers import *
 
-def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iteration, solmode, solints, solint_snr_per_field, 
+def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iteration, solmode, solints, selfcal_plan, 
         allow_gain_interpolation=False):
      # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
      new_fields_to_selfcal = []
@@ -42,7 +42,7 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
              print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
                      solmode[band][target][iteration]+'.g'+" because there is no signal within the primary beam.")
              skip_reason = "No signal"
-         elif solint_snr_per_field[target][band][fid][solints[band][target][iteration]] < minsnr_to_proceed and solint not in ['inf_EB','scan_inf']:
+         elif selfcal_plan[fid]['solint_snr_per_field'][solints[band][target][iteration]] < minsnr_to_proceed and solint not in ['inf_EB','scan_inf']:
              print("Removing field "+str(fid)+" from "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
                      solmode[band][target][iteration]+'.g'+' because the estimated solint snr is too low.')
              skip_reason = "Estimated SNR"

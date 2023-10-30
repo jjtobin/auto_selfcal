@@ -89,6 +89,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         selfcal_library[vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
         selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate
         selfcal_library[vis][solint]['gaincal_combine']=selfcal_plan['gaincal_combine'][iteration]+''
+        selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
         for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             selfcal_library[fid][vis][solint]['gaintable']=applycal_gaintable
             selfcal_library[fid][vis][solint]['iteration']=iteration+0
@@ -96,6 +97,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             selfcal_library[fid][vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
             selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate
             selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan['gaincal_combine'][iteration]+''
+            selfcal_library[fid][vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
         fallback=''
         if selfcal_plan['solmode'][iteration] == 'ap':
@@ -302,12 +304,14 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             selfcal_library[vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
             selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate
             selfcal_library[vis][solint]['gaincal_combine']=selfcal_plan['gaincal_combine'][iteration]+''
+            selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
             selfcal_library[fid][vis][solint]['gaintable']=applycal_gaintable
             selfcal_library[fid][vis][solint]['iteration']=iteration+0
             selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap
             selfcal_library[fid][vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
             selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate
             selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan['gaincal_combine'][iteration]+''
+            selfcal_library[fid][vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
             fallback=''
             if selfcal_plan['solmode'][iteration] == 'ap':

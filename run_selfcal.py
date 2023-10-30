@@ -12,7 +12,7 @@ from applycal_wrapper import applycal_wrapper
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
-def run_selfcal(selfcal_library, selfcal_plan, target, band, solint_snr, solint_snr_per_field, telescope, n_ants, \
+def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, \
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False, \
@@ -80,8 +80,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, solint_snr, solint_
       if 'ap' in selfcal_plan['solints'][iteration] and not do_amp_selfcal:
           break
 
-      if mode == "selfcal" and solint_snr[target][band][selfcal_plan['solints'][iteration]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][selfcal_plan['solints'][iteration]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
-         print('*********** estimated SNR for solint='+selfcal_plan['solints'][iteration]+' too low, measured: '+str(solint_snr[target][band][selfcal_plan['solints'][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
+      if mode == "selfcal" and selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
+         print('*********** estimated SNR for solint='+selfcal_plan['solints'][iteration]+' too low, measured: '+str(selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
          if iteration > 1 and selfcal_plan['solmode'][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
             iterjump=selfcal_plan['solmode'].index('ap') 
             print('****************Attempting amplitude selfcal*************')
@@ -167,7 +167,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, solint_snr, solint_
              # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
              if selfcal_library['obstype'] == 'mosaic':
                  selfcal_library['sub-fields-to-gaincal'] = evaluate_subfields_to_gaincal(selfcal_library, target, band, 
-                         solint, iteration, selfcal_plan['solmode'], selfcal_plan['solints'], solint_snr_per_field, allow_gain_interpolation=allow_gain_interpolation)
+                         solint, iteration, selfcal_plan['solmode'], selfcal_plan['solints'], selfcal_plan, 
+                         allow_gain_interpolation=allow_gain_interpolation)
 
                  if solint != 'inf_EB' and not allow_gain_interpolation:
                      selfcal_library['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
@@ -246,16 +247,14 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, solint_snr, solint_
              if selfcal_library['nterms'] == 1:
                  selfcal_library['nterms']=check_image_nterms(selfcal_library['fracbw'],post_SNR)
 
+             ##
+             ## record self cal results/details for this solint
+             ##
              for vis in vislist:
-                ##
-                ## record self cal results/details for this solint
-                ##
                 selfcal_library[vis][solint]['clean_threshold']=selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
-                selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
                 for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                     selfcal_library[fid][vis][solint]['clean_threshold']=selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
-                    selfcal_library[fid][vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
                 ## Update RMS value if necessary
                 if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr'] and \
@@ -530,14 +529,16 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, solint_snr, solint_
              if mode == "selfcal" and (iteration < len(selfcal_plan['solints'])-1) and (selfcal_library[vis][solint]['SNR_post'] > \
                      selfcal_library['SNR_orig']): #(iteration == 0) and 
                 print('Updating solint = '+selfcal_plan['solints'][iteration+1]+' SNR')
-                print('Was: ',solint_snr[target][band][selfcal_plan['solints'][iteration+1]])
-                get_SNR_self_update([target],band,vislist,selfcal_library,n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan['integration_time'],solint_snr[target][band])
-                print('Now: ',solint_snr[target][band][selfcal_plan['solints'][iteration+1]])
+                print('Was: ',selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]])
+                get_SNR_self_update(selfcal_library,n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan['integration_time'],
+                        selfcal_plan['solint_snr'])
+                print('Now: ',selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]])
 
                 for fid in selfcal_library['sub-fields-to-selfcal']:
-                    print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][selfcal_plan['solints'][iteration+1]])
-                    get_SNR_self_update([target],band,vislist,selfcal_library[fid],n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan['integration_time'],solint_snr_per_field[target][band][fid])
-                    print('FIeld '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][selfcal_plan['solints'][iteration+1]])
+                    print('Field '+str(fid)+' Was: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
+                    get_SNR_self_update(selfcal_library[fid],n_ants,solint,selfcal_plan['solints'][iteration+1],
+                            selfcal_plan['integration_time'],selfcal_plan[fid]['solint_snr_per_field'])
+                    print('FIeld '+str(fid)+' Now: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.

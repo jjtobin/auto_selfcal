@@ -405,7 +405,7 @@ def prepare_selfcal(vislist,
     return selfcal_library, selfcal_plan, gaincalibrator_dict
 
 
-def set_clean_thresholds(selfcal_library, selfcal_plan)
+def set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=-99.0, rel_thresh_scaling='log10', telescope='ALMA'):
     for target in selfcal_library:
         for band in selfcal_library[target].keys():
             if selfcal_library[target][band]['meanfreq'] <8.0e9 and (dividing_factor ==-99.0):

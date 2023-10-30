@@ -13,7 +13,7 @@ sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
 from image_analysis_helpers import *
-from prepare_selfcal import prepare_selfcal
+from prepare_selfcal import prepare_selfcal, set_clean_thresholds
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
@@ -211,7 +211,7 @@ if check_all_spws:
 ## estimate per scan/EB S/N using time on source and median scan times
 ##
 
-solint_snr,solint_snr_per_spw,solint_snr_per_field,solint_snr_per_field_per_spw=get_SNR_self(selfcal_library,selfcal_plan,n_ants,inf_EB_gaincal_combine,inf_EB_gaintype)
+get_SNR_self(selfcal_library,selfcal_plan,n_ants,inf_EB_gaincal_combine,inf_EB_gaintype)
 
 ##
 ## Set clean selfcal thresholds
@@ -223,7 +223,7 @@ solint_snr,solint_snr_per_spw,solint_snr_per_field,solint_snr_per_field_per_spw=
 ## Switch to a sensitivity for low frequency that is based on the residuals of the initial image for the
 # first couple rounds and then switch to straight nsigma? Determine based on fraction of pixels that the # initial mask covers to judge very extended sources?
 
-set_clean_thresholds(selfcal_library, selfcal_plan)
+set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=dividing_factor, rel_thresh_scaling=rel_thresh_scaling, telescope=telescope)
 
 ##
 ## Save self-cal library
@@ -239,7 +239,7 @@ with open('selfcal_library.pickle', 'wb') as handle:
 ##
 for target in selfcal_library:
  for band in selfcal_library[target].keys():
-   run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, solint_snr, solint_snr_per_field, telescope, n_ants, \
+   run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, \
            gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
@@ -362,8 +362,7 @@ if allow_cocal:
        if target not in fallback_fields[band]:
            continue
     
-       run_selfcal(selfcal_library[target][band], target, band, selfcal_plan[target][band]['solints'], solint_snr, solint_snr_per_field, applycal_mode, solmode, telescope, n_ants, \
-               gaincal_combine, \
+       run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, \
                gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
                inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
                unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
