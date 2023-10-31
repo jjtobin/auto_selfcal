@@ -236,7 +236,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                         hdkey="shape")
 
                 im.selectvis(field=str(fid), spw=spws_per_vis)
-                im.defineimage(nx=nx, ny=ny, cellx=selfcal_library['cellsize'], celly=selfcal_library['cellsize'], phasecenter=fid, mode="mfs", spw=spw)
+                im.defineimage(nx=nx, ny=ny, cellx=selfcal_library['cellsize'], celly=selfcal_library['cellsize'], phasecenter=fid, mode="mfs")
                 im.setvp(dovp=True)
                 im.makeimage(type="pb", image=imagename.replace(target,target+"_field_"+str(field_id)) + ".pb.tt0")
                 im.close()

@@ -167,7 +167,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
              if selfcal_library['obstype'] == 'mosaic':
                  selfcal_library['sub-fields-to-gaincal'] = evaluate_subfields_to_gaincal(selfcal_library, target, band, 
-                         solint, iteration, selfcal_plan['solmode'], selfcal_plan['solints'], selfcal_plan, 
+                         solint, iteration, selfcal_plan['solmode'], selfcal_plan['solints'], selfcal_plan, minsnr_to_proceed,
                          allow_gain_interpolation=allow_gain_interpolation)
 
                  if solint != 'inf_EB' and not allow_gain_interpolation:
