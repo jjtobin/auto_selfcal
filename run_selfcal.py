@@ -760,7 +760,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                 maskname=imagename+'.mask', las=selfcal_library[target][band]['LAS'], \
                                 mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                  else:
-                    post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=mosaic_SNR[fid],mosaic_RMS[fid]
+                    post_mosaic_SNR_NF[fid],post_mosaic_RMS_NF[fid]=post_mosaic_SNR[fid],post_mosaic_RMS[fid]
                  print()
 
              # change nterms to 2 if needed based on fracbw and SNR
