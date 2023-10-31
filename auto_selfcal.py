@@ -824,7 +824,7 @@ for target in all_targets:
    if telescope!='ACA' or aca_use_nfmask:
       orig_final_NF_SNR,orig_final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask', las=selfcal_library[target][band]['LAS'])
    else:
-      final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
+      orig_final_NF_SNR,orig_final_NF_RMS=orig_final_SNR,orig_final_RMS
    selfcal_library[target][band]['SNR_orig']=orig_final_SNR
    selfcal_library[target][band]['RMS_orig']=orig_final_RMS
    selfcal_library[target][band]['SNR_NF_orig']=orig_final_NF_SNR
