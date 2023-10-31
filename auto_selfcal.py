@@ -932,15 +932,15 @@ if check_all_spws:
             selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_final']=final_per_spw_NF_SNR
             selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_final']=final_per_spw_NF_RMS
             #reccalc initial stats with final mask
-            final_per_spw_SNR,final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+str(spw)+'_final.mask')
+            orig_final_per_spw_SNR,orig_final_per_spw_RMS=estimate_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+str(spw)+'_final.mask')
             if telescope !='ACA' or aca_use_nfmask:
-               final_per_spw_NF_SNR,final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+str(spw)+'_final.mask', las=selfcal_library[target][band]['LAS'])
+               orig_final_per_spw_NF_SNR,orig_final_per_spw_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0',maskname=sani_target+'_'+band+'_'+str(spw)+'_final.mask', las=selfcal_library[target][band]['LAS'])
             else:
-               final_per_spw_NF_SNR,final_per_spw_NF_RMS=final_per_spw_SNR,final_per_spw_RMS
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig']=final_per_spw_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']=final_per_spw_RMS
-            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_orig']=final_per_spw_NF_SNR
-            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_orig']=final_per_spw_NF_RMS
+               orig_final_per_spw_NF_SNR,orig_final_per_spw_NF_RMS=orig_final_per_spw_SNR,orig_final_per_spw_RMS
+            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_orig']=orig_final_per_spw_SNR
+            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_orig']=orig_final_per_spw_RMS
+            selfcal_library[target][band]['per_spw_stats'][spw]['SNR_NF_orig']=orig_final_per_spw_NF_SNR
+            selfcal_library[target][band]['per_spw_stats'][spw]['RMS_NF_orig']=orig_final_per_spw_NF_RMS
 
 
 
