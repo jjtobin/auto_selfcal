@@ -820,15 +820,15 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_minor_final']=header['restoringbeam']['minor']['value']
    selfcal_library[target][band]['Beam_PA_final']=header['restoringbeam']['positionangle']['value'] 
    #recalc inital stats using final mask
-   final_SNR,final_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
+   orig_final_SNR,orig_final_RMS=estimate_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask')
    if telescope!='ACA' or aca_use_nfmask:
-      final_NF_SNR,final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask', las=selfcal_library[target][band]['LAS'])
+      orig_final_NF_SNR,orig_final_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_initial.image.tt0',maskname=sani_target+'_'+band+'_final.mask', las=selfcal_library[target][band]['LAS'])
    else:
       final_NF_SNR,final_NF_RMS=final_SNR,final_RMS
-   selfcal_library[target][band]['SNR_orig']=final_SNR
-   selfcal_library[target][band]['RMS_orig']=final_RMS
-   selfcal_library[target][band]['SNR_NF_orig']=final_NF_SNR
-   selfcal_library[target][band]['RMS_NF_orig']=final_NF_RMS
+   selfcal_library[target][band]['SNR_orig']=orig_final_SNR
+   selfcal_library[target][band]['RMS_orig']=orig_final_RMS
+   selfcal_library[target][band]['SNR_NF_orig']=orig_final_NF_SNR
+   selfcal_library[target][band]['RMS_NF_orig']=orig_final_NF_RMS
    goodMask=checkmask(imagename=sani_target+'_'+band+'_final.image.tt0')
    if goodMask:
       selfcal_library[target][band]['intflux_final'],selfcal_library[target][band]['e_intflux_final']=get_intflux(sani_target+'_'+band+'_final.image.tt0',final_RMS)
