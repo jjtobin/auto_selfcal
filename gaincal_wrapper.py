@@ -431,13 +431,15 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
           # Update the appropriate selfcal_library entries.
           selfcal_library[vis][solint]['spwmap']=applycal_spwmap
           selfcal_library[vis][solint]['gaincal_combine']=selfcal_plan['gaincal_combine'][iteration]+''
-          selfcal_library[vis][solint]['fallback']=fallback+''
           for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
               selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap
               selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan['gaincal_combine'][iteration]+''
-              selfcal_library[fid][vis][solint]['fallback']=fallback+''
 
        os.system('rm -rf test_inf_EB.g')               
+
+    selfcal_library[vis][solint]['fallback']=fallback+''
+    for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+        selfcal_library[fid][vis][solint]['fallback']=fallback+''
 
     # If iteration two, try restricting to just the antennas with enough unflagged data.
     # Should we also restrict to just long baseline antennas?

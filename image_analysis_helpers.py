@@ -39,7 +39,8 @@ def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solin
 
        goodMask=checkmask(imagename=image)
        if goodMask:
-           update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = get_intflux(image, RMS)
+           update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = get_intflux(image, RMS, maskname=mask if suffix=='orig' else None,
+                   mosaic_sub_field=mosaic_sub_field)
        else:
            update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = -99.0, -99.0
 
