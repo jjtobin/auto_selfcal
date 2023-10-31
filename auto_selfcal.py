@@ -407,8 +407,8 @@ for target in selfcal_library:
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
    #recalc inital stats using final mask
-   final_SNR, final_RMS, final_NF_SNR, final_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', sani_target+'_'+band+'_final.mask',
-           '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'orig', 'orig')
+   orig_final_SNR, orig_final_RMS, orig_final_NF_SNR, orig_final_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', 
+           sani_target+'_'+band+'_final.mask', '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'orig', 'orig')
 
    mosaic_final_SNR, mosaic_final_RMS, mosaic_final_NF_SNR, mosaic_final_NF_RMS = {}, {}, {}, {}
    for fid in selfcal_library[target][band]['sub-fields']:
@@ -453,7 +453,7 @@ if check_all_spws:
                     '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'final', 'final', spw=spw)
 
             #reccalc initial stats with final mask
-            final_per_spw_SNR, final_per_spw_RMS, final_per_spw_NF_SNR, final_per_spw_NF_RMS = get_image_stats(
+            orig_final_per_spw_SNR, orig_final_per_spw_RMS, orig_final_per_spw_NF_SNR, orig_final_per_spw_NF_RMS = get_image_stats(
                     sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_final.mask',
                     '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'orig', 'orig', spw=spw)
 
