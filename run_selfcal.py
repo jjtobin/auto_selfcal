@@ -182,8 +182,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                      continue
 
                 gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, gaincal_minsnr, 
-                        rerank_refants=rerank_refants, refantmode=refantmode, mode=mode, calibrators=calibrators, 
-                        gaincalibrator_dict=gaincalibrator_dict)
+                        rerank_refants=rerank_refants, unflag_only_lbants=unflag_only_lbants, 
+                        unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
+                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
+                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
+                        allow_gain_interpolation=allow_gain_interpolation)
 
              # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
              # selfcal'd because they have too much interpolation.
@@ -197,7 +200,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              for vis in vislist:
                 applycal_wrapper(vis, target, band, solint, selfcal_library, 
                         current=lambda f: f in selfcal_library['sub-fields-to-selfcal'],
-                        final=lambda f: f not in selfcal_library['sub-fields-to-selfcal'],
+                        final=lambda f: f not in selfcal_library['sub-fields-to-selfcal'] and selfcal_library[f]['SC_success'],
                         restore_flags='fb_selfcal_starting_flags_'+sani_target if mode == "cocal" else None)
 
              ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped

@@ -95,7 +95,7 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
                 continue
             ## NEXT TO DO: check % of flagged solutions - DONE, see above
             ## After that enable option for interpolation through inf - DONE
-            tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
+            tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[iteration]+'.g')
             fields = tb.getcol("FIELD_ID")
             scans = tb.getcol("SCAN_NUMBER")
 
@@ -137,15 +137,16 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
      elif selfcal_library['obstype'] == 'mosaic' and solint == "inf_EB":
         ## If an EB had no fields to gaincal on, remove all fields in that EB from being selfcal'd as there is no calibration available
         ## in this EB.
-        if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
-                list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
-            for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
-                new_fields_to_selfcal.remove(fid)
+        for vis in selfcal_library['vislist']:
+            if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
+                    list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
+                for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                    new_fields_to_selfcal.remove(fid)
 
-                selfcal_library[fid]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
-                for v in selfcal_library[fid]['vislist']:
-                    selfcal_library[fid][v][solint]['Pass'] = 'None'
-                    selfcal_library[fid][v][solint]['Fail_Reason'] = 'No viable inf_EB fields'
+                    selfcal_library[fid]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
+                    for v in selfcal_library[fid]['vislist']:
+                        selfcal_library[fid][v][solint]['Pass'] = 'None'
+                        selfcal_library[fid][v][solint]['Fail_Reason'] = 'No viable inf_EB fields'
 
      return new_fields_to_selfcal
 

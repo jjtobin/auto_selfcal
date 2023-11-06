@@ -1,4 +1,4 @@
-from casatasks import applycal, flagmanager
+from casatasks import applycal, clearcal, flagmanager
 import numpy as np
 
 def applycal_wrapper(vis, target, band, solint, selfcal_library, current=lambda f: False, final=lambda f: False, 
