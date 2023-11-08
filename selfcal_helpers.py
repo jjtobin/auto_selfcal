@@ -2953,7 +2953,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
       #   map_index=max_bw_min_flags_index[0]
       
       #make spwmap list that first maps everything to itself, need max spw to make that list
-      maxspw=np.max(selfcal_library[target][band][vis]['spwsarray']+1)
+      maxspw=np.max(selfcal_library[vis]['spwsarray']+1)
       applycal_spwmap_int_list=list(np.arange(maxspw))
       for i in range(len(applycal_spwmap_int_list)):
          applycal_spwmap.append(applycal_spwmap_int_list[i])
