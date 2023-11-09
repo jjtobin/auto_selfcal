@@ -656,15 +656,16 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              elif selfcal_library[target][band]['obstype'] == 'mosaic' and solint == "inf_EB":
                 ## If an EB had no fields to gaincal on, remove all fields in that EB from being selfcal'd as there is no calibration available
                 ## in this EB.
-                if np.intersect1d(selfcal_library[target][band]['sub-fields-to-gaincal'],\
-                        list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())).size == 0:
-                    for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                        new_fields_to_selfcal.remove(fid)
+                for vis in vislist:
+                    if np.intersect1d(selfcal_library[target][band]['sub-fields-to-gaincal'],\
+                            list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())).size == 0:
+                        for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                            new_fields_to_selfcal.remove(fid)
 
-                        selfcal_library[target][band][fid]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
-                        for v in selfcal_library[target][band][fid]['vislist']:
-                            selfcal_library[target][band][fid][v][solint]['Pass'] = 'None'
-                            selfcal_library[target][band][fid][v][solint]['Fail_Reason'] = 'No viable inf_EB fields'
+                            selfcal_library[target][band][fid]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
+                            for v in selfcal_library[target][band][fid]['vislist']:
+                                selfcal_library[target][band][fid][v][solint]['Pass'] = 'None'
+                                selfcal_library[target][band][fid][v][solint]['Fail_Reason'] = 'No viable inf_EB fields'
 
              selfcal_library[target][band]['sub-fields-to-selfcal'] = new_fields_to_selfcal
 
