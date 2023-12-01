@@ -225,6 +225,7 @@ get_SNR_self(selfcal_library,selfcal_plan,n_ants,inf_EB_gaincal_combine,inf_EB_g
 
 set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=dividing_factor, rel_thresh_scaling=rel_thresh_scaling, telescope=telescope)
 
+plan_selfcal_per_solint(selfcal_library, selfcal_plan)
 ##
 ## Save self-cal library
 ##

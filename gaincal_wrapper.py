@@ -17,32 +17,37 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
     ##
     ## Solve gain solutions per MS, target, solint, and band
     ##
-    os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'*.g')
+    os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solint_settings'][iteration]+'*.g')
     ##
     ## Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
     ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
     ## At some point remove the conditional for use_inf_EB_preapply, since there isn't a reason not to do it
     ##
 
-    if selfcal_plan['solmode'][iteration] == 'p':
+    if selfcal_plan['solint_settings'][iteration] == 'p':
+        selfcal_plan['solint_settings'][solint]['computed_gaintable']=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g']
         if 'inf_EB' in solint:
-           gaincal_spwmap=[]
-           gaincal_preapply_gaintable=[]
-           gaincal_interpolate=[]
-           gaincal_gaintype=selfcal_plan[vis]['inf_EB_gaintype']
-           gaincal_solmode=""
-           selfcal_plan['gaincal_combine'][iteration]=selfcal_plan[vis]['inf_EB_gaincal_combine']+\
-                   (",field" if "fb" in solint else "")
+           selfcal_plan['solint_settings'][solint]['gaincal_preapply_gaintable']=[]
+           selfcal_plan['solint_settings'][solint]['gaincal_spwmap']=[]
+           selfcal_plan['solint_settings'][solint]['gaincal_interpolate']=[]
+           selfcal_plan['solint_settings'][solint]['applycal_gaintable']=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g']
+           #if user sets this manually, it will override the attempting of other modes
            if 'spw' in selfcal_plan[vis]['inf_EB_gaincal_combine']:
-              applycal_spwmap=[selfcal_library[vis]['spwmap']]
-              gaincal_spwmap=[selfcal_library[vis]['spwmap']]
+              selfcal_plan['solint_settings'][solint]['applycal_spwmap']=[selfcal_library[vis]['spwmap']]
+              selfcal_plan['solint_settings'][solint]['modes_to_attempt']=['combinespw']
            else:
               applycal_spwmap=[[]]
-           applycal_interpolate=[selfcal_library['applycal_interp']]
-           applycal_gaintable=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g']
+           selfcal_plan['solint_settings'][solint]['applycal_interpolate']=[selfcal_library['applycal_interp']]
+           selfcal_plan['solint_settings'][solint]['final_mode']=''
+
+            selfcal_plan['solint_settings'][solint]['gaincal_combine']=selfcal_plan[vis]['inf_EB_gaincal_combine']+\
+                   (",field" if "fb" in solint else "")
+           selfcal_plan['solint_settings'][solint]['gaincal_gaintype']=selfcal_plan[vis]['inf_EB_gaintype']
+
         #elif selfcal_plan['solmode'][iteration]=='p':
         else:
-           gaincal_spwmap=[]
+
+           current_solint_index=selfcal_plan['solints'].index(solint)
            if mode == "cocal":
                if 'inf_EB' in selfcal_library[vis]:
                    #gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0_p.g']
@@ -58,12 +63,18 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                    previous_solint = "inf_EB"
                else:
                    previous_solint = selfcal_library['final_phase_solint']
+           gaincal_spwmap=[]
+           gaincal_preapply_gaintable=[]
+           gaincal_interpolate=[]
+           for j in range(current_solint_index):
+              if selfcal_plan['solint_settings'][solint]['preapply_this_gaintable']:
+                 gaincal_preapply_gaintable + =selfcal_plan['solint_settings'][selfcal_plan['solints'][j]]['computed_gaintable']
+                 gaincal_spwmap + =selfcal_plan['solint_settings'][selfcal_plan['solints'][j]]['applycal_spwmap']
+                 gaincal_interpolate += selfcal_plan['solint_settings'][selfcal_plan['solints'][j]]['applycal_interpolate']
 
-           gaincal_preapply_gaintable=selfcal_library[vis][previous_solint]['gaintable']
-           gaincal_interpolate=[selfcal_library['applycal_interp']]
-           gaincal_gaintype='T' if applymode == "calflag" or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+           selfcal_plan[target][band]['solint_settings'][solint]['gaincal_gaintype']='T' if applymode == "calflag" or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
            gaincal_solmode = "" if applymode == "calflag" or second_iter_solmode == "GSPLINE" else second_iter_solmode
-           gaincal_spwmap = selfcal_library[vis][previous_solint]['spwmap']
+
            """
            if 'spw' in selfcal_plan[vis]['inf_EB_gaincal_combine']:
               applycal_spwmap[vis]=[selfcal_library[vis]['spwmap'],selfcal_library[vis]['spwmap']]
@@ -80,10 +91,18 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
            if mode == "cocal":
                if selfcal_library['final_solint'] == 'inf_EB' and calculate_inf_EB_fb_anyways:
                    previous_solint = "inf_EB"
+           applycal_spwmap=[]
+           applycal_interpolate=[]
+           applycal_gaintable=[]
+           for j in range(current_solint_index):
+              if selfcal_plan['solint_settings'][solint]['preapply_this_gaintable']:
 
-           applycal_spwmap = selfcal_library[vis][previous_solint]['spwmap'] + [selfcal_library[vis]['spwmap']]
-           applycal_interpolate=[selfcal_library['applycal_interp'],selfcal_library['applycal_interp']]
-           applycal_gaintable = selfcal_library[vis][previous_solint]['gaintable'] + [sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g']
+                 applycal_spwmap += selfcal_plan['solint_settings'][selfcal_plan['solints'][j]]['applycal_spwmap']
+                 applycal_interpolate += selfcal_plan['solint_settings'][selfcal_plan['solints'][j]]['applycal_interpolate']
+                 applycal_gaintable += selfcal_plan['solint_settings'][selfcal_plan['solints'][j]]['computed_gaintable'] 
+
+
+
         selfcal_library[vis][solint]['gaintable']=applycal_gaintable
         selfcal_library[vis][solint]['iteration']=iteration+0
         selfcal_library[vis][solint]['spwmap']=applycal_spwmap
@@ -270,17 +289,54 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                          spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
                    else:
                       spwselect=selfcal_library[vis]['spws']
-                   gaincal(vis=vis,\
-                     caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
-                     gaintype=gaincal_gaintype, spw=spwselect,
-                     refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                     solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=selfcal_plan['gaincal_combine'][iteration],
-                     field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],
-                     interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'))
-                   #
-                   if 'inf_EB' not in solint:
-                      break
-    else:
+                   for mode in selfcal_plan['solint_settings'][solint]['modes_to_attempt']:
+                      if mode == 'combinespw':
+                         filename_append='combinespw'
+                         if solint == 'inf_EB':
+                            gaincal_combine='spw,scan'
+                         else:
+                            gaincal_combine='spw'
+
+                      else if mode == 'per_spw':
+                         filename_append='_per_spw'
+                         if solint == 'inf_EB':
+                            gaincal_combine='scan'
+                         else:
+                            gaincal_combine=''
+                      if mode =='per_bb':
+                         filename_append='per_bb'
+                         if solint == 'inf_EB':
+                            gaincal_combine='spw,scan'
+                         else:
+                            gaincal_combine='spw'
+
+                         for baseband in selfcal_library[vis]['baseband'].keys():
+                             spwselect_bb=selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwstring']
+                             gaincal(vis=vis,\
+                                   caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
+                                   gaintype=gaincal_gaintype, spw=spwselect_bb,
+                                   refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
+                                   solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
+                                   minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\ 
+                                   field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\ 
+                                   interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\ 
+                                   append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+filename_append'.g'))
+
+                      else:      
+                         gaincal(vis=vis,\
+                                 caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
+                                 gaintype=gaincal_gaintype, spw=spwselect,
+                                 refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
+                                 solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
+                                 minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
+                                 field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
+                                 interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
+                                 append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+filename_append'.g'))
+                   # restricted gaincal table comparisons to only inf_EB prior to changes
+                   # commenting because we want to do comparisons for other solints as well
+                   #if 'inf_EB' not in solint:
+                   #   break
+    else:  # this else is for ap selfcal
         for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             gaincal_spwmap=[]
             gaincal_preapply_gaintable=selfcal_library[fid][vis][selfcal_library[fid]['final_phase_solint']]['gaintable']
@@ -393,6 +449,9 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
     ## default is to run without combine=spw for inf_EB, here we explicitly run a test inf_EB with combine='scan,spw' to determine
     ## the number of flagged antennas when combine='spw' then determine if it needs spwmapping or to use the gaintable with spwcombine.
     ##
+
+
+    ### This code needs to b adapted to compare all the test combinations of gaintables and then decide which one is best, combinespw, per_bb,per_spw, or spectral window mapping
     if 'inf_EB' in solint and fallback=='':
        os.system('rm -rf test_inf_EB.g')
        test_gaincal_combine='scan,spw'
