@@ -73,6 +73,8 @@ allow_gain_interpolation=False
 guess_scan_combine=False
 aca_use_nfmask=False
 allow_cocal=False
+cals_directory="<fill with path to untarred calibration tables from pipeline>"
+aquareport="<fill with path to aqua report>" 
 scale_fov=1.0   # option to make field of view larger than the default
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
@@ -160,19 +162,6 @@ for target in all_targets:
           applycal_interp[target][band]='linearPD'
        else:
           applycal_interp[target][band]='linear'
-
-
-##
-## Align the EBs prior to running selfcal on them.
-##
-
-offsets = {}
-for target in all_targets:
-    offsets[target] = {}
-    for band in bands:
-        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target, npix=imsize[target][band], 
-                cell_size=float(cellsize[target][band][0:-6]), spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
-                suffix='')
 
 
 
@@ -387,6 +376,116 @@ for target in all_targets:
  for band in selfcal_library[target].keys():
       if selfcal_library[target][band]['Total_TOS'] == 0.0:
          selfcal_library[target].pop(band)
+
+for target in all_targets:
+ sani_target=sanitize_string(target)
+ for band in selfcal_library[target].keys():
+    for vis in selfcal_library[target][band]['vislist']:
+       #make images using the appropriate tclean heuristics for each telescope
+       # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+       # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+       # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_dirty',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
+                threshold='0.0Jy',niter=1, gain=0.00001,savemodel='none',parallel=parallel,cellsize=cellsize[target][band],
+                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
+                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
+                image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
+                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
+                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'])
+
+       dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+vis+'_dirty.image.tt0')
+       if telescope!='ACA' or aca_use_nfmask:
+          dirty_NF_SNR,dirty_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+vis+'_dirty.image.tt0', 
+                  las=selfcal_library[target][band]['LAS'])
+       else:
+          dirty_NF_SNR,dirty_NF_RMS=dirty_SNR,dirty_RMS
+
+       selfcal_library[target][band]['cyclefactor'] = 1.0
+
+       dr_mod=1.0
+       if telescope =='ALMA' or telescope =='ACA':
+          sensitivity=get_sensitivity([vis],selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],
+                  cellsize=cellsize[target][band])
+          dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,[vis])
+          sensitivity_nomod=sensitivity.copy()
+          print('DR modifier: ',dr_mod)
+       if telescope=='ALMA' or telescope =='ACA':
+          sensitivity=sensitivity*dr_mod   # apply DR modifier
+          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+             sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
+       else:
+          sensitivity=0.0
+       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_initial',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
+                threshold=str(sensitivity*4.0)+'Jy',savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[target][band],
+                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
+                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
+                nfrms_multiplier=dirty_NF_RMS/dirty_RMS, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
+                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
+                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], 
+                cyclefactor=selfcal_library[target][band]['cyclefactor'])
+
+
+##
+## Align the EBs prior to running selfcal on them.
+##
+
+offsets = {}
+for target in all_targets:
+    offsets[target] = {}
+    for band in bands:
+        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target, cals_directory=cals_directory,
+                aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
+                spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
+                suffix='')
+
+
+
+for target in all_targets:
+ sani_target=sanitize_string(target)
+ for band in selfcal_library[target].keys():
+    for vis in selfcal_library[target][band]['vislist']:
+       #make images using the appropriate tclean heuristics for each telescope
+       # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+       # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+       # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_dirty_after',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
+                threshold='0.0Jy',niter=1, gain=0.00001,savemodel='none',parallel=parallel,cellsize=cellsize[target][band],
+                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
+                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
+                image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
+                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
+                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'])
+
+       dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+vis+'_dirty_after.image.tt0')
+       if telescope!='ACA' or aca_use_nfmask:
+          dirty_NF_SNR,dirty_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+vis+'_dirty_after.image.tt0', 
+                  las=selfcal_library[target][band]['LAS'])
+       else:
+          dirty_NF_SNR,dirty_NF_RMS=dirty_SNR,dirty_RMS
+
+       selfcal_library[target][band]['cyclefactor'] = 1.0
+
+       dr_mod=1.0
+       if telescope =='ALMA' or telescope =='ACA':
+          sensitivity=get_sensitivity([vis],selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],
+                  cellsize=cellsize[target][band])
+          dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,[vis])
+          sensitivity_nomod=sensitivity.copy()
+          print('DR modifier: ',dr_mod)
+       if telescope=='ALMA' or telescope =='ACA':
+          sensitivity=sensitivity*dr_mod   # apply DR modifier
+          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
+             sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
+       else:
+          sensitivity=0.0
+       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_initial_after',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
+                threshold=str(sensitivity*4.0)+'Jy',savemodel='none',parallel=parallel,cellsize=cellsize[target][band],
+                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
+                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
+                nfrms_multiplier=dirty_NF_RMS/dirty_RMS, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
+                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
+                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], 
+                cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))

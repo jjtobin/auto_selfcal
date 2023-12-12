@@ -16,6 +16,13 @@ import shutil
 import matplotlib.pyplot as plt
 import warnings
 from scipy import constants
+import emcee
+import dynesty
+import dynesty.utils
+import dynesty.plotting
+import scipy.stats
+import glob
+import xml.etree.ElementTree as ET
 
 
 skycoord_frames = {'ICRS':'icrs','J2000':FK5(equinox='J2000')}
@@ -44,7 +51,6 @@ def calculate_phase_shift(grid_vis, grid_nvis, grid_uu, grid_vv, mu_RA,
     shifted_grid_vis[grid_nvis < 1] = 0.0 + 0.0j
     return shifted_grid_vis
 
-
 def calculate_phase_difference(grid_vis1, grid_vis2, grid_wgts1, grid_wgts2,
                                grid_nvis):
     """
@@ -65,7 +71,7 @@ def calculate_phase_difference(grid_vis1, grid_vis2, grid_wgts1, grid_wgts2,
     angle1, angle2 = np.angle(grid_vis1), np.angle(grid_vis2)
     phase_difference = np.minimum(2.0 * np.pi - np.abs(angle2 - angle1),
                                   np.abs(angle2 - angle1))
-    phase_difference = 2.0 * np.sin(phase_difference / 2.0) * np.abs(grid_vis1)
+    phase_difference = 2.0 * np.sin(phase_difference / 2.0) * np.abs(grid_vis1)**2
     phase_difference *= np.mean([grid_wgts1, grid_wgts2], axis=0)
     return phase_difference
 
@@ -87,8 +93,8 @@ def calculate_full_phase_difference(grid_vis1, grid_vis2, grid_wgts1,
         phase_difference (array): 2D array of the phase differences between
             ``grid_vis1`` and ``grid_vis2``.
     """
-    phase_difference = np.abs(grid_vis2 - grid_vis1)
-    phase_difference *= np.mean([grid_wgts1, grid_wgts2], axis=0)
+    phase_difference = np.abs(grid_vis2 - grid_vis1)**2
+    phase_difference *= 1./(1./grid_wgts1 + 1./grid_wgts2) * 0.5
     return phase_difference
 
 
@@ -128,7 +134,7 @@ def grid(grid_vis, grid_nvis, grid_wgts, uu, vv, du, dv, npix, vis, wgts):
     return grid_vis, grid_nvis, grid_wgts
 
 
-def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, spwid=0):
+def ingest_ms(base_ms, target, cals_directory, npix, cell_size, grid_needs_to_cover_all_data, spwid=0, datacolumn="DATA"):
     """
     Ingest a measurement set and grid onto a regular grid with ``npix`` cells,
     each with a size ``cell_size`` in [arcsec].
@@ -186,7 +192,7 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
             assert np.all(ant2 == subt.getcol("ANTENNA2"))
 
         flag += [subt.getcol("FLAG")]
-        data += [subt.getcol("DATA")]
+        data += [subt.getcol(datacolumn)]
         weight += [np.repeat(subt.getcol("WEIGHT")[:, np.newaxis, :], chan_freqs_all["r"+str(spw+1)].size, axis=1)]
         subt.close()
     tb.close()
@@ -221,6 +227,18 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     wgts = np.ravel(np.broadcast_to(wgts, (uu.shape[1], uu.shape[0])).T)
     uu = np.ravel(uu)
     vv = np.ravel(vv)
+
+    # Load in the amplitude calibration to properly scale the weights.
+
+    gaintables = glob.glob(cals_directory+"/*"+base_ms.replace("_targets.selfcal_J2000","").replace("_targets.selfcal","")+"*gacal*")
+    tb.open(gaintables[0])
+    cals = tb.getcol("CPARAM")
+    flag = tb.getcol("FLAG")
+    tb.close()
+
+    scale = np.median(np.abs(cals[flag == 0]))**2
+
+    wgts *= scale
 
     # Define grid in uv space.
 
@@ -271,7 +289,7 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     return grid_vis, grid_nvis, grid_uu, grid_vv, grid_wgts
 
 
-def calculate_likelihood(x, data):
+def calculate_likelihood(x, data, cell_size):
     """
     Calculate the likelihood using a full phase difference after phase shifting
     the second measurement set in ``data``.
@@ -308,8 +326,13 @@ def calculate_likelihood(x, data):
                                                  grid_wgts1=ms1_data[4],
                                                  grid_wgts2=ms2_data[4],
                                                  grid_nvis=ms1_data[1])
+
     likelihood = np.sum(np.abs(likelihood))
-    return likelihood
+    lnprior = (np.array(x)**2).sum()/(cell_size/4)**2
+    return likelihood + lnprior
+
+def log_likelihood(x, data, cell_size):
+    return -0.5*calculate_likelihood(x, data, cell_size)
 
 def plot_grid_nvis(ax,grid_nvis,grid_uu,grid_vv,vmin=None,vmax=None):
     #to avoid divide by zero warnings, fill upt with very small number:
@@ -322,8 +345,8 @@ def plot_grid_nvis(ax,grid_nvis,grid_uu,grid_vv,vmin=None,vmax=None):
     ax.set_ylabel('v')
     return img
 
-def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwid=0,
-                fail_silently=False,verbose=False,plot_uv_grid=False,
+def find_offset(reference_ms, offset_ms, target, cals_directory, aquareport, npix=1024, cell_size=0.01, 
+                spwid=0, fail_silently=False,verbose=False,plot_uv_grid=False,
                 uv_grid_plot_filename=None):
     """
     Find the offset between ``offset_ms`` and ``reference_ms`` by minimizing
@@ -377,13 +400,14 @@ def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwi
     # Ingest the required measurement sets. Will return a list of ``grid_vis``,
     # ``grid_nvis``, ``grid_uu``, ``grid_vv`` and ``grid_wgts``.
 
-    ms1 = ingest_ms(base_ms=ms_for_offset_calculation['ref'], target=target, npix=npix,
-                    cell_size=cell_size,grid_needs_to_cover_all_data=False,spwid=spwid[0])
-    ms2 = ingest_ms(base_ms=ms_for_offset_calculation['offset'], target=target, npix=npix,
-                    cell_size=cell_size, grid_needs_to_cover_all_data=True,spwid=spwid[1])
+    ms1 = ingest_ms(base_ms=ms_for_offset_calculation['ref'], target=target, cals_directory=cals_directory, 
+                    npix=npix,cell_size=cell_size,grid_needs_to_cover_all_data=False,spwid=spwid[0])
+    ms2 = ingest_ms(base_ms=ms_for_offset_calculation['offset'], target=target, cals_directory=cals_directory, 
+                    npix=npix,cell_size=cell_size, grid_needs_to_cover_all_data=True,spwid=spwid[1])
 
     # Define the overlap between the two measurement sets.
     overlap = np.logical_and(ms1[1].real >= 1, ms2[1].real >= 1).astype('int')
+    print(overlap.sum()/(ms1[1].real >= 1).sum(), overlap.sum()/(ms2[1].real >= 1).sum())
 
     if plot_uv_grid:
         fig,axes = plt.subplots(2,2,constrained_layout=True)
@@ -409,6 +433,9 @@ def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwi
         if uv_grid_plot_filename is not None:
             fig.savefig(uv_grid_plot_filename)
 
+        plt.clf()
+        plt.close(fig)
+
     # Mask out all the cells where there is no overlap. Note that the np.clip()
     # is to avoid RuntimeWarnings when dividing by zero. These grid points will
     # be masked out by overlap anyway.
@@ -418,6 +445,9 @@ def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwi
     ms2 = [ms2[0] / np.clip(ms2[1], a_min=1.0, a_max=None) * overlap,
            ms2[1] * overlap, ms2[2], ms2[3], ms2[4]]
 
+    ms1 = [entry[overlap > 0] for entry in ms1]
+    ms2 = [entry[overlap > 0] for entry in ms2]
+
     # Derive the offset. The starting point x0 is picked as a fraction (chosen as 1/6)
     #of the "resolution" expected from the longest baseline of the offset data set
     contains_data = ms2[1] > 0
@@ -425,7 +455,94 @@ def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwi
     x0 = np.array((1/max_uu_vv/constants.arcsec,1/max_uu_vv/constants.arcsec)) / 6
     #print('x0: ',x0)
 
-    res = minimize(fun=calculate_likelihood,x0=x0,args=[ms1, ms2],method='L-BFGS-B')
+    tree = ET.parse(aquareport)
+    root = tree.getroot()
+
+    median_phase_rms = {}
+    for value in root.find('QaPerStage'):
+        if value.attrib['Name'] == 'hifa_spwphaseup':
+            for child in value:
+                if "stability" in child.attrib['Reason']:
+                    for val in child.attrib['Reason'].split(" "):
+                        if "deg" in val:
+                            phase_rms = float(val[0:-3])
+                        if "uid" in val:
+                            ms_file = val.replace('.ms.','_targets.selfcal.ms')
+                    median_phase_rms[ms_file] = phase_rms
+
+    print(median_phase_rms)
+
+
+    for ms_name, ms in zip([reference_ms, offset_ms],[ms1, ms2]):
+        snr = np.abs(ms[0]) * ms[4]**0.5
+        uvdist = np.sqrt(ms[2]**2 + ms[3]**2) * 1.0e-3
+        phase_rms = median_phase_rms[offset_ms]*(uvdist / 300.)**0.6
+        phase_unc = np.abs(ms[0])*phase_rms/100.
+        flux_unc = np.abs(ms[0])*0.1
+        ms[4] = 1./(phase_unc**2 + flux_unc**2 + 1./ms[4])
+
+    res = minimize(fun=calculate_likelihood,x0=x0,args=([ms1, ms2], cell_size),method='L-BFGS-B')
+    print(res)
+
+    xx, yy = np.linspace(-2.,2.,200), np.linspace(-2.,2.,200)
+    likelihood = np.empty(200**2).reshape((200,200))
+    for i in range(200):
+        for j in range(200):
+            likelihood[i,j] = log_likelihood([xx[i],yy[j]], [ms1,ms2], cell_size)
+
+    plt.imshow(likelihood, origin="lower", interpolation="none")
+    plt.colorbar()
+    plt.contour(likelihood, levels=likelihood.max()-scipy.stats.chi2.isf(q=[0.003,0.05,0.32], df=2), colors="white", linestyles='--')
+    plt.tight_layout()
+    plt.savefig(target+'_'+offset_ms+'_likelihood.png')
+    plt.clf()
+    plt.close()
+
+
+    uncertainty = np.sqrt(np.diag(res.hess_inv.todense()))
+    for i in range(len(res.x)):
+        print('x^{0} = {1:12.4e} ± {2:.1e}'.format(i, res.x[i], uncertainty[i]))
+
+    ndim, nwalkers = 2, 50
+    p0 = np.random.uniform(-x0[0],x0[0], (nwalkers,ndim))
+
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=([ms1, ms2], cell_size))
+    sampler.run_mcmc(p0, 1000)
+
+    fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
+    samples = sampler.get_chain()
+    labels = ["m", "b", "log(f)"]
+    for i in range(ndim):
+        ax = axes[i]
+        ax.plot(samples[:, :, i], "k", alpha=0.3)
+        ax.set_xlim(0, len(samples))
+        ax.set_ylabel(labels[i])
+        ax.yaxis.set_label_coords(-0.1, 0.5)
+
+    axes[-1].set_xlabel("step number")
+    fig.savefig(target+"_"+offset_ms+"_stepsplot.png")
+    plt.clf()
+    plt.close(fig)
+
+    samples = sampler.get_chain(flat=True, discard=500)
+
+    """
+    def prior_transform(u):
+        return (2.*u - 1.)*5.
+        #return scipy.stats.norm.ppf(u)
+
+    sampler = dynesty.NestedSampler(neg_log_likelihood, prior_transform, 2, nlive=500, logl_args=[[ms1, ms2]])
+
+    sampler.run_nested()
+
+    fig, ax = dynesty.plotting.traceplot(sampler.results, show_titles=True, trace_cmap='viridis', connect=True, connect_highlight=range(5))
+    fig.savefig(target+"_"+offset_ms+"_traceplot.png")
+
+    samples = dynesty.utils.resample_equal(sampler.results.samples, sampler.results.importance_weights())
+    """
+
+    print(np.median(samples, axis=0))
+    print(np.std(samples, axis=0))
 
     # Return the offset, otherwise if this fails, either raise an error or
     # returns a null offset.
@@ -440,7 +557,10 @@ def find_offset(reference_ms, offset_ms, target, npix=1024, cell_size=0.01, spwi
         if verbose:
             print(f'going to delete temporary ms {temp_ms}')
         shutil.rmtree(temp_ms)
+    """
     return res.x
+    """
+    return np.median(samples, axis=0)
 
 
 def get_phase_center(measurement_set, target):
@@ -556,7 +676,7 @@ def update_phase_center(vis, target, new_phase_center, ref_phase_center,
                          direction=ref_phase_center)
 
 
-def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,npix=1024,
+def align_measurement_sets(reference_ms, align_ms, target, cals_directory, aquareport, align_offsets=None,npix=1024,
                            cell_size=0.01,spwid=0,plot_uv_grid=False,
                            plot_file_template=None,suffix='_shift'):
     """
@@ -614,7 +734,7 @@ def align_measurement_sets(reference_ms, align_ms, target, align_offsets=None,np
                     directory,file_template = os.path.split(plot_file_template)
                     uv_grid_plot_filename = os.path.join(directory,f'{ms}_{file_template}')
                 offset = find_offset(reference_ms=reference_ms,offset_ms=ms,npix=npix,
-                                     target=target,cell_size=cell_size,spwid=spwid,
+                                     target=target,cals_directory=cals_directory,aquareport=aquareport,cell_size=cell_size,spwid=spwid,
                                      plot_uv_grid=plot_uv_grid,
                                      uv_grid_plot_filename=uv_grid_plot_filename)
 
