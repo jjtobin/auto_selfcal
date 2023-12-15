@@ -378,7 +378,7 @@ def prepare_selfcal(vislist,
     for target in all_targets:
        selfcal_plan[target] = {}
 
-       for band in bands:
+       for band in selfcal_library[target]:
           selfcal_plan[target][band] = {}
           if band in selfcal_library[target]:
              selfcal_plan[target][band]['solints'],selfcal_plan[target][band]['integration_time'],selfcal_plan[target][band]['gaincal_combine'], \

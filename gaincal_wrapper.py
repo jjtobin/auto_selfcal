@@ -9,7 +9,7 @@ from casampi.MPIEnvironment import MPIEnvironment
 parallel=MPIEnvironment.is_mpi_enabled
 
 def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, 
-        gaincal_minsnr, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, 
+        gaincal_minsnr, gaincal_unflag_minsnr=5.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, 
         second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False):
 

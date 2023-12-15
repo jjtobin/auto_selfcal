@@ -182,7 +182,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                      continue
 
                 gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, gaincal_minsnr, 
-                        rerank_refants=rerank_refants, unflag_only_lbants=unflag_only_lbants, 
+                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, rerank_refants=rerank_refants, unflag_only_lbants=unflag_only_lbants, 
                         unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                         second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                         refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
@@ -428,7 +428,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     print('****************Reapplying previous solint solutions*************')
                     for vis in vislist:
                        applycal_wrapper(vis, target, band, solint, selfcal_library, 
-                               final=lambda f: f in selfcal_library[f]['SC_success'],
+                               final=lambda f: selfcal_library[f]['SC_success'],
                                restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target)
                  else:
                     for vis in vislist:
