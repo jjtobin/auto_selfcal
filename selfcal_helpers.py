@@ -3044,6 +3044,137 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
+def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_scan):
+   #may need a scale factor for the number of individual solutions in time to take care of the non inF_EB gain tables
+
+   selected_mode='combinespw'
+   polscale=2.0
+   if selfcal_plan['solint_settings'][solint]['gaincal_gaintype']=='T':
+     polscale=1.0
+   spwlist=selfcal_libraray[vis]['spwlist']
+   # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
+   max_flagged_ants_combspw=2.0
+   # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
+   max_flagged_ants_spwmap=1.0
+   fallback=''
+   map_index=-1
+   min_spwmap_bw=0.0
+   spwmap=[False]*len(spwlist)
+   for loop here to get fraction flagged, unflagged, and flag fraction per mode
+   selfcal_plan['solint_settings'][solint]['nflags']={}
+   selfcal_plan['solint_settings'][solint]['nunflagged']={}
+   selfcal_plan['solint_settings'][solint]['fracflagged']={}
+   selfcal_plan['solint_settings'][solint]['delta_nflags']={}
+   for l in range(len(selfcal_plan['solint_settings'][solint]['modes_to_attempt'])):
+      mode =    selfcal_plan['solint_settings'][solint]['modes_to_attempt'][l]
+     gaintable=gaintable_prefix+selfcal_plan['solint_settings'][solint]['filename_append'][l]+'.g'
+      if mode=='combinespw':
+         selfcal_plan['solint_settings'][solint]['nflags'][mode],selfcal_plan['solint_settings'][solint]['nunflagged'][mode],selfcal_plan['solint_settings'][solint]['fracflagged']=get_flagged_solns_per_spw([spwlist[0]],gaintable)
+         selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']=np.min(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale
+
+      if mode=='per_spw':
+         selfcal_plan['solint_settings'][solint]['nflags'][mode],selfcal_plan['solint_settings'][solint]['nunflagged'][mode],selfcal_plan['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw(spwlist,gaintable)
+
+   
+      if mode == 'per_bb':
+         baseband_scale=np.float(len(selfcal_library[vis]['baseband'].keys()))
+         nflags=0
+         nunflagged=0
+         fracflagged=0.0
+         for baseband in selfcal_library[vis]['baseband'].keys():
+            nflags,nunflagged,fracflagged+=get_flagged_solns_per_spw(selfcal_library[vis]['baseband'][baseband]['spwlist'][0],gaintable)
+         selfcal_plan['solint_settings'][solint]['nflags'][mode]=nflags
+         selfcal_plan['solint_settings'][solint]['nunflagged'][mode]=nunflagged
+         selfcal_plan['solint_settings'][solint]['fracflagged'][mode]=nflags/(nflags+nunflagged)
+      else:
+         baseband_scale=1.0
+
+      selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']=np.min(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale/baseband_scale 
+      selfcal_plan['solint_settings'][solint]['maximum_flagged_ants']=np.max(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale
+   if 'per_spw' in selfcal_plan['solint_settings'][solint]['modes_to_attempt']:
+      selfcal_plan['solint_settings'][solint]['delta_nflags']['per_spw']=np.array(selfcal_plan['solint_settings'][solint]['nflags']['per_spw'])/polscale-selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']['combinespw']
+
+   #minimum_flagged_ants_per_spw=np.min(nflags)/2.0
+   #minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
+   #                                                        # the impression of a lot of flagging
+   #maximum_flagged_ants_per_spw=np.max(nflags)/2.0
+   #delta_nflags=np.array(nflags)/2.0-minimum_flagged_ants_spwcomb #minimum_flagged_ants_per_spw
+
+
+
+   eff_bws=np.zeros(len(spwlist))
+   total_bws=np.zeros(len(spwlist))
+   keylist=list(selfcal_library[vis]['per_spw_stats'].keys())
+   for i in range(len(spwlist)):
+      eff_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['bandwidth']
+
+   # if there are more than 3 flagged antennas for all spws (minimum_flagged_ants_spwcomb, fallback to doing spw combine for inf_EB fitting
+   # use the spw combine number of flagged ants to set the minimum otherwise could misinterpret fully flagged antennas for flagged solutions
+   # captures case where no one spws has sufficient S/N, only together do they have enough
+
+   #choose between per_spw and per_bb if both exist
+   preferred_mode=''
+   if 'per_spw' in selfcal_plan['solint_settings'][solint]['modes_to_attempt'] and 'per_bb' in selfcal_plan['solint_settings'][solint]['modes_to_attempt']:
+      if (selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']['per_spw']<=selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']['per_bb']):
+         preferred_mode='per_spw'
+      else:
+         preferred_mode='per_bb'
+   if 'per_bb' in selfcal_plan['solint_settings'][solint]['modes_to_attempt'] and 'combinespw' in selfcal_plan['solint_settings'][solint]['modes_to_attempt']:
+      if (selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']['per_bb']<=selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']['combinespw']):   
+         preferred_mode='per_bb'
+      else:
+         preferred_mode='combinespw'
+
+   #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
+   if 'per_spw' in selfcal_plan['solint_settings'][solint]['modes_to_attempt'] and (preferred_mode=='combine_spw' or preferred_mode=='per_bb'):
+   for i in range(len(spwlist)):
+      if np.min(selfcal_plan['solint_settings'][solint]['delta_nflags']['per_spw'][i]) > max_flagged_ants_spwmap:
+         fallback='spwmap'
+         spwmap[i]=True
+         if total_bws[i] > min_spwmap_bw:
+            min_spwmap_bw=total_bws[i]
+   #also spwmap spws with similar bandwidths to the others that are getting mapped, avoid low S/N solutions
+   ### REFACTOR - want to find the maximum bw spws that are also closest in frequency to the window to be replaced
+   # Here need to find all the ones that are the minimum flagging, and max bw, not just a random one
+   if fallback=='spwmap':
+      for i in range(len(spwlist)):
+         if total_bws[i] <= min_spwmap_bw:
+            spwmap[i]=True
+      if all(spwmap):
+         fallback=''
+   #want the widest bandwidth window that also has the minimum flags to use for spw mapping 
+   # need to change this to pick the window in the same baseband with the closest frequency
+   applycal_spwmap=[]
+   if fallback=='spwmap':
+      minflagged_index=(np.array(nflags)/2.0 == minimum_flagged_ants_per_spw).nonzero()
+      max_bw_index = (eff_bws == np.max(eff_bws[minflagged_index[0]])).nonzero()
+      max_bw_min_flags_index=np.intersect1d( minflagged_index[0],max_bw_index[0])
+      #if len(max_bw_min_flags_index) > 1:
+      #don't need the conditional since this works with array lengths of 1
+      map_index=max_bw_min_flags_index[np.argmax(eff_bws[max_bw_min_flags_index])]   
+      #else:
+      #   map_index=max_bw_min_flags_index[0]
+      
+      #make spwmap list that first maps everything to itself, need max spw to make that list
+      maxspw=np.max(selfcal_library[vis]['spwsarray']+1)
+      applycal_spwmap_int_list=list(np.arange(maxspw))
+      for i in range(len(applycal_spwmap_int_list)):
+         applycal_spwmap.append(applycal_spwmap_int_list[i])
+
+      #REFACTOR - here need to include a routine to find the spw that is also closest in frequency, and the same baseband and has a minimum of flagging
+      #replace the elements that require spwmapping (spwmap[i] == True
+      for i in range(len(spwmap)):
+         print(i,spwlist[i],spwmap[i])
+         if spwmap[i]:
+            applycal_spwmap[int(spwlist[i])]=int(spwlist[map_index])
+      # always fallback to combinespw for spectral scans
+      if fallback !='' and spectral_scan:
+         fallback=''
+   return preferred_mode,fallback,map_index,spwmap,applycal_spwmap
+
+
+
 def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
         fb_to_prev_solint=False, solints=[], iteration=0, plot=False, plot_directory="./"):
     tb.open(caltable, nomodify=plot) # Because we only modify if we aren't plotting, i.e. in the selfcal loop itself plot=False

@@ -451,7 +451,8 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
             selfcal_plan[target][band]['solint_settings'][solint]['preapply_this_gaintable']=False
             selfcal_plan[target][band]['solint_settings'][solint]['gaincal_preapply_gaintable']=[]
             selfcal_plan[target][band]['solint_settings'][solint]['gaincal_spwmap']=[]
-            selfcal_plan[target][band]['solint_settings'][solint]['gaincal_combine']=''
+            selfcal_plan[target][band]['solint_settings'][solint]['gaincal_combine']=[]
+            selfcal_plan[target][band]['solint_settings'][solint]['filename_append']=[]
             selfcal_plan[target][band]['solint_settings'][solint]['gaincal_interpolate']=[]
             selfcal_plan[target][band]['solint_settings'][solint]['applycal_gaintable']=[]
             selfcal_plan[target][band]['solint_settings'][solint]['applycal_spwmap']=[]
@@ -462,32 +463,52 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
             min_SNR_spw=get_min_SNR_spw(selfcal_plan[target]['Band_8']['solint_snr_per_spw'][solint])
             min_SNR_bb=get_min_SNR_spw(selfcal_plan[target]['Band_8']['solint_snr_per_bb'][solint])
             selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')
-            if min_SNR_spw > 2.0 : 
-               selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
-               selfcal_plan[target][band]['solint_settings'][solint]['preapply_this_gaintable']=True
-            if min_SNR_bb > 2.0 and maxspws_per_bb > 1.0:  # only do the per baseband solutions if there are more than 1
-               selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
-               selfcal_plan[target][band]['solint_settings'][solint]['preapply_this_gaintable']=True
-            if '_ap' in solint:
-               selfcal_plan[target][band]['solint_settings'][solint]['solmode']='ap'
-            else:
-               selfcal_plan[target][band]['solint_settings'][solint]['solmode']='p'
-            if solint == 'inf_EB':
-               selfcal_plan[target][band]['solint_settings'][solint]['gaincal_gaintype']='G'
-            if 'spw' in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']:
+            if 'spw' not in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']:
+                if min_SNR_spw > 2.0 : 
+                   selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
+                   selfcal_plan[target][band]['solint_settings'][solint]['preapply_this_gaintable']=True
+                if min_SNR_bb > 2.0 and maxspws_per_bb > 1.0:  # only do the per baseband solutions if there are more than 1
+                   selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
+                   selfcal_plan[target][band]['solint_settings'][solint]['preapply_this_gaintable']=True
+                if '_ap' in solint:
+                   selfcal_plan[target][band]['solint_settings'][solint]['solmode']='ap'
+                else:
+                   selfcal_plan[target][band]['solint_settings'][solint]['solmode']='p'
+                if solint == 'inf_EB':
+                   selfcal_plan[target][band]['solint_settings'][solint]['gaincal_gaintype']='G'
+            for l in len(selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt']):
+                mode = selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'][l]
+                if mode =='combinespw':
+                   gaincal_combine+='spw'
+                   filename_append='combinespw'
+                if mode == 'per_spw':
+                   gaincal_combine=''
+                   filename_append='per_spw'
+                if mode == 'per_bb':
+                   gaincal_combine='spw'
+                   filename_append='per_bb'
+                   if 'inf_EB' in solint:
+                      if gaincal_combine!='':
+                         gaincal_combine+=','
+                      gaincal_combine+='scan'
+                selfcal_plan[target][band]['solint_settings'][solint]['gaincal_combine'].append(gaincal_combine)
+                selfcal_plan[target][band]['solint_settings'][solint]['filename_append'].appendfilename_append)
+                   
+                    
+                      
+                  
 
-'''
-            for fid in selfcal_library[target][band]['sub-fields']:
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['gaincal_preapply_gaintable']={}
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['gaincal_spwmap']={}
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['gaincal_interpolate']={}
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['applycal_gaintable']={}
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['applycal_spwmap']={}
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['applycal_interpolate']={}
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['fallback']={}
-               selfcal_plan[target][band][fid]['solint_settings'][solint]['modes_to_attempt']={}
-##
-'''
+            
+            #for fid in selfcal_library[target][band]['sub-fields']:
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['gaincal_preapply_gaintable']={}
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['gaincal_spwmap']={}
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['gaincal_interpolate']={}
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['applycal_gaintable']={}
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['applycal_spwmap']={}
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['applycal_interpolate']={}
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['fallback']={}
+            #   selfcal_plan[target][band][fid]['solint_settings'][solint]['modes_to_attempt']={}
+            
 
 def set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=-99.0, rel_thresh_scaling='log10', telescope='ALMA'):
     for target in selfcal_library:
