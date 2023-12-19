@@ -54,7 +54,7 @@ def prepare_selfcal(vislist,
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
     ##
-    split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
+    #split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
 
     ##
     ## put flagging back at original state for originally input ms for when they are used next time
@@ -306,10 +306,11 @@ def prepare_selfcal(vislist,
           #PS: We now track spws on an EB by EB basis soI have removed much of the maxspwvis code.
           spw_bandwidths_dict={}
           spw_effective_bandwidths_dict={}
+          spw_freqs_dict={}
           for vis in selfcal_library[target][band]['vislist']:
              selfcal_library[target][band][vis]['per_spw_stats'] = {}
               
-             spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+             spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
 
              selfcal_library[target][band][vis]['total_bandwidth']=0.0
              selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
@@ -326,14 +327,19 @@ def prepare_selfcal(vislist,
 
                 selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths_dict[vis][spw]
                 selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths_dict[vis][spw]
+                selfcal_library[target][band][vis]['per_spw_stats'][spw]['frequency']=spw_freqs_dict[vis][spw]
                 selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
                 selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths_dict[vis][spw]
              for baseband in selfcal_library[target][band][vis]['baseband'].keys():
                 selfcal_library[target][band][vis]['baseband'][baseband]['total_bandwidth']=0.0
                 selfcal_library[target][band][vis]['baseband'][baseband]['total_effective_bandwidth']=0.0
-                for spw in selfcal_library[target][band][vis]['baseband'][baseband]['spwarray']:
-                   selfcal_library[target][band][vis]['baseband'][baseband]['bwarray']=spw_bandwidths_dict[vis][spw]
-                   selfcal_library[target][band][vis]['baseband'][baseband]['eff_bwarray']=spw_effective_bandwidths_dict[vis][spw]
+                selfcal_library[target][band][vis]['baseband'][baseband]['bwarray']=np.zeros(len(selfcal_library[target][band][vis]['baseband'][baseband]['spwarray']))
+                selfcal_library[target][band][vis]['baseband'][baseband]['eff_bwarray']=np.zeros(len(selfcal_library[target][band][vis]['baseband'][baseband]['spwarray']))
+                selfcal_library[target][band][vis]['baseband'][baseband]['freq_array']=np.zeros(len(selfcal_library[target][band][vis]['baseband'][baseband]['spwarray']))
+                for s, spw in enumerate(selfcal_library[target][band][vis]['baseband'][baseband]['spwarray']):
+                   selfcal_library[target][band][vis]['baseband'][baseband]['bwarray'][s]=spw_bandwidths_dict[vis][spw]
+                   selfcal_library[target][band][vis]['baseband'][baseband]['eff_bwarray'][s]=spw_effective_bandwidths_dict[vis][spw]
+                   selfcal_library[target][band][vis]['baseband'][baseband]['freq_array'][s]=spw_freqs_dict[vis][spw]
                    selfcal_library[target][band][vis]['baseband'][baseband]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
                    selfcal_library[target][band][vis]['baseband'][baseband]['total_effective_bandwidth']+=spw_bandwidths_dict[vis][spw]
           for fid in selfcal_library[target][band]['sub-fields']:
@@ -342,29 +348,33 @@ def prepare_selfcal(vislist,
               for vis in selfcal_library[target][band][fid]['vislist']:
                   selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
 
-                  spw_bandwidths,spw_effective_bandwidths=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+                  spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
 
                   selfcal_library[target][band][fid][vis]['total_bandwidth']=0.0
                   selfcal_library[target][band][fid][vis]['total_effective_bandwidth']=0.0
-                  if len(spw_effective_bandwidths.keys()) != len(spw_bandwidths.keys()):
+                  if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
                      print('cont.dat does not contain all spws; falling back to total bandwidth')
-                     for spw in spw_bandwidths.keys():
-                        if spw not in spw_effective_bandwidths.keys():
-                           spw_effective_bandwidths[spw]=spw_bandwidths[spw]
+                     for spw in spw_bandwidths_dict[vis].keys():
+                        if spw not in spw_effective_bandwidths[vis].keys():
+                           spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths[spw]
                   for spw in selfcal_library[target][band][fid][vis]['spwlist']:
                      keylist=selfcal_library[target][band][fid][vis]['per_spw_stats'].keys()
                      if spw not in keylist:
                         selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]={}
-                     selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths[spw]
-                     selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths[spw]
-                     selfcal_library[target][band][fid][vis]['total_bandwidth']+=spw_bandwidths[spw]
-                     selfcal_library[target][band][fid][vis]['total_effective_bandwidth']+=spw_effective_bandwidths[spw]
+                     selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths_dict[vis][spw]
+                     selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths_dict[vis][spw]
+                     selfcal_library[target][band][fid][vis]['per_spw_stats'][spw]['frequency']=spw_freqs_dict[vis][spw]
+                     selfcal_library[target][band][fid][vis]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
+                     selfcal_library[target][band][fid][vis]['total_effective_bandwidth']+=spw_effective_bandwidths_dict[vis][spw]
+
                   for baseband in selfcal_library[target][band][fid][vis]['baseband'].keys():
                      selfcal_library[target][band][fid][vis]['baseband'][baseband]['total_bandwidth']=0.0
                      selfcal_library[target][band][fid][vis]['baseband'][baseband]['total_effective_bandwidth']=0.0
-                     for spw in selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwarray']:
-                        selfcal_library[target][band][fid][vis]['baseband'][baseband]['bwarray']=spw_bandwidths_dict[vis][spw]
-                        selfcal_library[target][band][fid][vis]['baseband'][baseband]['eff_bwarray']=spw_effective_bandwidths_dict[vis][spw]
+                     selfcal_library[target][band][fid][vis]['baseband'][baseband]['freq_array']=np.zeros(len(selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwarray']))
+                     for s, spw in enumerate(selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwarray']):
+                        selfcal_library[target][band][vis]['baseband'][baseband]['bwarray'][s]=spw_bandwidths_dict[vis][spw]
+                        selfcal_library[target][band][vis]['baseband'][baseband]['eff_bwarray'][s]=spw_effective_bandwidths_dict[vis][spw]
+                        selfcal_library[target][band][vis]['baseband'][baseband]['freq_array'][s]=spw_freqs_dict[vis][spw]
                         selfcal_library[target][band][fid][vis]['baseband'][baseband]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
                         selfcal_library[target][band][fid][vis]['baseband'][baseband]['total_effective_bandwidth']+=spw_bandwidths_dict[vis][spw]
 
@@ -440,13 +450,16 @@ def prepare_selfcal(vislist,
 def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
    for target in selfcal_library.keys():
       for band in selfcal_library[target].keys():
+         gaincal_combine=''
+         filename_append=''
          maxspws_per_bb=0
+         vis=selfcal_library[target][band]['vislist'][0]
          for baseband in selfcal_library[target][band][vis]['baseband'].keys():
             if selfcal_library[target][band][vis]['baseband'][baseband]['nspws']> maxspws_per_bb:
                maxspws_per_bb=selfcal_library[target][band][vis]['baseband'][baseband]['nspws']+0.0
 
          selfcal_plan[target][band]['solint_settings']={}
-         for solint in selfcal_plan[target]['Band_8']['solints']:
+         for solint in selfcal_plan[target][band]['solints']:
             selfcal_plan[target][band]['solint_settings'][solint]={}
             selfcal_plan[target][band]['solint_settings'][solint]['preapply_this_gaintable']=False
             selfcal_plan[target][band]['solint_settings'][solint]['gaincal_preapply_gaintable']=[]
@@ -460,8 +473,8 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
             selfcal_plan[target][band]['solint_settings'][solint]['final_mode']=''
             selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt']=[]
             selfcal_plan[target][band]['solint_settings'][solint]['gaincal_gaintype']='T'
-            min_SNR_spw=get_min_SNR_spw(selfcal_plan[target]['Band_8']['solint_snr_per_spw'][solint])
-            min_SNR_bb=get_min_SNR_spw(selfcal_plan[target]['Band_8']['solint_snr_per_bb'][solint])
+            min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_spw'][solint])
+            min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_bb'][solint])
             selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')
             if 'spw' not in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']:
                 if min_SNR_spw > 2.0 : 
@@ -476,7 +489,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
                    selfcal_plan[target][band]['solint_settings'][solint]['solmode']='p'
                 if solint == 'inf_EB':
                    selfcal_plan[target][band]['solint_settings'][solint]['gaincal_gaintype']='G'
-            for l in len(selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt']):
+            for l in range(len(selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'])):
                 mode = selfcal_plan[target][band]['solint_settings'][solint]['modes_to_attempt'][l]
                 if mode =='combinespw':
                    gaincal_combine+='spw'
@@ -492,7 +505,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
                          gaincal_combine+=','
                       gaincal_combine+='scan'
                 selfcal_plan[target][band]['solint_settings'][solint]['gaincal_combine'].append(gaincal_combine)
-                selfcal_plan[target][band]['solint_settings'][solint]['filename_append'].appendfilename_append)
+                selfcal_plan[target][band]['solint_settings'][solint]['filename_append'].append(filename_append)
                    
                     
                       

@@ -306,7 +306,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                                  field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                                  interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
                                  append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+filename_append+'.g'))
-                     else:
+                      else:
                         for baseband in selfcal_library[vis]['baseband'].keys():
                              spwselect_bb=selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwstring']
                              gaincal(vis=vis,\

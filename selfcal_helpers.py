@@ -1503,15 +1503,19 @@ def get_spw_chanwidths(vis,spwarray):
 
 def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
    spwbws={}
+   spwfreqs={}
    for spw in spwsarray_dict[vis]:
       tb.open(vis+'/SPECTRAL_WINDOW')
       spwbws[spw]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spw, nrow = 1)))[0]/1.0e9 # put bandwidths into GHz
       tb.close()
+      msmd.open(vis)
+      spwfreqs[spw]=msmd.meanfreq(spw)
+      msmd.close()
    spweffbws=spwbws.copy()
    if os.path.exists("cont.dat"):
       spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict)
 
-   return spwbws,spweffbws
+   return spwbws,spweffbws,spwfreqs
 
 
 def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
@@ -2947,6 +2951,7 @@ def get_phasecenter(vis,field):
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
 
+
 def get_flagged_solns_per_spw(spwlist,gaintable):
      # Get the antenna names and offsets.
      msmd = casatools.msmetadata()
@@ -2966,7 +2971,6 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
      # Calculate a score based on those two.
      return nflags, nunflagged,fracflagged
-
 
 def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan):
    # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
@@ -3051,7 +3055,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    polscale=2.0
    if selfcal_plan['solint_settings'][solint]['gaincal_gaintype']=='T':
      polscale=1.0
-   spwlist=selfcal_libraray[vis]['spwlist']
+   spwlist=selfcal_library[vis]['spws'].split(',')
    # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
    max_flagged_ants_combspw=2.0
    # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
@@ -3060,36 +3064,43 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    map_index=-1
    min_spwmap_bw=0.0
    spwmap=[False]*len(spwlist)
-   for loop here to get fraction flagged, unflagged, and flag fraction per mode
+   #for loop here to get fraction flagged, unflagged, and flag fraction per mode
    selfcal_plan['solint_settings'][solint]['nflags']={}
    selfcal_plan['solint_settings'][solint]['nunflagged']={}
    selfcal_plan['solint_settings'][solint]['fracflagged']={}
    selfcal_plan['solint_settings'][solint]['delta_nflags']={}
+   selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']={}
    for l in range(len(selfcal_plan['solint_settings'][solint]['modes_to_attempt'])):
       mode =    selfcal_plan['solint_settings'][solint]['modes_to_attempt'][l]
-     gaintable=gaintable_prefix+selfcal_plan['solint_settings'][solint]['filename_append'][l]+'.g'
+      gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan['solint_settings'][solint]['filename_append'][l]+'.g'
+      print(gaintable)
       if mode=='combinespw':
-         selfcal_plan['solint_settings'][solint]['nflags'][mode],selfcal_plan['solint_settings'][solint]['nunflagged'][mode],selfcal_plan['solint_settings'][solint]['fracflagged']=get_flagged_solns_per_spw([spwlist[0]],gaintable)
-         selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']=np.min(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale
+         selfcal_plan['solint_settings'][solint]['nflags'][mode],selfcal_plan['solint_settings'][solint]['nunflagged'][mode],selfcal_plan['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw([spwlist[0]],gaintable)
+         selfcal_plan['solint_settings'][solint]['minimum_flagged_ants'][mode]=np.min(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale
 
       if mode=='per_spw':
          selfcal_plan['solint_settings'][solint]['nflags'][mode],selfcal_plan['solint_settings'][solint]['nunflagged'][mode],selfcal_plan['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw(spwlist,gaintable)
-
-   
+         for s, spw in enumerate(spwlist):
+            selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']=selfcal_plan['solint_settings'][solint]['nflags'][mode][s]
+            selfcal_library[vis]['per_spw_stats'][int(spw)]['nunflagged']=selfcal_plan['solint_settings'][solint]['nunflagged'][mode][s]
+            selfcal_library[vis]['per_spw_stats'][int(spw)]['fracflagged']=selfcal_plan['solint_settings'][solint]['fracflagged'][mode][s]
       if mode == 'per_bb':
-         baseband_scale=np.float(len(selfcal_library[vis]['baseband'].keys()))
+         baseband_scale=float(len(selfcal_library[vis]['baseband'].keys()))
          nflags=0
          nunflagged=0
          fracflagged=0.0
          for baseband in selfcal_library[vis]['baseband'].keys():
-            nflags,nunflagged,fracflagged+=get_flagged_solns_per_spw(selfcal_library[vis]['baseband'][baseband]['spwlist'][0],gaintable)
+            nflags_temp,nunflagged_temp,fracflagged_temp=get_flagged_solns_per_spw([str(selfcal_library[vis]['baseband'][baseband]['spwlist'][0])],gaintable)
+            nflags+=nflags_temp[0]
+            nunflagged+=nunflagged_temp[0]
+         fracflagged=nflags/(nflags+nunflagged)
          selfcal_plan['solint_settings'][solint]['nflags'][mode]=nflags
          selfcal_plan['solint_settings'][solint]['nunflagged'][mode]=nunflagged
          selfcal_plan['solint_settings'][solint]['fracflagged'][mode]=nflags/(nflags+nunflagged)
       else:
          baseband_scale=1.0
 
-      selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']=np.min(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale/baseband_scale 
+      selfcal_plan['solint_settings'][solint]['minimum_flagged_ants'][mode]=np.min(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale/baseband_scale 
       selfcal_plan['solint_settings'][solint]['maximum_flagged_ants']=np.max(selfcal_plan['solint_settings'][solint]['nflags'][mode])/polscale
    if 'per_spw' in selfcal_plan['solint_settings'][solint]['modes_to_attempt']:
       selfcal_plan['solint_settings'][solint]['delta_nflags']['per_spw']=np.array(selfcal_plan['solint_settings'][solint]['nflags']['per_spw'])/polscale-selfcal_plan['solint_settings'][solint]['minimum_flagged_ants']['combinespw']
@@ -3128,52 +3139,104 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
 
    #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    if 'per_spw' in selfcal_plan['solint_settings'][solint]['modes_to_attempt'] and (preferred_mode=='combine_spw' or preferred_mode=='per_bb'):
-   for i in range(len(spwlist)):
-      if np.min(selfcal_plan['solint_settings'][solint]['delta_nflags']['per_spw'][i]) > max_flagged_ants_spwmap:
-         fallback='spwmap'
-         spwmap[i]=True
-         if total_bws[i] > min_spwmap_bw:
-            min_spwmap_bw=total_bws[i]
-   #also spwmap spws with similar bandwidths to the others that are getting mapped, avoid low S/N solutions
-   ### REFACTOR - want to find the maximum bw spws that are also closest in frequency to the window to be replaced
-   # Here need to find all the ones that are the minimum flagging, and max bw, not just a random one
-   if fallback=='spwmap':
-      for i in range(len(spwlist)):
-         if total_bws[i] <= min_spwmap_bw:
-            spwmap[i]=True
-      if all(spwmap):
-         fallback=''
-   #want the widest bandwidth window that also has the minimum flags to use for spw mapping 
-   # need to change this to pick the window in the same baseband with the closest frequency
-   applycal_spwmap=[]
-   if fallback=='spwmap':
-      minflagged_index=(np.array(nflags)/2.0 == minimum_flagged_ants_per_spw).nonzero()
-      max_bw_index = (eff_bws == np.max(eff_bws[minflagged_index[0]])).nonzero()
-      max_bw_min_flags_index=np.intersect1d( minflagged_index[0],max_bw_index[0])
-      #if len(max_bw_min_flags_index) > 1:
-      #don't need the conditional since this works with array lengths of 1
-      map_index=max_bw_min_flags_index[np.argmax(eff_bws[max_bw_min_flags_index])]   
-      #else:
-      #   map_index=max_bw_min_flags_index[0]
-      
-      #make spwmap list that first maps everything to itself, need max spw to make that list
-      maxspw=np.max(selfcal_library[vis]['spwsarray']+1)
-      applycal_spwmap_int_list=list(np.arange(maxspw))
-      for i in range(len(applycal_spwmap_int_list)):
-         applycal_spwmap.append(applycal_spwmap_int_list[i])
+       for i in range(len(spwlist)):
+          if np.min(selfcal_plan['solint_settings'][solint]['delta_nflags']['per_spw'][i]) > max_flagged_ants_spwmap:
+             fallback='spwmap'
+             spwmap[i]=True
+             if total_bws[i] > min_spwmap_bw:
+                min_spwmap_bw=total_bws[i]
+       #also spwmap spws with similar bandwidths to the others that are getting mapped, avoid low S/N solutions
+       ### REFACTOR - want to find the maximum bw spws that are also closest in frequency to the window to be replaced
+       # Here need to find all the ones that are the minimum flagging, and max bw, not just a random one
+       if fallback=='spwmap':
+          for i in range(len(spwlist)):
+             if total_bws[i] <= min_spwmap_bw:
+                spwmap[i]=True
+          if all(spwmap):
+             fallback=''
+       #want the widest bandwidth window that also has the minimum flags to use for spw mapping 
+       # need to change this to pick the window in the same baseband with the closest frequency
+       applycal_spwmap=[]
+       if fallback=='spwmap':
+          minflagged_index=(np.array(nflags)/2.0 == minimum_flagged_ants_per_spw).nonzero()
+          max_bw_index = (eff_bws == np.max(eff_bws[minflagged_index[0]])).nonzero()
+          max_bw_min_flags_index=np.intersect1d( minflagged_index[0],max_bw_index[0])
+          #if len(max_bw_min_flags_index) > 1:
+          #don't need the conditional since this works with array lengths of 1
+          map_index=max_bw_min_flags_index[np.argmax(eff_bws[max_bw_min_flags_index])]   
+          #else:
+          #   map_index=max_bw_min_flags_index[0]
+          
+          #make spwmap list that first maps everything to itself, need max spw to make that list
+          maxspw=np.max(selfcal_library[vis]['spwsarray']+1)
+          applycal_spwmap_int_list=list(np.arange(maxspw))
+          for i in range(len(applycal_spwmap_int_list)):
+             applycal_spwmap.append(applycal_spwmap_int_list[i])
 
-      #REFACTOR - here need to include a routine to find the spw that is also closest in frequency, and the same baseband and has a minimum of flagging
-      #replace the elements that require spwmapping (spwmap[i] == True
-      for i in range(len(spwmap)):
-         print(i,spwlist[i],spwmap[i])
-         if spwmap[i]:
-            applycal_spwmap[int(spwlist[i])]=int(spwlist[map_index])
-      # always fallback to combinespw for spectral scans
-      if fallback !='' and spectral_scan:
-         fallback=''
+          #REFACTOR - here need to include a routine to find the spw that is also closest in frequency, and the same baseband and has a minimum of flagging
+          #replace the elements that require spwmapping (spwmap[i] == True
+          for i in range(len(spwmap)):
+             print(i,spwlist[i],spwmap[i])
+             if spwmap[i]:
+                mapped_spw=get_nearest_wide_bw_spw(selfcal_library,vis,i)
+                applycal_spwmap[int(spwlist[i])]=int(mapped_spw)
+          # always fallback to combinespw for spectral scans
+          if fallback !='' and spectral_scan:
+             fallback=''
    return preferred_mode,fallback,map_index,spwmap,applycal_spwmap
 
+def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
+    mapped_spw=-99
+    spwfreq=selfcal_library[vis]['per_spw_stats'][spw]['frequency']
+    spwbw=selfcal_library[vis]['per_spw_stats'][spw]['bandwidth']
+    spwflags=selfcal_library[vis]['per_spw_stats'][spw]['nflags']
+    def find_nearest(array, value):
+        array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return idx
+    spw_baseband=''
+    for baseband in selfcal_library[vis]['baseband'].keys():
+        if spw in selfcal_library[vis]['baseband'][baseband]['spwarray'] and len(selfcal_library[vis]['baseband'][baseband]['spwarray']) > 1:
+            spw_baseband=baseband
 
+    if spw_baseband !='':
+        # remove spw in question here from spw lists
+        spw_index=np.where(spw ==selfcal_library[vis]['baseband'][baseband]['spwarray'])
+        subarray_freqs=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['freq_array'],spw_index[0][0])
+        subarray_spws=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['spwarray'],spw_index[0][0])
+        subarray_bws=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['bwarray'],spw_index[0][0])
+        # find spw with larger bandwidths
+        gt_bw_index=np.where(subarray_bws >= spwbw)
+        if len(gt_bw_index[0]) == 0:
+            return -99
+        else:
+            subarray_freqs=subarray_freqs[gt_bw_index[0]]
+            subarray_spws=subarray_spws[gt_bw_index[0]]
+            subarray_bws=subarray_bws[gt_bw_index[0]]
+            subarray_flags=np.zeros(len(subarray_freqs))
+            for s, sub_spw in enumerate(subarray_spws):
+                subarray_flags[s]= selfcal_library[vis]['per_spw_stats'][sub_spw]['nflags']
+                subarray_unflags[s]= selfcal_library[vis]['per_spw_stats'][sub_spw]['nunflagged']
+                subarray_fracflags[s]= selfcal_library[vis]['per_spw_stats'][sub_spw]['fracflagged']
+            subarray_frac_freqdiffs=np.abs((subarray_freqs-spwfreq)/spwfreq)
+            # compute a score based on the fractional frequency difference and the flagging fraction, select minumum
+            score=subarray_frac_freqdiffs+subarray_fracflags
+            index_best=np.argmin(score)
+  
+        index=find_nearest(subarray_freqs,spwfreq)
+        mapped_spw=subarray_spws[index]
+    else: # if cannot find a baseband (not sure why this would ever happen) search through spws
+        nspws=len(selfcal_library[vis]['per_spw_stats'].keys())
+        score=np.zeros(nspws)
+        subarray_spws=np.zeros(nspws)
+        for s, key in enumerate(selfcal_library[vis]['per_spw_stats'].keys()):
+            if key != spw:
+                fracfreqdiff=np.abs((selfcal_library[vis]['per_spw_stats'][key]['frequency']-spwfreq)/spwfreq)
+                score[s]=fracfreqdiff+selfcal_library[vis]['per_spw_stats'][key]['fracflagged']
+                subarray_spws[s]=int(key)
+        index=np.argmin(score)
+        mapped_spw=subarray_spws(index)
+    return mapped_spw
 
 def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
         fb_to_prev_solint=False, solints=[], iteration=0, plot=False, plot_directory="./"):
