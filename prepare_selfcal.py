@@ -54,7 +54,7 @@ def prepare_selfcal(vislist,
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
     ##
-    #split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
+    split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
 
     ##
     ## put flagging back at original state for originally input ms for when they are used next time
@@ -448,11 +448,18 @@ def prepare_selfcal(vislist,
     return selfcal_library, selfcal_plan, gaincalibrator_dict
 
 def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
+   # there are some extra keys in this dictionary that stem from how my thinking was orginally and how it evolved
+   # the current philosophy is that for each solint it will specify how to apply each gain table, and if it should 
+   # be pre-applied for gaincal solves. Then in gaincal wrapper, the parameters for preapplying all tables and for applying
+   # them are accumulated together for the execution of gaincal and applycal.
+   #
+   # The accumulated parameters for gaincal and applycal are then stored in the selfcal_library for each solution interval
+   #
+   #
+   # 
    for target in selfcal_library.keys():
       for band in selfcal_library[target].keys():
          for vis in selfcal_library[target][band]['vislist']:
-             gaincal_combine=''
-             filename_append=''
              maxspws_per_bb=0
              if selfcal_library[target][band]['meanfreq'] > 12.0e9:
                 applycal_interp='linearPD'
@@ -464,6 +471,8 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
 
              selfcal_plan[target][band][vis]['solint_settings']={}
              for solint in selfcal_plan[target][band]['solints']:
+                gaincal_combine=''
+                filename_append=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]={}
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=False
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_preapply_gaintable']=[]
@@ -476,6 +485,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']={}
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_interpolate']=applycal_interp
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['final_mode']=''
+                selfcal_plan[target][band][vis]['solint_settings'][solint]['accepted_gaintable']=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype']='T'
                 min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_spw'][solint])

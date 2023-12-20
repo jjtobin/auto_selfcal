@@ -1128,7 +1128,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                      solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
       return solint_snr,solint_snr_per_spw,solint_snr_per_bb
 
-def get_SNR_self_update(selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
+def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_next,integration_time,solint_snr):
    maxspws=0
    maxspwvis=''
    for vis in selfcal_library['vislist']:
@@ -1143,10 +1143,10 @@ def get_SNR_self_update(selfcal_library,n_ant,solint_curr,solint_next,integratio
    solint_snr[solint_next]=SNR_ratio*solint_snr[solint_next]
 
    for spw in selfcal_library[maxspwvis]['spwsarray']:
-      solint_snr_per_spw[solint_next][str(spw)]=solint_snr_per_spw[solint_next][str(spw)]*SNR_ratio
+      selfcal_plan['solint_snr_per_spw'][solint_next][str(spw)]=selfcal_plan['solint_snr_per_spw'][solint_next][str(spw)]*SNR_ratio
 
    for baseband in selfcal_library[vis]['baseband']:
-      solint_snr_per_bb[solint_next][baseband]=solint_snr_per_bb[solint_next][baseband]*SNR_ratio
+      selfcal_plan['solint_snr_per_bb'][solint_next][baseband]=selfcal_plan['solint_snr_per_bb'][solint_next][baseband]*SNR_ratio
 
 
 
@@ -3050,14 +3050,13 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint):
    #may need a scale factor for the number of individual solutions in time to take care of the non inF_EB gain tables
-
    selected_mode='combinespw'
    polscale=2.0
    if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype']=='T':
      polscale=1.0
    spwlist=selfcal_library[vis]['spws'].split(',')
    # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
-   max_flagged_ants_combspw=2.0
+   max_flagged_ants_per_spw=2.0
    # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
    max_flagged_ants_spwmap=1.0
    fallback=''
@@ -3070,7 +3069,8 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']={}
    selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']={}
    for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
-      gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]+'.g'
+      gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]+'.g'
+      print(gaintable)
       print(gaintable)
       if mode=='combinespw':
          selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw([spwlist[0]],gaintable)
@@ -3118,19 +3118,30 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    #choose between per_spw and per_bb if both exist
    preferred_mode=''
    if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+      print('Checking flagging per_spw, per_bb: ',selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_spw'],selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_bb'])
       if (selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_spw']<=selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_bb']):
          preferred_mode='per_spw'
       else:
          preferred_mode='per_bb'
    if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and 'combinespw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+      print('Checking flagging per_bb, combinespw: ',selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_bb'],selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['combinespw'])
       if (selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_bb']<=selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['combinespw']):   
          preferred_mode='per_bb'
       else:
          preferred_mode='combinespw'
+   if preferred_mode != 'combinespw':
+       if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and 'combinespw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+          print('Checking flagging per_spw, combinespw: ',selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_spw'],selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['combinespw'])
+          if (selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['per_spw']<=selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['combinespw']+max_flagged_ants_per_spw):
+             preferred_mode='per_spw'
+          else:
+             preferred_mode='combinespw'
 
-   #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
+
+   # if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
+   # if doing amplitude selfcal, spw mapping might not be the best idea
    applycal_spwmap=[]
-   if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and (preferred_mode=='combinespw' or preferred_mode=='per_bb'):
+   if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and (preferred_mode=='combinespw' or preferred_mode=='per_bb') and (selfcal_plan[vis]['solint_settings'][solint]['solmode'] !='ap'):
        for i in range(len(spwlist)):
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) > max_flagged_ants_spwmap:
              fallback='spwmap'
@@ -3156,7 +3167,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
           # always fallback to combinespw for spectral scans
           if fallback !='' and selfcal_library['spectral_scan']:
              fallback=''
-          if fallback==cp'spwmap':
+          if fallback=='spwmap':
              preferred_mode='per_spw'
    return preferred_mode,fallback,spwmap,applycal_spwmap
 

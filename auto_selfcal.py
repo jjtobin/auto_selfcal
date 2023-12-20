@@ -60,6 +60,7 @@ allow_gain_interpolation=False
 guess_scan_combine=False
 aca_use_nfmask=False
 allow_cocal=False
+debug=False
 scale_fov=1.0   # option to make field of view larger than the default
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
@@ -246,7 +247,7 @@ for target in selfcal_library:
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
            gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine, \
-           aca_use_nfmask=aca_use_nfmask)
+           aca_use_nfmask=aca_use_nfmask,debug=debug)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 

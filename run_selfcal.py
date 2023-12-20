@@ -16,7 +16,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False, \
-        gaincalibrator_dict={}, allow_gain_interpolation=False, guess_scan_combine=False, aca_use_nfmask=False):
+        gaincalibrator_dict={}, allow_gain_interpolation=False, guess_scan_combine=False, aca_use_nfmask=False,debug=False):
 
    # If we are running this on a mosaic, we want to rerank reference antennas and have a higher gaincal_minsnr by default.
 
@@ -77,8 +77,13 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
           if "inf" not in selfcal_plan['solints']:
               continue
 
-      if 'ap' in selfcal_plan['solints'][iteration] and not do_amp_selfcal:
-          break
+      if 'ap' in selfcal_plan['solints'][iteration]:
+         if not do_amp_selfcal:  # exit selfcal if we're not doing amplitude selfcal
+            break
+         # make sure the last phase-only selfcal table gets pre-applied
+         # solints that use combinespw don't get pre-apply label by default
+         selfcal_plan[vis]['solint_settings'][selfcal_library['final_phase_solint']]['preapply_this_gaintable']=True
+         
 
       if mode == "selfcal" and selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
          print('*********** estimated SNR for solint='+selfcal_plan['solints'][iteration]+' too low, measured: '+str(selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
@@ -121,11 +126,12 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              resume = False
 
          nfsnr_modifier = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
-         tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                     band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
-                     threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
-                     savemodel='none',parallel=parallel,
-                     field=target, nfrms_multiplier=nfsnr_modifier, resume=resume)
+         if not os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
+             tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
+                         band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                         threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
+                         savemodel='none',parallel=parallel,
+                         field=target, nfrms_multiplier=nfsnr_modifier, resume=resume)
 
          # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
          # code will break.
@@ -390,6 +396,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                    selfcal_library[vis][solint]['Fail_Reason']='None'
                 if selfcal_plan['solmode'][iteration]=='p':            
                    selfcal_library['final_phase_solint']=solint
+
                 selfcal_library['final_solint']=solint
                 selfcal_library['final_solint_mode']=selfcal_plan['solmode'][iteration]
                 selfcal_library['iteration']=iteration
@@ -533,13 +540,13 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                      selfcal_library['SNR_orig']): #(iteration == 0) and 
                 print('Updating solint = '+selfcal_plan['solints'][iteration+1]+' SNR')
                 print('Was: ',selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]])
-                get_SNR_self_update(selfcal_library,n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan['integration_time'],
+                get_SNR_self_update(selfcal_library,selfcal_plan,n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan['integration_time'],
                         selfcal_plan['solint_snr'])
                 print('Now: ',selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]])
 
                 for fid in selfcal_library['sub-fields-to-selfcal']:
                     print('Field '+str(fid)+' Was: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
-                    get_SNR_self_update(selfcal_library[fid],n_ants,solint,selfcal_plan['solints'][iteration+1],
+                    get_SNR_self_update(selfcal_library[fid],selfcal_plan,n_ants,solint,selfcal_plan['solints'][iteration+1],
                             selfcal_plan['integration_time'],selfcal_plan[fid]['solint_snr_per_field'])
                     print('FIeld '+str(fid)+' Now: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
 
