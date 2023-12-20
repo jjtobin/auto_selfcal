@@ -341,18 +341,18 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         gaintable_prefix=sani_target+'_'+vis+'_'+band+'_'
         # assume that if there is only one mode to attempt, that it is combinespw and don't bother checking.
         if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1:
-            preferred_mode,fallback,spwmap,applycal_spwmap = \
+            preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
                            select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
 
             if fallback=='spwmap':
-                selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode']['combinespw']=applycal_spwmap
+                selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode']['combinespw']=spwmapping_for_applycal
 
-            print(preferred_mode,solint,fallback,applycal_spwmap)
+            print(preferred_mode,solint,fallback,spwmapping_for_applycal)
         else:
             preferred_mode='combinespw'
             fallback=''
 
-            print(preferred_mode,solint,fallback,applycal_spwmap)
+            print(preferred_mode,solint,fallback,spwmapping_for_applycal)
 
         # Update the appropriate selfcal_library entries.
         selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
@@ -459,12 +459,12 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
         gaintable_prefix='temp_'
         if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1:
-            preferred_mode,fallback,spwmap,applycal_spwmap = \
+            preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
                            select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
         else:
             preferred_mode='combinespw'
             fallback=''
-        print(preferred_mode,solint,fallback,applycal_spwmap)
+        print(preferred_mode,solint,fallback,spwmapping_for_applycal)
         selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode
         selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
         applycal_spwmap.append(selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode])
