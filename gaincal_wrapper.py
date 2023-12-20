@@ -386,6 +386,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
 
     else:  # this else is for ap selfcal
+        os.system('rm -rf temp*.g')
         for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             gaincal_spwmap=[]
             gaincal_preapply_gaintable=[]
