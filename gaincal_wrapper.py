@@ -398,12 +398,9 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                  gaincal_spwmap.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['applycal_spwmap'])
                  gaincal_interpolate.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['applycal_interpolate'])
                  applycal_interpolate.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['applycal_interpolate'])
-            applycal_gaintable.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['computed_gaintable'])
+                 applycal_gaintable.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['accepted_gaintable'])
             selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype']='T' if applymode == "calflag" or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
             gaincal_solmode = "" if applymode == "calflag" or second_iter_solmode == "GSPLINE" else second_iter_solmode
-
-
-
 
             fallback=''
             if selfcal_plan['solmode'][iteration] == 'ap':
@@ -505,8 +502,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         subt.close()
 
         # commented so that we keep all the gain tables around
-        # once well-tested, we might remove the tables for the non-chosed modes to avoid generating too many useless files.  
-        #os.system("rm -rf temp.g")
+        # once well-tested, we might remove the tables for the non-chosen modes to avoid generating too many useless files.  
+        os.system('rm -rf '+'temp_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g')
 
     if rerank_refants:
         selfcal_library[vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')

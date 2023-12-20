@@ -126,8 +126,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              resume = False
 
          nfsnr_modifier = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
-         if not os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
-             tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
+         tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                          band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                          threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
                          savemodel='none',parallel=parallel,
