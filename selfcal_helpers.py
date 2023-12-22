@@ -2741,7 +2741,7 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                   gc_combine_mode='Per Baseband'
                if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'per_spw':
                   gc_combine_mode='Per SPW'
-               if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys():
+               if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys() and sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]=='spwmap':
                   gc_combine_mode='Per SPW + SPW Mapping'
                htmlOutSolint.writelines('<h4>Gaincal Combine Mode: <font color="red">'+gc_combine_mode+'</font></h4>\n')
                htmlOutSolint.writelines('<h4>ApplycalSPW Map: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
@@ -3173,7 +3173,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
                    fallback=''
                    break
                 applycal_spwmap[int(spwlist[i])]=int(mapped_spw)
-          # always fallback to combinespw for spectral scans
+          # never do spw mapping for spectral scans
           if fallback !='' and selfcal_library['spectral_scan']:
              fallback=''
           if fallback=='spwmap':
