@@ -5,7 +5,7 @@ import sys
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
-from gaincal_wrapper import gaincal_wrapper
+from gaincal_wrapper import gaincal_wrapper, generate_settings_for_combinespw_fallback
 from image_analysis_helpers import *
 from mosaic_helpers import *
 from applycal_wrapper import applycal_wrapper
@@ -50,6 +50,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
 
+   do_fallback_combinespw=False
    print('Starting selfcal procedure on: '+target+' '+band)
    for iteration in range(len(selfcal_plan['solints'])):
       if (iterjump !=-1) and (iteration < iterjump): # allow jumping to amplitude selfcal and not need to use a while loop
@@ -126,11 +127,14 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              resume = False
 
          nfsnr_modifier = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
+         
+         # we don't want to re-run tclean and gaincal if we're trying to fallback to combinespw
+#         if not do_fallback_combinespw:
          tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                         band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
-                         threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
-                         savemodel='none',parallel=parallel,
-                         field=target, nfrms_multiplier=nfsnr_modifier, resume=resume)
+                     band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                     threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
+                     savemodel='none',parallel=parallel,
+                     field=target, nfrms_multiplier=nfsnr_modifier, resume=resume)
 
          # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
          # code will break.
@@ -186,7 +190,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                         list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                      continue
 
-                gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, gaincal_minsnr, 
+                gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, gaincal_minsnr, gaincal_unflag_minsnr,
                         rerank_refants=rerank_refants, unflag_only_lbants=unflag_only_lbants, 
                         unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                         second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
@@ -217,6 +221,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                       threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
                       savemodel='none',parallel=parallel,
                       field=target, nfrms_multiplier=nfsnr_modifier)
+ 
+             do_fallback_combinespw=False  # turn off the fallback switch
 
              ##
              ## Do the assessment of the post- (and pre-) selfcal images.
@@ -382,6 +388,15 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                             else:
                                 selfcal_library[fid][vis][solint]['Pass'] = False
                     break
+                for vis in vislist:
+                    if selfcal_library[vis][solint]['final_mode']!='combinespw':
+                        do_fallback_combinespw=True
+                        break
+                if do_fallback_combinespw:
+                   for vis in vislist:
+                      generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration)
+                      iterjump=iteration 
+                      continue
 
                 selfcal_library['SC_success']=True
                 selfcal_library['Stop_Reason']='None'
