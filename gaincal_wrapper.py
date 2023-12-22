@@ -462,28 +462,32 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
         if preferred_mode != 'combinespw':   # preapply all non spwcombine gain tables
            selfcal_plan[vis]['solint_settings'][solint]['preapply_this_gaintable']=True
+
+
         filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][preferred_mode]
         selfcal_plan[vis]['solint_settings'][solint]['accepted_gaintable']=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g'
-        ##### send chosen subtable to this routine for final copying to the gain table we want.
-        tb.open('temp_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g')
-        subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
-        tb.close()
 
-        subt.copy(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g', deep=True)
-        subt.close()
+        for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+            ##### send chosen subtable to this routine for final copying to the gain table we want.
+            tb.open('temp_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+mode+'.g')
+            subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
+            tb.close()
 
-        # commented so that we keep all the gain tables around
-        # once well-tested, we might remove the tables for the non-chosen modes to avoid generating too many useless files.  
-        os.system('rm -rf '+'temp_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g')
+            subt.copy(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+mode+'.g', deep=True)
+            subt.close()
+
+            # commented so that we keep all the gain tables around
+            # once well-tested, we might remove the tables for the non-chosen modes to avoid generating too many useless files.  
+            os.system('rm -rf '+'temp_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+mode+'.g')
 
     if rerank_refants:
-        selfcal_library[vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')
+        selfcal_library[vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g')
 
         # If we are falling back to a previous solution interval on the unflagging, we need to make sure all tracks use a common 
         # reference antenna.
         if unflag_fb_to_prev_solint:
             for it, sint in enumerate(selfcal_plan['solints'][0:iteration+1]):
-                if not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'.g'):
+                if not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g'):
                     continue
 
                 # If a previous iteration went through the unflagging routine, it is possible that some antennas fell back to
@@ -491,13 +495,13 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 # a different time interval. So to be safe, we go back to the pre-pass solutions and then re-run the passing.
                 # We could probably check more carefully whether this is the case to avoid having to do this... but the 
                 # computing time isn't significant so it's easy just to run through again.
-                if os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'.pre-pass.g'):
-                    rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'.pre-pass.g', \
+                if os.path.exists(sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.pre-pass.g'):
+                    rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.pre-pass.g', \
                             refant=selfcal_library[vis]["refant"], refantmode=refantmode if 'inf_EB' not in sint else 'flex')
 
-                    os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'.g')
-                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'.pre-pass.g '+\
-                            sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'.g')
+                    os.system("rm -rf "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g')
+                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.pre-pass.g '+\
+                            sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g')
 
                     if sint == "inf_EB" and len(selfcal_library[vis][sint]["spwmap"][0]) > 0:
                         unflag_spwmap = selfcal_library[vis][sint]["spwmap"][0]
@@ -505,17 +509,17 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                         unflag_spwmap = []
 
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
-                            selfcal_plan['solmode'][it]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                            selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=selfcal_plan['solmode'][it]=="ap" if unflag_only_lbants and \
                             unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
                             spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=it)
                 else:
-                    rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'.g', \
+                    rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', \
                             refant=selfcal_library[vis]["refant"], refantmode=refantmode if 'inf_EB' not in sint else 'flex')
         else:
-            os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g '+\
-                    sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.pre-rerefant.g')
-            rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g', \
+            os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g '+\
+                    sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.pre-rerefant.g')
+            rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', \
                     refant=selfcal_library[vis]["refant"], refantmode=refantmode if 'inf_EB' not in solint else 'flex')
 
 
@@ -529,8 +533,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
     if applymode == "calonly":
         # Make a copy of the caltable before unflagging, for reference.
         os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                selfcal_plan['solmode'][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                selfcal_plan['solmode'][iteration]+'.pre-pass.g')
+                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.pre-pass.g')
 
         if solint == "inf_EB" and len(applycal_spwmap) > 0:
             unflag_spwmap = applycal_spwmap[0]
@@ -541,16 +545,16 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         selfcal_library[vis][solint]['unflagged_lbs'] = True
 
         unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                selfcal_plan['solmode'][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', flagged_fraction=0.25, solnorm=solnorm, \
                 only_long_baselines=selfcal_plan['solmode'][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                 unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                 fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=iteration)
 
     # Do some post-gaincal cleanup for mosaics.
     if selfcal_library['obstype'] == 'mosaic' or mode == "cocal":
-        os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g '+\
-                sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.pre-drop.g')
-        tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g', nomodify=False)
+        os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g '+\
+                sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.pre-drop.g')
+        tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', nomodify=False)
         antennas = tb.getcol("ANTENNA1")
         fields = tb.getcol("FIELD_ID")
         scans = tb.getcol("SCAN_NUMBER")
