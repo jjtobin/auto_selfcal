@@ -2735,16 +2735,16 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
-               if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
-                  if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys():
-                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == '':
-                        fallback_mode='None'
-                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'combinespw':
-                        fallback_mode='Combine SPW'
-                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'spwmap':
-                        fallback_mode='SPWMAP'
-                     htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
-               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
+               if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'combinespw':
+                  gc_combine_mode='Combine SPW'
+               if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'per_bb':
+                  gc_combine_mode='Per Baseband'
+               if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'per_spw':
+                  gc_combine_mode='Per SPW'
+               if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys():
+                  gc_combine_mode='Per SPW + SPW Mapping'
+               htmlOutSolint.writelines('<h4>Gaincal Combine Mode: <font color="red">'+gc_combine_mode+'</font></h4>\n')
+               htmlOutSolint.writelines('<h4>ApplycalSPW Map: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
 
 
                for ant in ant_list:
