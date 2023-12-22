@@ -3149,6 +3149,15 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
        if all(spwmap):
           fallback=''
 
+       # check if narrow windows are more flagged than wide windows
+       # returns string 'true', 'false', or 'identical_spw_bws'
+       # mapping can proceed except on'false'
+       # we really only want to bother mapping if windows are identical
+       # or if there are at a minimum three unique bandwidths and the most narrow are more flagged
+       if fallback == 'spwmap'
+           flagging_status=check_narrow_window_flagging(selfcal_library,vis) 
+           if flagging_status == 'false'
+              fallback=''
 
        if fallback=='spwmap':
           #make spwmap list that first maps everything to itself, need max spw to make that list
@@ -3170,6 +3179,32 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
           if fallback=='spwmap':
              preferred_mode='per_spw'
    return preferred_mode,fallback,spwmap,applycal_spwmap
+
+
+def check_narrow_window_flagging(selfcal_library,vis):  # return whether the narrows bws are flagged more than the widest
+    bandwidths=[]
+    for spw in selfcal_library[vis]['per_spw_stats'].keys():
+       bandwidths.append(selfcal_library[vis]['per_spw_stats'][spw]['bandwidth'])
+    unique_bws=list(set(bandwidths))
+    unique_bws.sort()
+    if len(unique_bws) == 1:
+       return 'identical_spw_bws'
+    if len(unique_bws) > 2:   # should just to baseband or combine spw
+        flags=np.zeros(len(unique_bws))
+        for b,bw in enumerate(unique_bws):
+            flags[b]=0.0
+            for spw in selfcal_library[vis]['per_spw_stats'].keys():
+               if bw == selfcal_library[vis]['per_spw_stats'][spw]['bandwidth']:
+                  flags[b]+=selfcal_library[vis]['per_spw_stats'][spw]['nflags']
+        if flags[0] > flags[1] >= flags[-1]: 
+           return 'true'
+        else:
+           return 'false'
+    else:
+       return 'false'
+
+
+
 
 def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
     mapped_spw=-99
