@@ -3154,9 +3154,9 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
        # mapping can proceed except on'false'
        # we really only want to bother mapping if windows are identical
        # or if there are at a minimum three unique bandwidths and the most narrow are more flagged
-       if fallback == 'spwmap'
+       if fallback == 'spwmap':
            flagging_status=check_narrow_window_flagging(selfcal_library,vis) 
-           if flagging_status == 'false'
+           if flagging_status == 'false':
               fallback=''
 
        if fallback=='spwmap':
