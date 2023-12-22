@@ -355,7 +355,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             print(preferred_mode,solint,fallback)
 
         # Update the appropriate selfcal_library entries.
-        selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
+
         selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode
         selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
         applycal_spwmap.append(selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode])

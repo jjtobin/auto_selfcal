@@ -54,7 +54,7 @@ def prepare_selfcal(vislist,
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
     ##
-    split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
+    #split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
 
     ##
     ## put flagging back at original state for originally input ms for when they are used next time
@@ -193,13 +193,12 @@ def prepare_selfcal(vislist,
              selfcal_library[target][band][vis]['spwmap']=spwmap.tolist()
           else:
              selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
-             baseband_spwmap=[]
-             for baseband in selfcal_library[target][band][vis]['baseband']:
-                if len(baseband_spwmap) == 0:
-                   baseband_spwmap=[selfcal_library[target][band][vis]['minspw']]*(selfcal_library[target][band][vis]['baseband'][baseband]['spwlist'][0]+1)
-                else:   
-                   baseband_spwmap=baseband_spwmap+([selfcal_library[target][band][vis]['baseband'][baseband]['spwlist'][0]]*len(selfcal_library[target][band][vis]['baseband'][baseband]['spwlist']))
-             selfcal_library[target][band][vis]['baseband_spwmap']=baseband_spwmap.copy()
+          baseband_spwmap=[]
+          for baseband in selfcal_library[target][band][vis]['baseband']: 
+              baseband_spwmap=baseband_spwmap+([selfcal_library[target][band][vis]['baseband'][baseband]['spwlist'][0]]*len(selfcal_library[target][band][vis]['baseband'][baseband]['spwlist']))
+          selfcal_library[target][band][vis]['baseband_spwmap']=baseband_spwmap.copy()
+          selfcal_library[target][band][vis]['baseband_spwmap'].sort()   # sort by spw number just in case the baseband dict keys do not go in order
+
           selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
           selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
        selfcal_library[target][band]['Median_scan_time']=np.median(allscantimes)
@@ -253,13 +252,11 @@ def prepare_selfcal(vislist,
                  selfcal_library[target][band][fid][vis]['spwmap']=spwmap.tolist()
               else:
                  selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
-                 baseband_spwmap=[]
-                 for baseband in selfcal_library[target][band][fid][vis]['baseband']:
-                    if len(baseband_spwmap) == 0:
-                       baseband_spwmap=[selfcal_library[target][band][fid][vis]['minspw']]*(selfcal_library[target][band][vis]['baseband'][baseband]['spwlist'][0]+1)
-                    else:   
-                       baseband_spwmap=baseband_spwmap+([selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwlist'][0]]*len(selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwlist']))
-                 selfcal_library[target][band][fid][vis]['baseband_spwmap']=baseband_spwmap.copy()
+              baseband_spwmap=[]
+              for baseband in selfcal_library[target][band][fid][vis]['baseband']:
+                 baseband_spwmap=baseband_spwmap+([selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwlist'][0]]*len(selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwlist']))
+              selfcal_library[target][band][fid][vis]['baseband_spwmap']=baseband_spwmap.copy()
+              selfcal_library[target][band][fid][vis]['baseband_spwmap'].sort()   # sort just in case base band dict keys do not put this in spw order
 
               selfcal_library[target][band][fid]['Total_TOS']=selfcal_library[target][band][fid][vis]['TOS']+selfcal_library[target][band][fid]['Total_TOS']
               selfcal_library[target][band][fid]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
@@ -516,7 +513,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
                     if mode == 'per_bb':
                        gaincal_combine='spw'
                        filename_append='per_bb'
-                       selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']['combinespw']=selfcal_library[target][band][vis]['baseband_spwmap']
+                       selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']['per_bb']=selfcal_library[target][band][vis]['baseband_spwmap']
                     if 'inf_EB' in solint:
                        if gaincal_combine!='':
                           gaincal_combine+=','
