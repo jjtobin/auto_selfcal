@@ -55,8 +55,6 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        usemask='auto-multithresh'
     else:
        usemask='user'
-    if threshold != '0.0Jy':
-       nsigma=0.0
     if telescope=='ALMA':
        sidelobethreshold=2.5
        smoothfactor=1.0
@@ -146,6 +144,8 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                 sensitivity_scale_factor=selfcal_library['RMS_NF_curr']/sensitivity_agg
             threshold = str(4.0*sensitivity_nomod*sensitivity_scale_factor)+'Jy'
 
+    if threshold != '0.0Jy':
+       nsigma=0.0
 
     if gridder=='mosaic' and startmodel!='':
        parallel=False

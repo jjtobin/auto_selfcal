@@ -7,7 +7,7 @@ def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solin
     ##
     ## Do the assessment of the post- (and pre-) selfcal images.
     ##
-    SNR, RMS = estimate_SNR(image, maskname=mask)
+    SNR, RMS = estimate_SNR(image, maskname=mask, mosaic_sub_field=mosaic_sub_field)
     if use_nfmask:
        SNR_NF,RMS_NF = estimate_near_field_SNR(image, maskname=mask, las=selfcal_library['LAS'], mosaic_sub_field=mosaic_sub_field)
        if RMS_NF < 0 and backup_mask != '':
@@ -37,9 +37,11 @@ def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solin
        update_dict['Beam_minor_'+suffix]=header['restoringbeam']['minor']['value']
        update_dict['Beam_PA_'+suffix]=header['restoringbeam']['positionangle']['value'] 
 
-       goodMask=checkmask(imagename=image)
-       if goodMask:
-           update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = get_intflux(image, RMS, maskname=mask if suffix=='orig' else None,
+       if checkmask(imagename=mask):
+           update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = get_intflux(image, RMS, maskname=mask,
+                   mosaic_sub_field=mosaic_sub_field)
+       elif backup_mask != '' and checkmask(imagename=backup_mask):
+           update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = get_intflux(image, RMS, maskname=backup_mask,
                    mosaic_sub_field=mosaic_sub_field)
        else:
            update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = -99.0, -99.0
