@@ -3187,7 +3187,7 @@ def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
 
     if spw_baseband !='':
         # remove spw in question here from spw lists
-        spw_index=np.where(spw ==selfcal_library[vis]['baseband'][baseband]['spwarray'])
+        spw_index=np.where(spw ==selfcal_library[vis]['baseband'][spw_baseband]['spwarray'])
         subarray_freqs=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['freq_array'],spw_index[0][0])
         subarray_spws=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['spwarray'],spw_index[0][0])
         subarray_bws=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['bwarray'],spw_index[0][0])
