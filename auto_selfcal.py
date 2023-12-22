@@ -40,9 +40,11 @@ if len(vislist) == 0:
 ##
 spectral_average=True
 do_amp_selfcal=True
-inf_EB_gaincal_combine='scan'
+
+inf_EB_gaincal_combine='scan'  # should we get rid of this option?
 inf_EB_gaintype='G'
 inf_EB_override=False
+optimize_spw_combine=True      # if False, will not attempt per spw or per baseband solutions for any solint except inf_EB
 gaincal_minsnr=2.0
 gaincal_unflag_minsnr=5.0
 minsnr_to_proceed=3.0
@@ -226,7 +228,7 @@ get_SNR_self(selfcal_library,selfcal_plan,n_ants,inf_EB_gaincal_combine,inf_EB_g
 
 set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=dividing_factor, rel_thresh_scaling=rel_thresh_scaling, telescope=telescope)
 
-plan_selfcal_per_solint(selfcal_library, selfcal_plan)
+plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=optimize_spw_combine)
 ##
 ## Save self-cal library
 ##

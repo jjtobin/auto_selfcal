@@ -54,7 +54,7 @@ def prepare_selfcal(vislist,
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
     ##
-    #split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
+    split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
 
     ##
     ## put flagging back at original state for originally input ms for when they are used next time
@@ -194,10 +194,25 @@ def prepare_selfcal(vislist,
           else:
              selfcal_library[target][band][vis]['spwmap']=[selfcal_library[target][band][vis]['minspw']]*(np.max(selfcal_library[target][band][vis]['spwsarray'])+1)
           baseband_spwmap=[]
+          selfcal_library[target][band][vis]['baseband_spwmap']=selfcal_library[target][band][vis]['spwmap'].copy()
           for baseband in selfcal_library[target][band][vis]['baseband']: 
               baseband_spwmap=baseband_spwmap+([selfcal_library[target][band][vis]['baseband'][baseband]['spwlist'][0]]*len(selfcal_library[target][band][vis]['baseband'][baseband]['spwlist']))
-          selfcal_library[target][band][vis]['baseband_spwmap']=baseband_spwmap.copy()
-          selfcal_library[target][band][vis]['baseband_spwmap'].sort()   # sort by spw number just in case the baseband dict keys do not go in order
+              for spw in selfcal_library[target][band][vis]['baseband'][baseband]['spwlist']:
+                  selfcal_library[target][band][vis]['baseband_spwmap'][spw]=min(selfcal_library[target][band][vis]['baseband'][baseband]['spwlist'])
+          # get rid of annoying min spw numbers in between so this looks more correct
+          for s, spw in enumerate(selfcal_library[target][band][vis]['baseband_spwmap']):
+             if s==0:
+                continue
+             if spw < selfcal_library[target][band][vis]['baseband_spwmap'][s-1]:
+                selfcal_library[target][band][vis]['baseband_spwmap'][s]=selfcal_library[target][band][vis]['baseband_spwmap'][s-1]
+         
+          #set baseband spwmap to be the length of spwmap
+
+          # set the value of the baseband spwmap array at each element with index=spw to be spw
+          # gets around the issue of the spwmap needed to have the same number of elements as the spw indices
+          #for spw in baseband_spwmap:
+          #    selfcal_library[target][band][vis]['baseband_spwmap'][spw]=spw
+
 
           selfcal_library[target][band]['Total_TOS']=selfcal_library[target][band][vis]['TOS']+selfcal_library[target][band]['Total_TOS']
           selfcal_library[target][band]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
@@ -253,10 +268,22 @@ def prepare_selfcal(vislist,
               else:
                  selfcal_library[target][band][fid][vis]['spwmap']=[selfcal_library[target][band][fid][vis]['minspw']]*(np.max(selfcal_library[target][band][fid][vis]['spwsarray'])+1)
               baseband_spwmap=[]
+              selfcal_library[target][band][fid][vis]['baseband_spwmap']=selfcal_library[target][band][fid][vis]['spwmap'].copy()
               for baseband in selfcal_library[target][band][fid][vis]['baseband']:
                  baseband_spwmap=baseband_spwmap+([selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwlist'][0]]*len(selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwlist']))
-              selfcal_library[target][band][fid][vis]['baseband_spwmap']=baseband_spwmap.copy()
-              selfcal_library[target][band][fid][vis]['baseband_spwmap'].sort()   # sort just in case base band dict keys do not put this in spw order
+                 for spw in selfcal_library[target][band][fid][vis]['baseband'][baseband]['spwlist']:
+                     selfcal_library[target][band][fid][vis]['baseband_spwmap'][spw]=spw
+              # get rid of annoying min spw numbers in between so this looks more correct
+              for s, spw in enumerate(selfcal_library[target][band][vis]['baseband_spwmap']):
+                 if s==0:
+                    continue
+                 if spw < selfcal_library[target][band][vis]['baseband_spwmap'][s-1]:
+                    selfcal_library[target][band][vis]['baseband_spwmap'][s]=selfcal_library[target][band][vis]['baseband_spwmap'][s-1]
+             
+              # set the value of the baseband spwmap array at each element with index=spw to be spw
+              # gets around the issue of the spwmap needed to have the same number of elements as the spw indices
+              for spw in baseband_spwmap:
+                  selfcal_library[target][band][fid][vis]['baseband_spwmap'][spw]=spw
 
               selfcal_library[target][band][fid]['Total_TOS']=selfcal_library[target][band][fid][vis]['TOS']+selfcal_library[target][band][fid]['Total_TOS']
               selfcal_library[target][band][fid]['spws_per_vis'].append(band_properties[vis][band]['spwstring'])
@@ -444,7 +471,7 @@ def prepare_selfcal(vislist,
 
     return selfcal_library, selfcal_plan, gaincalibrator_dict
 
-def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
+def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=True):
    # there are some extra keys in this dictionary that stem from how my thinking was orginally and how it evolved
    # the current philosophy is that for each solint it will specify how to apply each gain table, and if it should 
    # be pre-applied for gaincal solves. Then in gaincal wrapper, the parameters for preapplying all tables and for applying
@@ -489,7 +516,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
                 min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_bb'][solint])
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')
                 if 'spw' not in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']:
-                    if min_SNR_spw > 2.0 : 
+                    if min_SNR_spw > 2.0: 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
                     if min_SNR_bb > 2.0 and maxspws_per_bb > 1.0:  # only do the per baseband solutions if there are more than 1
@@ -501,9 +528,12 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan):
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='p'
                     if solint == 'inf_EB':
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype']='G'
+                    if solint != 'inf_EB' and optimize_spw_combine==False:
+                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=['combinespw']
                 for mode in selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']:
+                    gaincal_combine=''
                     if mode =='combinespw':
-                       gaincal_combine+='spw'
+                       gaincal_combine='spw'
                        filename_append='combinespw'
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']['combinespw']=selfcal_library[target][band][vis]['spwmap']
                     if mode == 'per_spw':
