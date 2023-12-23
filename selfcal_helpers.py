@@ -2735,16 +2735,17 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
+               print(sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'])
                if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'combinespw':
                   gc_combine_mode='Combine SPW'
                if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'per_bb':
                   gc_combine_mode='Per Baseband'
                if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'per_spw':
                   gc_combine_mode='Per SPW'
-               if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys() and sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]=='spwmap':
+               if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys() and sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback']=='spwmap':
                   gc_combine_mode='Per SPW + SPW Mapping'
                htmlOutSolint.writelines('<h4>Gaincal Combine Mode: <font color="red">'+gc_combine_mode+'</font></h4>\n')
-               htmlOutSolint.writelines('<h4>ApplycalSPW Map: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
+               htmlOutSolint.writelines('<h4>Applycal SPW Map: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
 
 
                for ant in ant_list:
@@ -3235,6 +3236,8 @@ def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
             subarray_spws=subarray_spws[gt_bw_index[0]]
             subarray_bws=subarray_bws[gt_bw_index[0]]
             subarray_flags=np.zeros(len(subarray_freqs))
+            subarray_unflags=np.zeros(len(subarray_freqs))
+            subarray_fracflags=np.zeros(len(subarray_freqs))
             for s, sub_spw in enumerate(subarray_spws):
                 subarray_flags[s]= selfcal_library[vis]['per_spw_stats'][sub_spw]['nflags']
                 subarray_unflags[s]= selfcal_library[vis]['per_spw_stats'][sub_spw]['nunflagged']
