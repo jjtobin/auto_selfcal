@@ -389,15 +389,16 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                             else:
                                 selfcal_library[fid][vis][solint]['Pass'] = False
                     break
-                for vis in vislist:
-                    if selfcal_library[vis][solint]['final_mode']!='combinespw':
-                        do_fallback_combinespw=True
-                        break
-                if do_fallback_combinespw:
-                   for vis in vislist:
-                      generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration)
-                      iterjump=iteration 
-                      continue
+                # unflag when we iron out issue
+                #for vis in vislist:
+                #    if selfcal_library[vis][solint]['final_mode']!='combinespw':
+                #        do_fallback_combinespw=True
+                #        break
+                #if do_fallback_combinespw:
+                #   for vis in vislist:
+                #      generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration)
+                #      iterjump=iteration 
+                #      continue
 
                 selfcal_library['SC_success']=True
                 selfcal_library['Stop_Reason']='None'
