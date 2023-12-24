@@ -287,7 +287,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                            select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
 
             if fallback=='spwmap':
-                selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode']['per_spw']=spwmapping_for_applycal
+                selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode']['per_spw']=spwmapping_for_applycal.copy()
 
             print(preferred_mode,solint,fallback,spwmapping_for_applycal)
         else:
@@ -298,30 +298,30 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
         # Update the appropriate selfcal_library entries.
 
-        selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode
-        selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
+        selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode+''
+        selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode].copy()
         applycal_spwmap.append(selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode])
         applycal_interpolate.append(selfcal_plan[vis]['solint_settings'][solint]['applycal_interpolate'])
         print(applycal_interpolate)
         #applycal_gaintable=selfcal_library[fid][vis][selfcal_library[fid]['final_phase_solint']]['gaintable']+[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_ap.g']
-        applycal_gaintable += [sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g']
+        applycal_gaintable.append(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g')
         selfcal_library[vis][solint]['final_mode']=preferred_mode+''
-        selfcal_library[vis][solint]['gaintable']=applycal_gaintable
+        selfcal_library[vis][solint]['gaintable']=applycal_gaintable.copy()
         selfcal_library[vis][solint]['iteration']=iteration+0
-        selfcal_library[vis][solint]['spwmap']=applycal_spwmap
+        selfcal_library[vis][solint]['spwmap']=applycal_spwmap.copy()
         selfcal_library[vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
-        selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate
+        selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate.copy()
         selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
         selfcal_library[vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
         for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             selfcal_library[fid][vis][solint]['final_mode']=preferred_mode+''
-            selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap
+            selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap.copy()
             selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
-            selfcal_library[fid][vis][solint]['gaintable']=applycal_gaintable
+            selfcal_library[fid][vis][solint]['gaintable']=applycal_gaintable.copy()
             selfcal_library[fid][vis][solint]['iteration']=iteration+0
-            selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap
+            selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap.copy()
             selfcal_library[fid][vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
-            selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate
+            selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate.copy()
             selfcal_library[fid][vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
         selfcal_plan[vis]['solint_settings'][solint]['accepted_gaintable']=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g'
         if preferred_mode != 'combinespw':   # preapply all non spwcombine gain tables
@@ -417,34 +417,34 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
         applycal_interpolate.append(selfcal_plan[vis]['solint_settings'][solint]['applycal_interpolate'])
         #applycal_gaintable=selfcal_library[fid][vis][selfcal_library[fid]['final_phase_solint']]['gaintable']+[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_ap.g']
-        applycal_gaintable += [sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g']
+        applycal_gaintable.append(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g')
 
 
         # Update the appropriate selfcal_library entries.
         selfcal_library[vis][solint]['final_mode']=preferred_mode+''
-        selfcal_library[vis][solint]['spwmap']=applycal_spwmap
+        selfcal_library[vis][solint]['spwmap']=applycal_spwmap.copy()
         selfcal_library[vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
-        selfcal_library[vis][solint]['gaintable']=applycal_gaintable
+        selfcal_library[vis][solint]['gaintable']=applycal_gaintable.copy()
         selfcal_library[vis][solint]['iteration']=iteration+0
         selfcal_library[vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
-        selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate
+        selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate.copy()
         selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
         for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             selfcal_library[fid][vis][solint]['final_mode']=preferred_mode+''
-            selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap
+            selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap.copy()
             selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
-            selfcal_library[fid][vis][solint]['gaintable']=applycal_gaintable
+            selfcal_library[fid][vis][solint]['gaintable']=applycal_gaintable.copy()
             selfcal_library[fid][vis][solint]['iteration']=iteration+0
             selfcal_library[fid][vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
-            selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate
+            selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate.copy()
             selfcal_library[fid][vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
         if preferred_mode != 'combinespw':   # preapply all non spwcombine gain tables
            selfcal_plan[vis]['solint_settings'][solint]['preapply_this_gaintable']=True
-
+        selfcal_plan[vis]['solint_settings'][solint]['accepted_gaintable']=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g'
 
         filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][preferred_mode]
-        selfcal_plan[vis]['solint_settings'][solint]['accepted_gaintable']=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g'
+
 
         for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
             ##### send chosen subtable to this routine for final copying to the gain table we want.
