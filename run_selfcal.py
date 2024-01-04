@@ -32,13 +32,14 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
    # Start looping over the solints.
 
-   iterjump=-1   # useful if we want to jump iterations
    sani_target=sanitize_string(target)
 
    if mode == "cocal":
-        iterjump = len(selfcal_plan['solints']) - 4
+        iteration = len(selfcal_plan['solints']) - 4
         if selfcal_library["SC_success"] and not calculate_inf_EB_fb_anyways:
-            iterjump += 1
+            iteration += 1
+   else:
+       iteration = 0
 
    vislist=selfcal_library['vislist'].copy()
 
@@ -49,8 +50,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
            print("No suitable calibrators found, skipping "+target)
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
-   else:
-       iteration = 0
 
    repeat_solint=False
    do_fallback_combinespw=False
@@ -89,7 +88,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
       if mode == "selfcal" and selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
          print('*********** estimated SNR for solint='+selfcal_plan['solints'][iteration]+' too low, measured: '+str(selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
          if iteration > 1 and selfcal_plan['solmode'][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
-            iterjump=selfcal_plan['solmode'].index('ap') 
+            iteration=selfcal_plan['solmode'].index('ap') 
             print('****************Attempting amplitude selfcal*************')
             continue
 
@@ -101,7 +100,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             print('Starting with solint: '+solint)
          else:
             print('Continuing with solint: '+solint)
-         os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'*')
+
+         if not repeat_solint:
+             os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'*')
          ##
          ## make images using the appropriate tclean heuristics for each telescope
          ## set threshold based on RMS of initial image and lower if value becomes lower
@@ -187,7 +188,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
                        list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                     continue
-
 
                gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, selfcal_plan['applycal_mode'][iteration], iteration, gaincal_minsnr, 
                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, rerank_refants=rerank_refants, unflag_only_lbants=unflag_only_lbants, 
@@ -453,16 +453,16 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                    selfcal_plan[vis]['inf_EB_gaintype']=inf_EB_gaintype #G
                    selfcal_plan[vis]['inf_EB_fallback_mode']='' #'scan'
 
-             if delta_beamarea > delta_beam_thresh:
-                 print('****************Attempting applymode="calonly" fallback*************')
-                 # Loop through up to two times. On the first attempt, try applymode = 'calflag' (assuming this is requested by the user). On the
-                 # second attempt, use applymode = 'calonly'.
-                 selfcal_plan['applycal_mode'][iteration] = 'calonly'
-             else:
+             if selfcal_library[vis][solint]['final_mode'] != 'combinespw':
                  print('****************Attempting combine="spw" fallback*************')
                  do_fallback_combinespw=True
                  for vis in vislist:
                    generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration)
+             elif delta_beamarea > delta_beam_thresh:
+                 print('****************Attempting applymode="calonly" fallback*************')
+                 # Loop through up to two times. On the first attempt, try applymode = 'calflag' (assuming this is requested by the user). On the
+                 # second attempt, use applymode = 'calonly'.
+                 selfcal_plan['applycal_mode'][iteration] = 'calonly'
              repeat_solint = True
              continue
          else:
