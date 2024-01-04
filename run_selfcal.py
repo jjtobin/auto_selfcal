@@ -923,7 +923,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 #selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                 #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                 selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
-                selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
+                if checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask'):
+                    selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+                elif checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask'):
+                    selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
+                else:
+                    selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=-99.0,-99.0
+
                 if vis in fallback:
                     selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
                 else:
@@ -937,7 +943,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
                 selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
                 selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
-                selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
+                if checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask'):
+                    selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+                elif checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask'):
+                    selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
+                else:
+                    selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=-99.0,-99.0
 
                 for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
                     if selfcal_library[target][band]['obstype'] == 'mosaic':
@@ -961,7 +972,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][fid][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                     #selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                     selfcal_library[target][band][fid][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
-                    selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    if checkmask(imagename=imagename+'_post.mask'):
+                        selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid], maskname=imagename+'_post.mask', mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    elif checkmask(imagename=imagename+'.mask'):
+                        selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid], maskname=imagename+'.mask', mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    else:
+                        selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=-99.0,-99.0
                     if vis in fallback:
                         selfcal_library[target][band][fid][vis][solint]['fallback']=fallback[vis]+''
                     else:
@@ -982,7 +998,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     selfcal_library[target][band][fid][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
                     selfcal_library[target][band][fid][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
                     selfcal_library[target][band][fid][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
-                    selfcal_library[target][band][fid][vis][solint]['intflux_post'],selfcal_library[target][band][fid][vis][solint]['e_intflux_post']=get_intflux(imagename+'_post.image.tt0',post_RMS, mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    if checkmask(imagename+'_post.mask'):
+                        selfcal_library[target][band][fid][vis][solint]['intflux_post'],selfcal_library[target][band][fid][vis][solint]['e_intflux_post']=get_intflux(imagename+'_post.image.tt0',post_mosaic_RMS[fid], maskname=imagename+'_post.mask', mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    elif checkmask(imagename+'.mask'):
+                        selfcal_library[target][band][fid][vis][solint]['intflux_post'],selfcal_library[target][band][fid][vis][solint]['e_intflux_post']=get_intflux(imagename+'_post.image.tt0',post_mosaic_RMS[fid], maskname=imagename+'.mask', mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
+                    else:
+                        selfcal_library[target][band][fid][vis][solint]['intflux_post'],selfcal_library[target][band][fid][vis][solint]['e_intflux_post']=-99.0,-99.0
 
                 ## Update RMS value if necessary
                 if selfcal_library[target][band][vis][solint]['RMS_post'] < selfcal_library[target][band]['RMS_curr'] and \
@@ -1112,7 +1133,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                     #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
                     selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
-                    selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS)
+                    if checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask'):
+                        selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+                    elif checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask'):
+                        selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
+                    else:
+                        selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=-99.0,-99.0
+
                     if vis in fallback:
                         selfcal_library[target][band][vis][solint]['fallback']=fallback[vis]+''
                     else:
@@ -1132,7 +1159,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     selfcal_library[target][band][vis][solint]['Beam_major_post']=header['restoringbeam']['major']['value']
                     selfcal_library[target][band][vis][solint]['Beam_minor_post']=header['restoringbeam']['minor']['value']
                     selfcal_library[target][band][vis][solint]['Beam_PA_post']=header['restoringbeam']['positionangle']['value'] 
-                    selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS)
+                    if checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask'):
+                        selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
+                    elif checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask'):
+                        selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.image.tt0',post_RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
+                    else:
+                        selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=-99.0,-99.0
 
              if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library[target][band]["SC_success"]:
                 # Since we just want to calculate inf_EB_fb for use in inf_fb, we just want to revert to the original state and go back for inf_fb.

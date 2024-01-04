@@ -293,6 +293,14 @@ for target in all_targets:
       selfcal_library[target][band][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
       selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
       selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
+
+      if band_properties[vis][band]['ncorrs'] == 1:
+          selfcal_library[target][band][vis]['pol_type'] = 'single-pol'
+      elif band_properties[vis][band]['ncorrs'] == 2:
+          selfcal_library[target][band][vis]['pol_type'] = 'dual-pol'
+      else:
+          selfcal_library[target][band][vis]['pol_type'] = 'full-pol'
+
       if spectral_scan:
          spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
          spwmap.fill(np.min(spws_set[band][vis]))
@@ -340,6 +348,14 @@ for target in all_targets:
           selfcal_library[target][band][fid][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
           selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
           selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
+
+          if band_properties[vis][band]['ncorrs'] == 1:
+              selfcal_library[target][band][fid][vis]['pol_type'] = 'single-pol'
+          elif band_properties[vis][band]['ncorrs'] == 2:
+              selfcal_library[target][band][fid][vis]['pol_type'] = 'dual-pol'
+          else:
+              selfcal_library[target][band][fid][vis]['pol_type'] = 'full-pol'
+
           if spectral_scan:
              spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
              spwmap.fill(np.min(spws_set[band][vis]))
@@ -669,7 +685,10 @@ for target in all_targets:
     inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
     if selfcal_library[target][band]['obstype']=='mosaic':
        inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
-    inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
+    if selfcal_library[target][band][vis]['pol_type'] == 'single-pol':
+        inf_EB_gaintype_dict[target][band][vis]='T'
+    else:
+        inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
     inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
     print('Estimated SNR per solint:')
     print(target,band)
