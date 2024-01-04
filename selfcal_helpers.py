@@ -3069,12 +3069,12 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    selfcal_plan[vis]['solint_settings'][solint]['fracflagged']={}
    selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']={}
    selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']={}
+   selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']={}
    for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
       gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]+'.g'
       print(gaintable)
       if mode=='combinespw':
          selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw([spwlist[0]],gaintable)
-         selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants'][mode]=np.min(selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode])/polscale
 
       if mode=='per_spw':
          selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw(spwlist,gaintable)
@@ -3082,6 +3082,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
             selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']=selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode][s]
             selfcal_library[vis]['per_spw_stats'][int(spw)]['nunflagged']=selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode][s]
             selfcal_library[vis]['per_spw_stats'][int(spw)]['fracflagged']=selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode][s]
+
       if mode == 'per_bb':
          baseband_scale=float(len(selfcal_library[vis]['baseband'].keys()))
          nflags=0
@@ -3105,7 +3106,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
 
 
       selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants'][mode]=np.min(selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode])/polscale/baseband_scale/n_solutions
-      selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']=np.max(selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode])/polscale/baseband_scale/n_solutions
+      selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants'][mode]=np.max(selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode])/polscale/baseband_scale/n_solutions
 
    if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
       selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw']=np.array(selfcal_plan[vis]['solint_settings'][solint]['nflags']['per_spw'])/polscale/n_solutions-selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['combinespw']/polscale/n_solutions
