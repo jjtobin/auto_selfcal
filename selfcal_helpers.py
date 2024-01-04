@@ -3143,7 +3143,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          preferred_mode='combinespw'
    if preferred_mode != 'combinespw' and preferred_mode != 'per_bb':
        if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and 'combinespw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
-          print('Checking flagging per_spw, combinespw: ',selfcal_plan[vis]['solint_settings'][solint]['maximums_flagged_ants']['per_spw'],selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['combinespw'])
+          print('Checking flagging per_spw, combinespw: ',selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['per_spw'],selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['combinespw'])
           if (selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['per_spw']<=selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['combinespw']+max_flagged_ants_per_spw):
              preferred_mode='per_spw'
           else:
