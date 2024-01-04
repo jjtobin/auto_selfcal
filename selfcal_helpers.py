@@ -1662,6 +1662,10 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
          observed_bands[vis][band]['maxfreq']=maxfreq
          observed_bands[vis][band]['minfreq']=minfreq
          observed_bands[vis][band]['fracbw']=fracbw
+
+         msmd.open(vis)
+         observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(spwarray[vis][0]))
+         msmd.close()
    get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
    return bands,observed_bands
 
@@ -1726,6 +1730,10 @@ def get_VLA_bands(vislist,fields):
          spwstring=','.join(str(spw) for spw in spwslist)
          observed_bands[vis][band]['spwstring']=spwstring+''
          observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: [observed_bands[vis][band]['spwarray']]})
+
+         msmd.open(vis)
+         observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(observed_bands[vis][band]['spwarray'][0]))
+         msmd.close()
    bands_match=True
    for i in range(len(vislist)):
       for j in range(i+1,len(vislist)):
