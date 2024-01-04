@@ -2006,7 +2006,7 @@ def get_uv_range(band,band_properties,vislist):
    return uvrange
 
 def sanitize_string(string):
-   sani_string=string.replace('-','_').replace(' ','_').replace('+','_')
+   sani_string=string.replace('-','_').replace(' ','_').replace('+','_').replace('*','_').replace(',','_').replace(';','_').replace(':','_').replace('[','_').replace(']','_').replace('{','_').replace('}','_')
    sani_string='Target_'+sani_string
    return sani_string
 
