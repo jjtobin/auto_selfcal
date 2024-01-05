@@ -3055,14 +3055,14 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    polscale=2.0
    if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype']=='T':
      polscale=1.0
-   spwlist=selfcal_library[vis]['spws'].split(',')
+   spwlist=selfcal_library[vis]['spwlist'].copy()
    # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
    max_flagged_ants_per_spw=2.0
    # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
    max_flagged_ants_spwmap=1.0
    fallback=''
    min_spwmap_bw=0.0
-   spwmap=[False]*len(spwlist)
+   spwmap=[0.0]*len(spwlist)
    #for loop here to get fraction flagged, unflagged, and flag fraction per mode
    selfcal_plan[vis]['solint_settings'][solint]['nflags']={}
    selfcal_plan[vis]['solint_settings'][solint]['nunflagged']={}
@@ -3159,8 +3159,8 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
        for i in range(len(spwlist)):
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) > max_flagged_ants_spwmap:
              fallback='spwmap'
-             spwmap[i]=True
-       if all(spwmap):
+             spwmap[i]=1.0
+       if np.sum(spwmap)/len(spwmap) > 0.5:  # if greater than 1/2 of spws need mapping, just assume that we should do combinespw or per_bb
           fallback=''
 
        # check if narrow windows are more flagged than wide windows
@@ -3175,23 +3175,26 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
 
        if fallback=='spwmap':
           #make spwmap list that first maps everything to itself, need max spw to make that list
-          maxspw=np.max(selfcal_library[vis]['spwsarray']+1)
+          maxspw=np.max(spwlist+1)
           applycal_spwmap_int_list=list(np.arange(maxspw))
           for i in range(len(applycal_spwmap_int_list)):
              applycal_spwmap.append(applycal_spwmap_int_list[i])
-          for i in range(len(spwmap)):
-             print(i,spwlist[i],spwmap[i])
-             if spwmap[i]:
-                mapped_spw=get_nearest_wide_bw_spw(selfcal_library,vis,i)
-                if mapped_spw==-99:
-                   fallback=''
-                   break
-                applycal_spwmap[int(spwlist[i])]=int(mapped_spw)
-          # never do spw mapping for spectral scans
-          if fallback !='' and selfcal_library['spectral_scan']:
-             fallback=''
-          if fallback=='spwmap':
-             preferred_mode='per_spw'
+          for i, spw in enumerate(applycal_spwmap_int_list)):
+             if spw in spwlist:
+                 index=spwlist.index(spw)
+                 print(index,spwlist[index],spwmap[index]==1.0)
+                 
+                 if spwmap[index]==1.0:
+                    mapped_spw=get_nearest_wide_bw_spw(selfcal_library,vis,spw)
+                    if mapped_spw==-99:
+                       fallback=''
+                       break
+                    applycal_spwmap[i]=int(mapped_spw)
+             # never do spw mapping for spectral scans
+             if fallback !='' and selfcal_library['spectral_scan']:
+                fallback=''
+             if fallback=='spwmap':
+                preferred_mode='per_spw'
    return preferred_mode,fallback,spwmap,applycal_spwmap
 
 
