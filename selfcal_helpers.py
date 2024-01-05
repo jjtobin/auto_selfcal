@@ -3056,6 +3056,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype']=='T':
      polscale=1.0
    spwlist=selfcal_library[vis]['spwlist'].copy()
+   spwlist_str=selfcal_library[vis]['spws'].split(',')
    # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
    max_flagged_ants_per_spw=2.0
    # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
@@ -3074,10 +3075,10 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
       gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]+'.g'
       print(gaintable)
       if mode=='combinespw':
-         selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw([spwlist[0]],gaintable)
+         selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw([spwlist_str[0]],gaintable)
 
       if mode=='per_spw':
-         selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw(spwlist,gaintable)
+         selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode]=get_flagged_solns_per_spw(spwlist_str,gaintable)
          for s, spw in enumerate(spwlist):
             selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']=selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode][s]
             selfcal_library[vis]['per_spw_stats'][int(spw)]['nunflagged']=selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode][s]
