@@ -3176,11 +3176,11 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
 
        if fallback=='spwmap':
           #make spwmap list that first maps everything to itself, need max spw to make that list
-          maxspw=np.max(spwlist+1)
+          maxspw=np.max(spwlist)+1
           applycal_spwmap_int_list=list(np.arange(maxspw))
           for i in range(len(applycal_spwmap_int_list)):
              applycal_spwmap.append(applycal_spwmap_int_list[i])
-          for i, spw in enumerate(applycal_spwmap_int_list)):
+          for i, spw in enumerate(applycal_spwmap_int_list):
              if spw in spwlist:
                  index=spwlist.index(spw)
                  print(index,spwlist[index],spwmap[index]==1.0)
