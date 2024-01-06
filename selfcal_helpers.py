@@ -3279,6 +3279,40 @@ def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
         mapped_spw=subarray_spws(index)
     return mapped_spw
 
+def get_flagging_baseline(gc_dict_list,spwlist):
+   apriori_flagged=np.zeros(len(spwlist))
+   for gc_dict in gc_dict_list:
+       for s, spw in enumerate(spwlist):
+          for ant in [idant for idant in gc_dict['solvestats']['spw'+str(spw)].keys() if idant.startswith('ant')]:
+             for e, element in enumerate(gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged']):
+                if (gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e] == 0) and (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] == 1):
+                   apriori_flagged[s]+=1.0
+   print(apriori_flagged)
+   return apriori_flagged
+
+def get_gaintable_flagging_stats(gc_dict_list,spwlist):
+   apriori_flagged=np.zeros(len(spwlist))
+   nflagged=np.zeros(len(spwlist))
+   nunflagged=np.zeros(len(spwlist))
+   for gc_dict in gc_dict_list:
+       for s, spw in enumerate(spwlist):
+          for ant in [idant for idant in gc_dict['solvestats']['spw'+str(spw)].keys() if idant.startswith('ant')]:
+             for e, element in enumerate(gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr']):
+                if (gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr'][e] == 0 or gc_dict['solvestats']['spw'+str(spw)][ant]['above_minblperant'][e] == 0 or gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e] == 0) and (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] == 1):
+                   nflagged[s]+=1.0
+                if (gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e] == 0) and (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] == 1):
+                   apriori_flagged[s]+=1.0
+                if (gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr'][e] == 1 and gc_dict['solvestats']['spw'+str(spw)][ant]['above_minblperant'][e] == 1 and gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e] == 1) and (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] == 1):
+                   nunflagged[s]+=1.0
+   ntotal=nflagged+nunflagged
+   fracflagged=nflagged/ntotal
+   nflagged_non_apriori=nflagged-apriori_flagged
+   ntotal_non_apriori_flagged=ntotal-apriori_flagged
+   fracflagged_non_apriori=nflagged_non_apriori/ntotal_non_apriori_flagged
+   print(apriori_flagged)
+   return apriori_flagged,nflagged,nunflagged,ntotal,fracflagged,nflagged_non_apriori,ntotal_non_apriori_flagged,fracflagged_non_apriori
+ntotal
+
 def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
         fb_to_prev_solint=False, solints=[], iteration=0, plot=False, plot_directory="./"):
     tb.open(caltable, nomodify=plot) # Because we only modify if we aren't plotting, i.e. in the selfcal loop itself plot=False
