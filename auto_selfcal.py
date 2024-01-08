@@ -17,10 +17,20 @@ from prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
-casaversion=casatasks.version()
-if casaversion[0]==6 and (casaversion[1]< 5 or casaversion[2] < 3):   # new uvcontsub format only works in CASA >=6.5.2
+def end_program():
     print('This version of auto_selfcal requires CASA 6.5.3 or higher to run. Please update your CASA version and try again.')
     sys.exit(0)
+
+casaversion=casatasks.version()
+if casaversion[0]>=6:
+   if  casaversion[1]>=5:
+      if casaversion[1]==5 and casaversion[2]<3:
+         end_program()
+   else:
+      end_program()
+else:
+   end_program()
+
 
 
 ###################################################################################################
