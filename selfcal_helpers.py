@@ -3324,7 +3324,8 @@ def get_gaintable_flagging_stats(gc_dict_list,spwlist):
    nflagged_non_apriori=nflagged-apriori_flagged
    ntotal_non_apriori_flagged=ntotal-apriori_flagged
    fracflagged_non_apriori=nflagged_non_apriori/ntotal_non_apriori_flagged
-   print(apriori_flagged)
+   print('a priori flagged:',apriori_flagged)
+   print('non- a priori flagged:',nflagged_non_apriori)
    return apriori_flagged,nflagged,nunflagged,ntotal,fracflagged,nflagged_non_apriori,ntotal_non_apriori_flagged,fracflagged_non_apriori
 
 
