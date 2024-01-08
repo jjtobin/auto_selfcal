@@ -18,9 +18,9 @@ from casampi.MPIEnvironment import MPIEnvironment
 parallel=MPIEnvironment.is_mpi_enabled
 
 casaversion=casatasks.version()
-if (casaversion[0]==6 and (casaversion[1]< 5 or (casaversion[2]<3)):   # new uvcontsub format only works in CASA >=6.5.2
-    print('This version of auto_selfcal requires CASA 6.5.3 or higher to run.')
-    exit()
+if casaversion[0]==6 and (casaversion[1]< 5 or casaversion[2] < 3):   # new uvcontsub format only works in CASA >=6.5.2
+    print('This version of auto_selfcal requires CASA 6.5.3 or higher to run. Please update your CASA version and try again.')
+    sys.exit(0)
 
 
 ###################################################################################################
