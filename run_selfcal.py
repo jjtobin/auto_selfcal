@@ -144,20 +144,21 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  break # breakout of loop because the model is empty and gaincal will therefore fail
 
 
+
+         for vis in vislist:
+            ##
+            ## Restore original flagging state each time before applying a new gaintable
+            ##
+            versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target
+            if not os.path.exists(vis+".flagversions/flags."+versionname):
+               flagmanager(vis=vis,mode='save',versionname=versionname)
+            elif mode == "selfcal":
+               flagmanager(vis=vis, mode = 'restore', versionname = versionname, comment = 'Flag states at start of reduction')
+
+            if mode == "cocal":
+               flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags', comment = 'Flag states at start of the reduction')
+
          if not do_fallback_combinespw:
-            for vis in vislist:
-               ##
-               ## Restore original flagging state each time before applying a new gaintable
-               ##
-               versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target
-               if not os.path.exists(vis+".flagversions/flags."+versionname):
-                  flagmanager(vis=vis,mode='save',versionname=versionname)
-               elif mode == "selfcal":
-                  flagmanager(vis=vis, mode = 'restore', versionname = versionname, comment = 'Flag states at start of reduction')
-
-               if mode == "cocal":
-                   flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags', comment = 'Flag states at start of the reduction')
-
             # We need to redo saving the model now that we have potentially unflagged some data.
             if selfcal_plan['applycal_mode'][iteration] == "calflag":
                 tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
@@ -221,7 +222,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                   savemodel='none',parallel=parallel,
                   field=target, nfrms_multiplier=nfsnr_modifier)
  
-         do_fallback_combinespw=False  # turn off the fallback switch
+
 
          ##
          ## Do the assessment of the post- (and pre-) selfcal images.
@@ -375,6 +376,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
          if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
 
+            do_fallback_combinespw=False   # Turn off this switch if successful               
+
             if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library["SC_success"]:
                 for vis in vislist:
                     selfcal_library[vis][solint]['Pass'] = True
@@ -433,7 +436,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          ##
 
          elif (delta_beamarea > delta_beam_thresh and selfcal_plan['applycal_mode'][iteration] == "calflag") or \
-                 selfcal_library[vis][solint]['final_mode'] != 'combinespw':
+                 (selfcal_library[vis][solint]['final_mode'] != 'combinespw' and not do_fallback_combinespw):
 
              print('****************************Selfcal failed**************************')
              if delta_beamarea > delta_beam_thresh:
@@ -452,19 +455,22 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                       selfcal_plan[vis]['inf_EB_gaincal_combine']+=',field'   
                    selfcal_plan[vis]['inf_EB_gaintype']=inf_EB_gaintype #G
                    selfcal_plan[vis]['inf_EB_fallback_mode']='' #'scan'
-
+             print('Final Mode:', selfcal_library[vis][solint]['final_mode'])
              if selfcal_library[vis][solint]['final_mode'] != 'combinespw':
                  print('****************Attempting combine="spw" fallback*************')
                  do_fallback_combinespw=True
                  for vis in vislist:
                    generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration)
+                 repeat_solint = True
+                 continue
              elif delta_beamarea > delta_beam_thresh:
+                 do_fallback_combinespw=False  # turn the switch off since this is another repeat
                  print('****************Attempting applymode="calonly" fallback*************')
                  # Loop through up to two times. On the first attempt, try applymode = 'calflag' (assuming this is requested by the user). On the
                  # second attempt, use applymode = 'calonly'.
                  selfcal_plan['applycal_mode'][iteration] = 'calonly'
-             repeat_solint = True
-             continue
+                 repeat_solint = True
+                 continue
          else:
             for vis in vislist:
                selfcal_library[vis][solint]['Pass']=False
@@ -473,6 +479,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                 for vis in selfcal_library[fid]['vislist']:
                     selfcal_library[fid][vis][solint]['Pass']=False
             repeat_solint = False
+            do_fallback_combinespw = False
 
 
          ## 
