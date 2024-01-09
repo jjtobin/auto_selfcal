@@ -3306,7 +3306,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
              spwmap_widest_window_in_bb=check_spw_widest_in_bb(selfcal_library,vis,spwlist[i])
        if np.sum(spwmap)/len(spwmap) > 0.5:  # if greater than 1/2 of spws need mapping, just assume that we should do combinespw or per_bb
           fallback=''
-       if np.sum(spwmap_widest_window_in_bb) > 1.0:
+       if np.sum(spwmap_widest_window_in_bb) >= 1.0: # don't do spw mapping within a baseband if the spws to be mapped are the wides in the baseband
           fallback=''
 
        # check if narrow windows are more flagged than wide windows
