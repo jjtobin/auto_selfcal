@@ -545,7 +545,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        gaincal_combine='spw'
                        filename_append='per_bb'
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']['per_bb']=selfcal_library[target][band][vis]['baseband_spwmap']
-                    if 'inf_EB' in solint:
+                    if solint in ['inf_EB','300s_ap']:
                        if gaincal_combine!='':
                           gaincal_combine+=','
                        gaincal_combine+='scan'
