@@ -3075,6 +3075,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    fallback=''
    min_spwmap_bw=0.0
    spwmap=[0.0]*len(spwlist)
+   spwmap_widest_window_in_bb=[0.0]*len(spwlist)
 
    selfcal_plan[vis]['solint_settings'][solint]['nflags']={}
    selfcal_plan[vis]['solint_settings'][solint]['nunflagged']={}
@@ -3173,7 +3174,10 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap:
              fallback='spwmap'
              spwmap[i]=1.0
+             spwmap_widest_window_in_bb=check_spw_widest_in_bb(selfcal_library,vis,spwlist[i])
        if np.sum(spwmap)/len(spwmap) > 0.5:  # if greater than 1/2 of spws need mapping, just assume that we should do combinespw or per_bb
+          fallback=''
+       if np.sum(spwmap_widest_window_in_bb) > 1.0:
           fallback=''
 
        # check if narrow windows are more flagged than wide windows
@@ -3183,7 +3187,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
        # or if there are at a minimum three unique bandwidths and the most narrow are more flagged
        if fallback == 'spwmap':
            flagging_status=check_narrow_window_flagging(selfcal_library,vis) 
-           if flagging_status == 'false':
+           if flagging_status == 'false' or flagging_status =='identical_spw_bws':
               fallback=''
 
        if fallback=='spwmap':
@@ -3217,9 +3221,9 @@ def check_narrow_window_flagging(selfcal_library,vis):  # return whether the nar
        bandwidths.append(selfcal_library[vis]['per_spw_stats'][spw]['bandwidth'])
     unique_bws=list(set(bandwidths))
     unique_bws.sort()
-    if len(unique_bws) == 1:
+    if len(unique_bws) == 1:  # should just do baseband or combine spw if this condition is true
        return 'identical_spw_bws'
-    if len(unique_bws) > 2:   # should just to baseband or combine spw
+    if len(unique_bws) > 2:  
         flags=np.zeros(len(unique_bws))
         for b,bw in enumerate(unique_bws):
             flags[b]=0.0
@@ -3234,7 +3238,32 @@ def check_narrow_window_flagging(selfcal_library,vis):  # return whether the nar
        return 'false'
 
 
+def check_spw_widest_in_bb(selfcal_library,vis,spw):
+    mapped_spw=-99
+    spwfreq=selfcal_library[vis]['per_spw_stats'][spw]['frequency']
+    spwbw=selfcal_library[vis]['per_spw_stats'][spw]['bandwidth']
+    spwflags=selfcal_library[vis]['per_spw_stats'][spw]['nflags']
+    def find_nearest(array, value):
+        array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return idx
+    spw_baseband=''
+    for baseband in selfcal_library[vis]['baseband'].keys():
+        if spw in selfcal_library[vis]['baseband'][baseband]['spwarray'] and len(selfcal_library[vis]['baseband'][baseband]['spwarray']) > 1:
+            spw_baseband=baseband
 
+    if spw_baseband !='':
+        # remove spw in question here from spw lists
+        spw_index=np.where(spw ==selfcal_library[vis]['baseband'][spw_baseband]['spwarray'])
+        subarray_freqs=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['freq_array'],spw_index[0][0])
+        subarray_spws=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['spwarray'],spw_index[0][0])
+        subarray_bws=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['bwarray'],spw_index[0][0])
+        # find spw with larger bandwidths
+        gt_bw_index=np.where(subarray_bws > spwbw)
+        if len(gt_bw_index[0]) == 0:  
+            return 1.0
+        else:
+            return 0.0
 
 def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
     mapped_spw=-99
@@ -3258,9 +3287,9 @@ def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
         subarray_bws=np.delete(selfcal_library[vis]['baseband'][spw_baseband]['bwarray'],spw_index[0][0])
         # find spw with larger bandwidths
         gt_bw_index=np.where(subarray_bws >= spwbw)
-        if len(gt_bw_index[0]) == 0:
+        if len(gt_bw_index[0]) == 0:  # if condition is met, cannot find spws with bws equal or greater than spw in question, exit out
             return -99
-        else:
+        else:   # find a nearby spw with a larger bw
             subarray_freqs=subarray_freqs[gt_bw_index[0]]
             subarray_spws=subarray_spws[gt_bw_index[0]]
             subarray_bws=subarray_bws[gt_bw_index[0]]
