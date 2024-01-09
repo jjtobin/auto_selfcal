@@ -2061,6 +2061,104 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
    plt.savefig(filename,dpi=200.0)
    plt.close()
 
+def get_flagged_solns_per_ant_from_dict(gc_dict_list,spwlist,vis):
+   msmd.open(vis)
+   antids=[]
+   for ant in [idant for idant in gc_dict_list[0]['solvestats']['spw'+str(spwlist[0])].keys() if idant.startswith('ant')]:
+      antids.append(int(ant.replace('ant','')))
+   antids.sort()
+   names=msmd.antennanames(antids)
+   offset = [msmd.antennaoffset(name) for name in names]
+   msmd.close()
+   apriori_flagged=np.zeros(len(antids))
+   nflagged=np.zeros(len(antids))
+   nunflagged=np.zeros(len(antids))
+
+   # Calculate the mean longitude and latitude.
+   mean_longitude = numpy.mean([offset[i]["longitude offset"]\
+            ['value'] for i in range(len(names))])
+   mean_latitude = numpy.mean([offset[i]["latitude offset"]\
+            ['value'] for i in range(len(names))])
+
+   # Calculate the offsets from the center.
+   offsets = [numpy.sqrt((offset[i]["longitude offset"]['value'] -\
+             mean_longitude)**2 + (offset[i]["latitude offset"]\
+             ['value'] - mean_latitude)**2) for i in \
+             range(len(names))]
+   offset_y=np.array([(offset[i]["latitude offset"]['value']) for i in \
+            range(len(names))])
+   offset_x=np.array([(offset[i]["longitude offset"]['value']) for i in \
+            range(len(names))])
+
+   for gc_dict in gc_dict_list:
+       for s, spw in enumerate(spwlist):
+          for a,antenna in enumerate(antids):
+             ant='ant'+str(antenna)
+             for e, element in enumerate(gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr']):
+                if (gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr'][e] < gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] or gc_dict['solvestats']['spw'+str(spw)][ant]['above_minblperant'][e] < gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] or gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e] < gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e]) and (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] > 0):
+                   nflagged[a]+= (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] - np.min([gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr'][e], gc_dict['solvestats']['spw'+str(spw)][ant]['above_minblperant'][e]]))
+                   #nflagged[s]+=1.0
+                if (gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e] < gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e]) and (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] > 0):
+                   apriori_flagged[a]+=(gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e]- gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e])
+                   #apriori_flagged[s]+=1.0
+                if (gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr'][e] > 0 and gc_dict['solvestats']['spw'+str(spw)][ant]['above_minblperant'][e] > 0 and gc_dict['solvestats']['spw'+str(spw)][ant]['data_unflagged'][e] > 0) and (gc_dict['solvestats']['spw'+str(spw)][ant]['expected'][e] > 0):
+                   nunflagged[a]+=np.min([gc_dict['solvestats']['spw'+str(spw)][ant]['above_minsnr'][e],gc_dict['solvestats']['spw'+str(spw)][ant]['above_minblperant'][e]])
+                   #nunflagged[s]+=1.0
+   ntotal=nflagged+nunflagged
+   fracflagged=nflagged/ntotal
+   nflagged_non_apriori=nflagged-apriori_flagged
+   ntotal_non_apriori_flagged=ntotal-apriori_flagged
+   fracflagged_non_apriori=nflagged_non_apriori/ntotal_non_apriori_flagged
+   fracflagged_non_apriori=np.nan_to_num(fracflagged_non_apriori)
+   print('a priori flagged:',apriori_flagged)
+   print('non- a priori flagged:',nflagged_non_apriori)
+
+   return names, offset_x, offset_y, apriori_flagged, nflagged, nunflagged, ntotal, fracflagged, nflagged_non_apriori, ntotal_non_apriori_flagged, fracflagged_non_apriori
+
+
+def plot_ants_flagging_colored_from_dict(filename,selfcal_library,selfcal_plan,solint,final_mode,vis):
+   spwlist=selfcal_library['spwlist'].copy()
+   spwlist_pass=[]
+   if final_mode=='combinespw':
+       spwlist_pass=[spwlist[0]]
+   elif final_mode=='per_spw':
+       spwlist_pass=spwlist.copy()
+   elif final_mode=='per_bb':
+       spwlist_bb=[]
+       for baseband in selfcal_library[vis]['baseband'].keys():
+          spwlist_bb.append(selfcal_library[vis]['baseband'][baseband]['spwlist'][0])
+       spwlist_pass=spwlist_bb.copy()
+
+
+   names, offset_x, offset_y, apriori_flagged, nflagged, nunflagged, ntotal, fracflagged, nflagged_non_apriori, ntotal_non_apriori_flagged, fracflagged_non_apriori=get_flagged_solns_per_ant_from_dict(selfcal_plan['solint_settings'][solint]['gaincal_return_dict'][final_mode],spwlist_pass,vis)
+   fracflagged=fracflagged_non_apriori
+   print(fracflagged)
+   import matplotlib
+   matplotlib.use('Agg')
+   import matplotlib.pyplot as plt
+   ants_zero_flagging=np.where(fracflagged == 0.0)
+   ants_lt10pct_flagging=((fracflagged <= 0.1) & (fracflagged > 0.0)).nonzero()
+   ants_lt25pct_flagging=((fracflagged <= 0.25) & (fracflagged > 0.10)).nonzero()
+   ants_lt50pct_flagging=((fracflagged <= 0.5) & (fracflagged > 0.25)).nonzero()
+   ants_lt75pct_flagging=((fracflagged <= 0.75) & (fracflagged > 0.5)).nonzero()
+   ants_gt75pct_flagging=np.where(fracflagged > 0.75)
+   fig, ax = plt.subplots(1,1,figsize=(12, 12))
+   ax.scatter(offset_x[ants_zero_flagging[0]],offset_y[ants_zero_flagging[0]],marker='o',color='green',label='No Flagging',s=120)
+   ax.scatter(offset_x[ants_lt10pct_flagging[0]],offset_y[ants_lt10pct_flagging[0]],marker='o',color='blue',label='<10% Flagging',s=120)
+   ax.scatter(offset_x[ants_lt25pct_flagging[0]],offset_y[ants_lt25pct_flagging[0]],marker='o',color='yellow',label='<25% Flagging',s=120)
+   ax.scatter(offset_x[ants_lt50pct_flagging[0]],offset_y[ants_lt50pct_flagging[0]],marker='o',color='magenta',label='<50% Flagging',s=120)
+   ax.scatter(offset_x[ants_lt75pct_flagging[0]],offset_y[ants_lt75pct_flagging[0]],marker='o',color='cyan',label='<75% Flagging',s=120)
+   ax.scatter(offset_x[ants_gt75pct_flagging[0]],offset_y[ants_gt75pct_flagging[0]],marker='o',color='black',label='>75% Flagging',s=120)
+   ax.legend(fontsize=20)
+   for i in range(len(names)):
+      ax.text(offset_x[i],offset_y[i],names[i])
+   ax.set_xlabel('Latitude Offset (m)',fontsize=20)
+   ax.set_ylabel('Longitude Offset (m)',fontsize=20)
+   ax.set_title('Antenna Positions colorized by Selfcal Flagging',fontsize=20)
+   plt.savefig(filename,dpi=200.0)
+   plt.close()
+
+
 def plot_image(filename,outname,min=None,max=None,zoom=2):
    header=imhead(filename)
    size=np.max(header['shape'])
@@ -2538,19 +2636,37 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                    line+='<td>-</td>\n'
             line+='</tr>\n    '
             htmlOut.writelines(line)
-            for quantity in ['Nsols','Flagged_Sols','Frac_Flagged','SPW_Combine_Mode']:
+            for quantity in ['Nsols_with_preflagged_data','Flagged_Sols_with_preflagged_data','Frac_Flagged_with_preflagged_data','Nsols_without_preflagged_data','Flagged_Sols_without_preflagged_data','Frac_Flagged_without_preflagged_data','SPW_Combine_Mode']:
                line='<tr bgcolor="#ffffff">\n    <td>'+quantity+'</td>\n'
                for solint in solint_list:
                   if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None' and 'gaintable' in sclib[target][band][vis][solint]:
                      # only evaluate last gaintable not the pre-apply table
-                     gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
-                     nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
-                     if quantity =='Nsols':
+                     #gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
+                     #nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
+                     final_mode=selfcal_plan[target][band][vis]['solint_settings'][solint]['final_mode']
+                     nflagged_sols_total=np.sum(selfcal_plan[target][band][vis]['solint_settings'][solint]['nflags'][final_mode])
+                     nsols_total=np.sum(selfcal_plan[target][band][vis]['solint_settings'][solint]['ntotal'][final_mode])
+                     nflagged_sols=np.sum(selfcal_plan[target][band][vis]['solint_settings'][solint]['nflags_non_apriori'][final_mode])
+                     nsols=np.sum(selfcal_plan[target][band][vis]['solint_settings'][solint]['ntotal_non_apriori'][final_mode])
+                     #nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
+                     frac_flagged_sols=nflagged_sols/nsols
+                     frac_flagged_sols_total=nflagged_sols_total/nsols_total
+
+                     if quantity =='Nsols_with_preflagged_data':
+                        line+='<td>'+str(nsols_total)+'</td>\n'
+                     if quantity =='Flagged_Sols_with_preflagged_data':
+                        line+='<td>'+str(nflagged_sols_total)+'</td>\n'
+                     if quantity =='Frac_Flagged_with_preflagged_data':
+                        line+='<td>'+'{:0.3f}'.format(frac_flagged_sols_total)+'</td>\n'
+                     if quantity =='Nsols_without_preflagged_data':
                         line+='<td>'+str(nsols)+'</td>\n'
-                     if quantity =='Flagged_Sols':
+                     if quantity =='Flagged_Sols_without_preflagged_data':
                         line+='<td>'+str(nflagged_sols)+'</td>\n'
-                     if quantity =='Frac_Flagged':
-                        line+='<td>'+'{:0.3f}'.format(nflagged_sols/nsols)+'</td>\n'
+                     if quantity =='Frac_Flagged_without_preflagged_data':
+                        line+='<td>'+'{:0.3f}'.format(frac_flagged_sols)+'</td>\n'
+
+
+
                      if quantity =='SPW_Combine_Mode':
                         solint_index=selfcal_plan[target][band]['solints'].index(solint)
                         if 'combinespw' in sclib[target][band][vis][solint]['final_mode']:
@@ -2733,9 +2849,17 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                ant_list=get_ant_list(vis)
                gaintable=sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['gaintable'][len(sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['gaintable'])-1]
                print('******************'+gaintable+'***************')
-               nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
+               final_mode=selfcal_plan[target][band][vis]['solint_settings'][selfcal_plan[target][band]['solints'][i]]['final_mode']
+
+               nflagged_sols_total=np.sum(selfcal_plan[target][band][vis]['solint_settings'][selfcal_plan[target][band]['solints'][i]]['nflags'][final_mode])
+               nsols_total=np.sum(selfcal_plan[target][band][vis]['solint_settings'][selfcal_plan[target][band]['solints'][i]]['ntotal'][final_mode])
+               nflagged_sols=np.sum(selfcal_plan[target][band][vis]['solint_settings'][selfcal_plan[target][band]['solints'][i]]['nflags_non_apriori'][final_mode])
+               nsols=np.sum(selfcal_plan[target][band][vis]['solint_settings'][selfcal_plan[target][band]['solints'][i]]['ntotal_non_apriori'][final_mode])
+               #nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                frac_flagged_sols=nflagged_sols/nsols
-               plot_ants_flagging_colored(directory+'/images/plot_ants_'+gaintable+'.png',vis,gaintable)
+               frac_flagged_sols_total=nflagged_sols_total/nsols_total
+               #plot_ants_flagging_colored(directory+'/images/plot_ants_'+gaintable+'.png',vis,gaintable)
+               plot_ants_flagging_colored_from_dict(directory+'/images/plot_ants_'+gaintable+'.png',sclib[target][band][vis],selfcal_plan[target][band][vis],selfcal_plan[target][band]['solints'][i],final_mode,vis)
                htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a>')
                if 'unflagged_lbs' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
                    unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), flagged_fraction=0.25, \
@@ -2744,9 +2868,14 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                    htmlOutSolint.writelines('\n<a href="images/'+gaintable.replace('.g.','.pre-pass.pass')+'.png"><img src="images/'+gaintable.replace('.g','.pre-pass.pass')+'.png" ALT="Long baseline unflagging thresholds" HEIGHT=400></a><br>\n')
                else:
                    htmlOutSolint.writelines('<br>\n')
+               htmlOutSolint.writelines('Gain Solution Stats without pre-flagged data<br>')
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
+               htmlOutSolint.writelines('Gain Solution Stats with pre-flagged data<br>')
+               htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols_total))
+               htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols_total))
+               htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols_total))
                print(sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'])
                if 'combinespw' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode']:
                   gc_combine_mode='Combine SPW'
@@ -3353,6 +3482,7 @@ def get_gaintable_flagging_stats(gc_dict_list,spwlist):
    nflagged_non_apriori=nflagged-apriori_flagged
    ntotal_non_apriori_flagged=ntotal-apriori_flagged
    fracflagged_non_apriori=nflagged_non_apriori/ntotal_non_apriori_flagged
+   fracflagged_non_apriori=np.nan_to_num(fracflagged_non_apriori)
    print('a priori flagged:',apriori_flagged)
    print('non- a priori flagged:',nflagged_non_apriori)
    return apriori_flagged,nflagged,nunflagged,ntotal,fracflagged,nflagged_non_apriori,ntotal_non_apriori_flagged,fracflagged_non_apriori
