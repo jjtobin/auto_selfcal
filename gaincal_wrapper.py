@@ -285,7 +285,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                    #   break
         gaintable_prefix=sani_target+'_'+vis+'_'+band+'_'
         # assume that if there is only one mode to attempt, that it is combinespw and don't bother checking.
-        if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1:
+        if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1:
             preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
                            select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
 
@@ -406,7 +406,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                            append=os.path.exists(gaintable_name))
                       selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode].append(gcdict.copy())
         gaintable_prefix='temp_'
-        if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1:
+        if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1:
             preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
                            select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
         else:
