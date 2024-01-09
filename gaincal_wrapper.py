@@ -299,6 +299,19 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
             print(preferred_mode,solint,fallback)
 
+        # Remove per_spw and/or per_bb from subsequent solints if per_bb or combinespw are selected for a given solint
+        if preferred_mode != 'per_spw':
+            for j in range(current_solint_index+1,len(selfcal_plan['solints'])):
+               if 'ap' in selfcal_plan['solints'][j]: # exempt over ap solints since they go back to a longer solint
+                  continue
+               if preferred_mode == 'per_bb' or preferred_mode == 'combinespw':
+                  if 'per_spw' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
+                     selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_spw')
+               if preferred_mode == 'combinespw':
+                  if 'per_bb' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
+                     selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_bb')
+      
+            
         # Update the appropriate selfcal_library entries.
 
         selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode+''
@@ -414,6 +427,16 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             fallback=''
         print(preferred_mode,solint,fallback)
 
+        # Remove per_spw and/or per_bb from subsequent solints if per_bb or combinespw are selected for a given solint
+        if preferred_mode != 'per_spw':
+            for j in range(current_solint_index+1,len(selfcal_plan['solints'])):
+               if preferred_mode == 'per_bb' or preferred_mode == 'combinespw':
+                  if 'per_spw' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
+                     selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_spw')
+               if preferred_mode == 'combinespw':
+                  if 'per_bb' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
+                     selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_bb')
+      
         selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode
         selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
         applycal_spwmap.append(selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode])
