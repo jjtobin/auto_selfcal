@@ -4092,6 +4092,7 @@ def remove_modes(selfcal_plan,vis,start_index):
     for j in range(start_index+1,len(selfcal_plan['solints'])):
        if 'ap' in selfcal_plan['solints'][j] and 'ap' not in selfcal_plan['solints'][start_index]: # exempt over ap solints since they go back to a longer solint
           continue
+       preferred_mode=selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['final_mode']
        if preferred_mode == 'per_bb' or preferred_mode == 'combinespw':
           if 'per_spw' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
              selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_spw')
