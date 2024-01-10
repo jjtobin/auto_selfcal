@@ -379,16 +379,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             if do_fallback_combinespw:
                 selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw'
                 if preferred_mode != 'per_spw':
-                    for j in range(iteration+1,len(selfcal_plan['solints'])):
-                       if 'ap' in selfcal_plan['solints'][j]: # exempt over ap solints since they go back to a longer solint
-                          continue
-                       if preferred_mode == 'per_bb' or preferred_mode == 'combinespw':
-                          if 'per_spw' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
-                             selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_spw')
-                       if preferred_mode == 'combinespw':
-                          if 'per_bb' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
-                             selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_bb')
-            
+                    remove_modes(selfcal_plan,vis,iteration)
             do_fallback_combinespw=False   # Turn off this switch if successful               
 
             if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library["SC_success"]:
