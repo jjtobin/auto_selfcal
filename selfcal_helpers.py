@@ -2125,8 +2125,8 @@ def plot_ants_flagging_colored_from_dict(filename,selfcal_library,selfcal_plan,s
        spwlist_pass=spwlist.copy()
    elif final_mode=='per_bb':
        spwlist_bb=[]
-       for baseband in selfcal_library[vis]['baseband'].keys():
-          spwlist_bb.append(selfcal_library[vis]['baseband'][baseband]['spwlist'][0])
+       for baseband in selfcal_library['baseband'].keys():
+          spwlist_bb.append(selfcal_library['baseband'][baseband]['spwlist'][0])
        spwlist_pass=spwlist_bb.copy()
 
 
