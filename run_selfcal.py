@@ -51,6 +51,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
 
+   counter = 0
    repeat_solint=False
    do_fallback_combinespw=False
    print('Starting selfcal procedure on: '+target+' '+band)
@@ -430,6 +431,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     for vis in selfcal_library[fid]['vislist']:
                         selfcal_library[fid][vis][solint]['Pass']=False
             repeat_solint = False
+            counter = 0
          ##
          ## If the beam area got larger, this could be because of flagging of long baseline antennas. Try with applymode = "calonly".
          ## Alternatively, if mode != 'combinespw', try with combine="spw"
@@ -455,13 +457,20 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                       selfcal_plan[vis]['inf_EB_gaincal_combine']+=',field'   
                    selfcal_plan[vis]['inf_EB_gaintype']=inf_EB_gaintype #G
                    selfcal_plan[vis]['inf_EB_fallback_mode']='' #'scan'
+             repeat_solint = True
+             counter += 1
+             if counter == 3:
+                 print("\n*************************************************************")
+                 print("WARNING: Selfcal tried to start an infinite loop. Exiting.")
+                 print("*************************************************************\n")
+                 sys.exit(0)
+
              print('Final Mode:', selfcal_library[vis][solint]['final_mode'])
              if selfcal_library[vis][solint]['final_mode'] != 'combinespw':
                  print('****************Attempting combine="spw" fallback*************')
                  do_fallback_combinespw=True
                  for vis in vislist:
                    generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration)
-                 repeat_solint = True
                  continue
              elif delta_beamarea > delta_beam_thresh:
                  do_fallback_combinespw=False  # turn the switch off since this is another repeat
@@ -469,7 +478,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  # Loop through up to two times. On the first attempt, try applymode = 'calflag' (assuming this is requested by the user). On the
                  # second attempt, use applymode = 'calonly'.
                  selfcal_plan['applycal_mode'][iteration] = 'calonly'
-                 repeat_solint = True
                  continue
          else:
             for vis in vislist:
@@ -478,8 +486,10 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             for fid in selfcal_library['sub-fields-to-selfcal']:
                 for vis in selfcal_library[fid]['vislist']:
                     selfcal_library[fid][vis][solint]['Pass']=False
+
             repeat_solint = False
             do_fallback_combinespw = False
+            counter = 0
 
 
          ## 
