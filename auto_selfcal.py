@@ -17,6 +17,22 @@ from prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
+def end_program():
+    print('This version of auto_selfcal requires CASA 6.5.3 or higher to run. Please update your CASA version and try again.')
+    sys.exit(0)
+
+casaversion=casatasks.version()
+if casaversion[0]>=6:
+   if  casaversion[1]>=5:
+      if casaversion[1]==5 and casaversion[2]<3:
+         end_program()
+   else:
+      end_program()
+else:
+   end_program()
+
+
+
 ###################################################################################################
 ######################## All code until line ~170 is just jumping through hoops ###################
 ######################## to get at metadata pipeline should have in the context ###################

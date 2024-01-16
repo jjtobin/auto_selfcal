@@ -503,6 +503,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_spwmap']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_combine']={}
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['filename_append']={}
+                selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_return_dict']={}
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_interpolate']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_gaintable']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_spwmap']=[]
@@ -550,6 +551,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        gaincal_combine+='scan'
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_combine'][mode]=gaincal_combine
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['filename_append'][mode]=filename_append
+                    selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_return_dict'][mode]=[]
                       
                         
                       

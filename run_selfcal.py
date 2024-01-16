@@ -377,6 +377,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
          if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
 
+            if do_fallback_combinespw:
+                selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw' 
+                remove_modes(selfcal_plan,vis,iteration)
             do_fallback_combinespw=False   # Turn off this switch if successful               
 
             if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library["SC_success"]:
@@ -438,7 +441,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          ##
 
          elif (delta_beamarea > delta_beam_thresh and selfcal_plan['applycal_mode'][iteration] == "calflag") or \
-                 (selfcal_library[vis][solint]['final_mode'] != 'combinespw' and not do_fallback_combinespw):
+                 ('combinespw' not in selfcal_library[vis][solint]['final_mode'] and not do_fallback_combinespw):
 
              print('****************************Selfcal failed**************************')
              if delta_beamarea > delta_beam_thresh:
@@ -466,7 +469,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  sys.exit(0)
 
              print('Final Mode:', selfcal_library[vis][solint]['final_mode'])
-             if selfcal_library[vis][solint]['final_mode'] != 'combinespw':
+             if 'combinespw' not in selfcal_library[vis][solint]['final_mode']:
                  print('****************Attempting combine="spw" fallback*************')
                  do_fallback_combinespw=True
                  for vis in vislist:
