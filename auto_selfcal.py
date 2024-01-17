@@ -55,12 +55,17 @@ do_amp_selfcal=True
              # input as dictionary for target name to allow support of multiple targets           
 usermask=''  # require that it is a CRTF region (CASA region format)
              # usermask={'IRAS32':'IRAS32.rgn', 'IRS5N':'IRS5N.rgn'}
+             # If multiple sources and only want to use a mask for one, just specify that source.
+             # The keys for remaining sources will be filled with empty strings
+
 usermodel='' # input as dictionary for target name to allow support of multiple targets
              # if includes .fits, assume a fits image, otherwise assume a CASA image
              # for spectral image, input as list i.e., usermodel=['usermodel.tt0','usermodel.tt1']
              # usermodel={'IRAS32':['IRAS32-model.tt0','IRAS32-model.tt1'], 'IRS5N':['IRS5N-model.tt0','IRS5N-model.tt1']}
-usermask={'IRAS32':'IRAS32.rgn', 'IRS5N':''}
-usermodel={'IRAS32':['IRAS32-model-sub.tt0','IRAS32-model-sub.tt1'], 'IRS5N':['IRS5N-model-sub.tt0','IRS5N-model-sub.tt1']
+             # If multiple sources and only want to use a model for one, just specify that source.
+             # The keys for remaining sources will be filled with empty strings
+
+
 if type(usermask)==dict:
    for target in all_targets:
       if target not in usermask.keys():
