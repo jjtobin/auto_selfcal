@@ -480,8 +480,12 @@ for target in all_targets:
    header=imhead(imagename=sani_target+'_'+band+'_initial.image.tt0')
    if telescope =='ALMA' or telescope == 'ACA':
       selfcal_library[target][band]['theoretical_sensitivity']=sensitivity_nomod
+      selfcal_library[target][band]['clean_threshold_orig']=sensitivity*4.0
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
+      with open('Target_K04169_Band_6_initial.return.pickle', 'rb') as handle:
+          initial_tclean_return = pickle.load(handle)
+          selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
    selfcal_library[target][band]['SNR_orig']=initial_SNR
    if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
       selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
@@ -803,8 +807,11 @@ for target in all_targets:
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
+   clean_threshold = min(selfcal_library[target][band]['clean_threshold_orig'], selfcal_library[target][band]['RMS_NF_curr']*3.0)
+   if selfcal_library[target][band]['clean_threshold_orig'] < selfcal_library[target][band]['RMS_NF_curr']*3.0:
+       print("WARNING: The clean threshold used for the initial image was less than 3*RMS_NF_curr, using that for the final image threshold instead.")
    tclean_wrapper(vislist,sani_target+'_'+band+'_final',\
-               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
+               band_properties,band,telescope=telescope,nsigma=3.0, threshold=str(clean_threshold*3.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],
                nterms=selfcal_library[target][band]['nterms'],field=target,datacolumn='corrected',spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], \
                nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', \

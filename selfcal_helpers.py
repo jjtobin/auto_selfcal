@@ -2,6 +2,7 @@ import numpy as np
 import numpy 
 import scipy.stats
 import scipy.signal
+import pickle
 import math
 import os
 
@@ -110,7 +111,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
         if not resume:
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
-        tclean(vis= vis, 
+        tclean_return = tclean(vis= vis, 
                imagename = imagename, 
                field=field,
                specmode = 'mfs', 
@@ -145,6 +146,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                phasecenter=phasecenter,
                startmodel=startmodel,
                datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True)
+
+        with open(imagename+'.return.pickle', 'wb') as handle:
+            pickle.dump(tclean_return, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         if image_mosaic_fields_separately:
             for field_id in mosaic_field_phasecenters:
