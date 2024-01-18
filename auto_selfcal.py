@@ -80,8 +80,20 @@ apply_to_target_ms=False # apply final selfcal solutions back to the input _targ
 sort_targets_and_EBs=False
 run_findcont=True
 
+if run_findcont and os.path.exists("cont.dat"):
+    if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
+        if not os.path.exists("cont.dat.original"):
+            print("Found existing cont.dat, but it is missing targets. Backing that up to cont.dat.original")
+            os.system("mv cont.dat cont.dat.original")
+        else:
+            print("Found existing cont.dat, but it is missing targets. A backup of the original (cont.dat.original) already exists, so not backing up again.")
+    elif run_findcont:
+        print("cont.dat already exists and includes all targets, so running findcont is not needed. Continuing...")
+        run_findcont=False
+
 if run_findcont:
     try:
+        print("Running findcont")
         h_init()
         hifa_importdata(vis=vislist, dbservice=False)
         hif_checkproductsize(maxcubesize=60.0, maxcubelimit=70.0, maxproductsize=4000.0)
