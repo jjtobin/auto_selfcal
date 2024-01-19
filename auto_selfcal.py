@@ -811,8 +811,12 @@ for target in all_targets:
  for band in selfcal_library[target].keys():
    if usermask !='':
       sourcemask=usermask[target]
+   else:
+      sourcemask=''
    if usermodel !='':
       sourcemodel=usermodel[target]
+   else:
+      sourcemodel=''
    run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize[target], imsize[target], \
            inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp[target], integration_time, spectral_scan, spws_set,\
            gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
@@ -833,7 +837,10 @@ print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
 for target in all_targets:
  sani_target=sanitize_string(target)
- sourcemask=usermask[target]
+ if usermask !='':
+    sourcemask=usermask[target]
+ else:
+    sourcemask=''
  for band in selfcal_library[target].keys():
    vislist=selfcal_library[target][band]['vislist'].copy()
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
