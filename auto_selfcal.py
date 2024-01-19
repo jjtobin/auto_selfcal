@@ -430,6 +430,8 @@ for target in all_targets:
    #make images using the appropriate tclean heuristics for each telescope
    if usermask !='':
       sourcemask=usermask[target]
+   else:
+      sourcemask=''
    if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
       # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
       # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
