@@ -422,10 +422,6 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             fallback=''
         print(preferred_mode,solint,fallback)
 
-        # Remove per_spw and/or per_bb from subsequent solints if per_bb or combinespw are selected for a given solint
-        if preferred_mode != 'per_spw':
-            remove_modes(selfcal_plan,vis,current_solint_index)
-
         selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode
         selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
         applycal_spwmap.append(selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode])
@@ -445,6 +441,12 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         selfcal_library[vis][solint]['applycal_mode']=selfcal_plan['applycal_mode'][iteration]+''
         selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate.copy()
         selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
+
+        # Remove per_spw and/or per_bb from subsequent solints if per_bb or combinespw are selected for a given solint
+        if preferred_mode != 'per_spw':
+            remove_modes(selfcal_plan,vis,current_solint_index)
+
+
         for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             selfcal_library[fid][vis][solint]['final_mode']=preferred_mode+''
             selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap.copy()
