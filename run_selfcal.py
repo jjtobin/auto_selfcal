@@ -82,7 +82,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             break
          # make sure the last phase-only selfcal table gets pre-applied
          # solints that use combinespw don't get pre-apply label by default
-         selfcal_plan[vis]['solint_settings'][selfcal_library['final_phase_solint']]['preapply_this_gaintable']=True
+         for vis in vislist:
+             selfcal_plan[vis]['solint_settings'][selfcal_library['final_phase_solint']]['preapply_this_gaintable']=True
          
 
       if mode == "selfcal" and selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
