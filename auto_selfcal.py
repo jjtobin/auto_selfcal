@@ -483,7 +483,7 @@ for target in all_targets:
       selfcal_library[target][band]['clean_threshold_orig']=sensitivity*4.0
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
-      with open('Target_K04169_Band_6_initial.return.pickle', 'rb') as handle:
+      with open(sani_target+'_'+band+'_initial.return.pickle', 'rb') as handle:
           initial_tclean_return = pickle.load(handle)
           selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
    selfcal_library[target][band]['SNR_orig']=initial_SNR
