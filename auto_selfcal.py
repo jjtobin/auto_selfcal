@@ -79,7 +79,7 @@ dividing_factor=-99.0  # number that the peak SNR is divided by to determine fir
 check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
-run_findcont=True
+run_findcont=False
 
 if run_findcont and os.path.exists("cont.dat"):
     if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
