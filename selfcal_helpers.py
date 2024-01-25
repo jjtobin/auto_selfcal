@@ -523,7 +523,7 @@ def get_solints_simple(vislist,scantimesdict,scanstartsdict,scanendsdict,integra
    gaincal_combine.insert(0,inf_EB_gaincal_combine)
 
    #insert solint = inf
-   if median_scans_per_obs > 1:                    # if only a single scan per target, redundant with inf_EB and do not include
+   if median_scans_per_obs > 2 or (median_scans_per_obs == 2 and max_scantime / min_scantime < 4):                    # if only a single scan per target, redundant with inf_EB and do not include
       solints_list.append('inf')
       if spwcombine:
          gaincal_combine.append('spw')
