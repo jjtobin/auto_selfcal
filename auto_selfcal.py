@@ -40,6 +40,31 @@ if len(vislist) == 0:
 ##
 spectral_average=True
 do_amp_selfcal=True
+             # input as dictionary for target name to allow support of multiple targets           
+usermask=''  # require that it is a CRTF region (CASA region format)
+             # usermask={'IRAS32':'IRAS32.rgn', 'IRS5N':'IRS5N.rgn'}
+             # If multiple sources and only want to use a mask for one, just specify that source.
+             # The keys for remaining sources will be filled with empty strings
+
+usermodel='' # input as dictionary for target name to allow support of multiple targets
+             # if includes .fits, assume a fits image, otherwise assume a CASA image
+             # for spectral image, input as list i.e., usermodel=['usermodel.tt0','usermodel.tt1']
+             # usermodel={'IRAS32':['IRAS32-model.tt0','IRAS32-model.tt1'], 'IRS5N':['IRS5N-model.tt0','IRS5N-model.tt1']}
+             # If multiple sources and only want to use a model for one, just specify that source.
+             # The keys for remaining sources will be filled with empty strings
+
+
+if type(usermask)==dict:
+   for target in all_targets:
+      if target not in usermask.keys():
+         usermask[target]=''
+
+if type(usermodel)==dict:
+   for target in all_targets:
+      if target not in usermodel.keys():
+         usermodel[target]=''
+         
+      
 inf_EB_gaincal_combine='scan'
 inf_EB_gaintype='G'
 inf_EB_override=False
@@ -67,6 +92,30 @@ dividing_factor=-99.0  # number that the peak SNR is divided by to determine fir
 check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
+run_findcont=False
+
+if run_findcont and os.path.exists("cont.dat"):
+    if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
+        if not os.path.exists("cont.dat.original"):
+            print("Found existing cont.dat, but it is missing targets. Backing that up to cont.dat.original")
+            os.system("mv cont.dat cont.dat.original")
+        else:
+            print("Found existing cont.dat, but it is missing targets. A backup of the original (cont.dat.original) already exists, so not backing up again.")
+    elif run_findcont:
+        print("cont.dat already exists and includes all targets, so running findcont is not needed. Continuing...")
+        run_findcont=False
+
+if run_findcont:
+    try:
+        print("Running findcont")
+        h_init()
+        hifa_importdata(vis=vislist, dbservice=False)
+        hif_checkproductsize(maxcubesize=60.0, maxcubelimit=70.0, maxproductsize=4000.0)
+        hif_makeimlist(specmode="mfs")
+        hif_findcont()
+    except:
+        print("\nWARNING: Cannot run findcont as the pipeline was not found. Please retry with a CASA version that includes the pipeline or start CASA with the --pipeline flag.\n")
+        sys.exit(0)
 
 ##
 ## Get all of the relevant data from the MS files
@@ -95,6 +144,10 @@ for target in selfcal_library:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target]:
    #make images using the appropriate tclean heuristics for each telescope
+   if usermask !='':
+      sourcemask=usermask[target]
+   else:
+      sourcemask=''
    if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
       # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
       # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
@@ -103,7 +156,7 @@ for target in selfcal_library:
                      band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=1, gain=0.00001,
                      savemodel='none',parallel=parallel,
-                     field=target)
+                     field=target, mask=sourcemask, usermodel='')
 
    dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_dirty.image.tt0', sani_target+'_'+band+'_dirty.mask',
             '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
@@ -124,7 +177,8 @@ for target in selfcal_library:
                      band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='theoretical_with_drmod',
                      savemodel='none',parallel=parallel,
-                     field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS)
+                     field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS,
+                     mask=sourcemask, usermodel='')
 
    initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', 
            sani_target+'_'+band+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
@@ -182,11 +236,15 @@ if check_all_spws:
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
             if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0'):
+               if usermask !='':
+                  sourcemask=usermask[target]
+               else:
+                  sourcemask=''
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
                      band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='0.0Jy',niter=1,gain=0.00001,
                      savemodel='none',parallel=parallel,
-                     field=target,spw=spw)
+                     field=target,spw=spw,mask=sourcemask,usermodel='')
 
             dirty_SNR, dirty_RMS, dirty_per_spw_NF_SNR, dirty_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
                     '_dirty.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_dirty.mask','', selfcal_library[target][band], 
@@ -197,7 +255,7 @@ if check_all_spws:
                           band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
                           savemodel='none',parallel=parallel,\
                           field=target,datacolumn='corrected',\
-                          spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
+                          spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS,mask=sourcemask,usermodel='')
 
             per_spw_SNR, per_spw_RMS, initial_per_spw_NF_SNR, initial_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
                     '_initial.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_initial.mask', '', selfcal_library[target][band], 
@@ -239,13 +297,21 @@ with open('selfcal_library.pickle', 'wb') as handle:
 ##
 for target in selfcal_library:
  for band in selfcal_library[target].keys():
+   if usermask !='':
+      sourcemask=usermask[target]
+   else:
+      sourcemask=''
+   if usermodel !='':
+      sourcemodel=usermodel[target]
+   else:
+      sourcemodel=''
    run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, \
            gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
            gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine, \
-           aca_use_nfmask=aca_use_nfmask)
+           aca_use_nfmask=aca_use_nfmask,mask=sourcemask,usermodel=sourcemodel)
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
@@ -382,14 +448,17 @@ if allow_cocal:
 ##
 for target in selfcal_library:
  sani_target=sanitize_string(target)
+ if usermask !='':
+    sourcemask=usermask[target]
+ else:
+    sourcemask=''
  for band in selfcal_library[target].keys():
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
    tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_final',\
                band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,
                field=target,datacolumn='corrected',\
-               nfrms_multiplier=nfsnr_modifier)
-               
+               nfrms_multiplier=nfsnr_modifier,mask=sourcemask,usermodel='')
 
    final_SNR, final_RMS, final_NF_SNR, final_NF_RMS = get_image_stats(sani_target+'_'+band+'_final.image.tt0', sani_target+'_'+band+'_final.mask',
            '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'final', 'final')
@@ -433,6 +502,10 @@ print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 if check_all_spws:
    for target in selfcal_library:
       sani_target=sanitize_string(target)
+      if usermask !='':
+         sourcemask=usermask[target]
+      else:
+         sourcemask=''
       for band in selfcal_library[target].keys():
          selfcal_library[target][band]['vislist']=selfcal_library[target][band]['vislist'].copy()
 
@@ -446,7 +519,7 @@ if check_all_spws:
                           band,telescope=telescope,nsigma=4.0, threshold='theoretical',scales=[0],\
                           savemodel='none',parallel=parallel,\
                           field=target,datacolumn='corrected',\
-                          spw=spw,nfrms_multiplier=nfsnr_modifier)
+                          spw=spw,nfrms_multiplier=nfsnr_modifier,mask=sourcemask,usermodel='')
 
             final_per_spw_SNR, final_per_spw_RMS, final_per_spw_NF_SNR, final_per_spw_NF_RMS = get_image_stats(
                     sani_target+'_'+band+'_'+str(spw)+'_final.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_final.mask',

@@ -26,7 +26,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True):
+                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True, usermodel=''):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -243,7 +243,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
 
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
-    if savemodel=='modelcolumn':
+    if savemodel=='modelcolumn' and usermodel=='':
           print("")
           print("Running tclean a second time to save the model...")
           tclean(vis= vlist, 
@@ -282,7 +282,145 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                  parallel=False,
                  phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
     
+    elif usermodel !='':
+          print('Using user model already filled to model column, skipping model write.')
 
+
+def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
+                   nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
+                   cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
+                   lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
+                   savemodel_only=False, resume=False, usermodel=''):
+    
+    if type(usermodel)==list:
+       nterms=len(usermodel)
+       for i, image in enumerate(usermodel):
+           if 'fits' in image:
+               importfits(fitsimage=image,imagename=image.replace('.fits',''))
+               usermodel[i]=image.replace('.fits','')
+    elif type(usermodel)==str:
+       importfits(fitsimage=usermodel,imagename=usermmodel.replace('.fits',''))
+       nterms=1
+   
+    msmd.open(vis[0])
+    fieldid=msmd.fieldsforname(field)
+    msmd.done()
+    tb.open(vis[0]+'/FIELD')
+    try:
+       ephem_column=tb.getcol('EPHEMERIS_ID')
+       tb.close()
+       if ephem_column[fieldid[0]] !=-1:
+          phasecenter='TRACKFIELD'
+    except:
+       tb.close()
+       phasecenter=''
+
+    if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
+
+    if mask == '':
+       usemask='auto-multithresh'
+    else:
+       usemask='user'
+    wprojplanes=1
+    if band=='EVLA_L' or band =='EVLA_S':
+       gridder='wproject'
+       wplanes=384 # normalized to S-band A-config
+       #scale by 75th percentile uv distance divided by A-config value
+       wplanes=wplanes * selfcal_library['75thpct_uv']/20000.0
+       if band=='EVLA_L':
+          wplanes=wplanes*2.0 # compensate for 1.5 GHz being 2x longer than 3 GHz
+
+
+       wprojplanes=int(wplanes)
+    if (band=='EVLA_L' or band =='EVLA_S') and selfcal_library['obstype']=='mosaic':
+       print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
+    if selfcal_library['obstype']=='mosaic':
+       gridder='mosaic'
+    else:
+       if gridder !='wproject':
+          gridder='standard' 
+
+    if gridder=='mosaic' and startmodel!='':
+       parallel=False
+    for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+        os.system('rm -rf '+ imagename + ext)
+    #regrid start model
+    tclean(vis= vis, 
+               imagename = imagename+'_usermodel_prep', 
+               field=field,
+               specmode = 'mfs', 
+               deconvolver = 'mtmfs',
+               scales = scales, 
+               gridder=gridder,
+               weighting='briggs', 
+               robust = robust,
+               gain = gain,
+               imsize = selfcal_library['imsize'],
+               cell = selfcal_library['cellsize'], 
+               smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
+               niter = 0, #we want to end on the threshold
+               interactive = interactive,
+               nsigma=nsigma,    
+               cycleniter = cycleniter,
+               cyclefactor = selfcal_library['cyclefactor'], 
+               uvtaper = uvtaper, 
+               mask=mask,
+               usemask=usemask,
+               sidelobethreshold=sidelobethreshold,
+               noisethreshold=noisethreshold,
+               lownoisethreshold=lownoisethreshold,
+               smoothfactor=smoothfactor,
+               pbmask=pbmask,
+               pblimit=pblimit,
+               nterms = nterms,
+               uvrange=selfcal_library['uvrange'],
+               threshold=threshold,
+               parallel=parallel,
+               phasecenter=phasecenter,
+               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True,startmodel=usermodel,savemodel='modelcolumn')
+
+     #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
+    if savemodel=='modelcolumn':
+          print("")
+          print("Running tclean a second time to save the model...")
+          tclean(vis= vis, 
+                 imagename = imagename+'_usermodel_prep', 
+                 field=field,
+                 specmode = 'mfs', 
+                 deconvolver = 'mtmfs',
+                 scales = scales, 
+                 gridder=gridder,
+                 weighting='briggs', 
+                 robust = robust,
+                 gain = gain,
+                 imsize = selfcal_library['imsize'],
+                 cell = selfcal_library['cellsize'], 
+                 smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
+                 niter = 0, 
+                 interactive = False,
+                 nsigma=0.0, 
+                 cycleniter = cycleniter,
+                 cyclefactor = selfcal_library['cyclefactor'], 
+                 uvtaper = uvtaper, 
+                 usemask='user',
+                 savemodel = savemodel,
+                 sidelobethreshold=sidelobethreshold,
+                 noisethreshold=noisethreshold,
+                 lownoisethreshold=lownoisethreshold,
+                 smoothfactor=smoothfactor,
+                 pbmask=pbmask,
+                 pblimit=pblimit,
+                 calcres = False,
+                 calcpsf = False,
+                 restoration = False,
+                 nterms = nterms,
+                 uvrange=selfcal_library['uvrange'],
+                 threshold=threshold,
+                 parallel=False,
+                 phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
+ 
 
 def collect_listobs_per_vis(vislist):
    listdict={}
