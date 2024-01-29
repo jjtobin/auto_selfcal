@@ -109,6 +109,24 @@ def prepare_selfcal(vislist,
           else:
              selfcal_library[target][band]['obstype']='single-point'
 
+          # Fill in the usermask and usermodel, if supplied.
+
+          if target in usermask:
+              if band in usermask[target]:
+                  selfcal_library[target][band]['usermask'] = usermask[target][band]
+              else:
+                  selfcal_library[target][band]['usermask'] = ''
+          else:
+              selfcal_library[target][band]['usermask'] = ''
+
+          if target in usermodel:
+              if band in usermodel[target]:
+                  selfcal_library[target][band]['usermodel'] = usermodel[target][band]
+              else:
+                  selfcal_library[target][band]['usermodel'] = ''
+          else:
+              selfcal_library[target][band]['usermodel'] = ''
+
           # Make sure the fields get mapped properly, in case the order in which they are observed changes from EB to EB.
 
           selfcal_library[target][band]['sub-fields-fid_map'] = {}

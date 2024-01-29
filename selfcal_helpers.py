@@ -26,7 +26,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True, usermodel=''):
+                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -52,7 +52,11 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
     if mask == '':
-       usemask='auto-multithresh'
+       if selfcal_library['usermask'] != '':
+           mask = selfcal_library['usermask']
+           usemask = 'user'
+       else:
+           usemask='auto-multithresh'
     else:
        usemask='user'
     if telescope=='ALMA':
@@ -243,7 +247,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
 
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
-    if savemodel=='modelcolumn' and usermodel=='':
+    if savemodel=='modelcolumn' and selfcal_library['usermodel']=='':
           print("")
           print("Running tclean a second time to save the model...")
           tclean(vis= vlist, 
@@ -282,7 +286,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                  parallel=False,
                  phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
     
-    elif usermodel !='':
+    elif savemodel=='modelcolumn' and selfcal_library['usermodel'] !='':
           print('Using user model already filled to model column, skipping model write.')
 
 
@@ -291,16 +295,16 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
-                   savemodel_only=False, resume=False, usermodel=''):
+                   savemodel_only=False, resume=False):
     
-    if type(usermodel)==list:
-       nterms=len(usermodel)
-       for i, image in enumerate(usermodel):
+    if type(selfcal_library['usermodel'])==list:
+       nterms=len(selfcal_library['usermodel'])
+       for i, image in enumerate(selfcal_library['usermodel']):
            if 'fits' in image:
                importfits(fitsimage=image,imagename=image.replace('.fits',''))
-               usermodel[i]=image.replace('.fits','')
-    elif type(usermodel)==str:
-       importfits(fitsimage=usermodel,imagename=usermmodel.replace('.fits',''))
+               selfcal_library['usermodel'][i]=image.replace('.fits','')
+    elif type(selfcal_library['usermodel'])==str:
+       importfits(fitsimage=selfcal_library['usermodel'],imagename=usermmodel.replace('.fits',''))
        nterms=1
    
     msmd.open(vis[0])
@@ -320,9 +324,14 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
        phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
 
     if mask == '':
-       usemask='auto-multithresh'
+       if selfcal_library['usermask'] != '':
+           mask = selfcal_library['usermask']
+           usemask = 'user'
+       else:
+           usemask='auto-multithresh'
     else:
        usemask='user'
+
     wprojplanes=1
     if band=='EVLA_L' or band =='EVLA_S':
        gridder='wproject'
@@ -379,7 +388,7 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
                threshold=threshold,
                parallel=parallel,
                phasecenter=phasecenter,
-               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True,startmodel=usermodel,savemodel='modelcolumn')
+               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True,startmodel=selfcal_library['usermodel'],savemodel='modelcolumn')
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel=='modelcolumn':

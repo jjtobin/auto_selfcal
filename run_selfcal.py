@@ -16,7 +16,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False, \
-        gaincalibrator_dict={}, allow_gain_interpolation=False, guess_scan_combine=False, aca_use_nfmask=False, mask='', usermodel=''):
+        gaincalibrator_dict={}, allow_gain_interpolation=False, guess_scan_combine=False, aca_use_nfmask=False):
 
    # If we are running this on a mosaic, we want to rerank reference antennas and have a higher gaincal_minsnr by default.
 
@@ -50,14 +50,14 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
 
-   if usermodel != '':
+   if selfcal_library['usermodel'] != '':
       print('Setting model column to user model')
       usermodel_wrapper(selfcal_library,sani_target+'_'+band,
                      band,telescope=telescope,nsigma=0.0, scales=[0],
                      threshold='0.0Jy',
                      savemodel='modelcolumn',parallel=parallel,
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],resume=False, 
-                     cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
+                     cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
    print('Starting selfcal procedure on: '+target+' '+band)
 
@@ -138,7 +138,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                      band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
                      savemodel='none',parallel=parallel,
-                     field=target, nfrms_multiplier=nfsnr_modifier, resume=resume, mask=mask, usermodel=usermodel)
+                     field=target, nfrms_multiplier=nfsnr_modifier, resume=resume)
 
          # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
          # code will break.
@@ -169,7 +169,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                              band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                              threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
                              savemodel='modelcolumn',parallel=parallel,
-                             field=target, nfrms_multiplier=nfsnr_modifier, savemodel_only=True, mask=mask, usermodel=usermodel)
+                             field=target, nfrms_multiplier=nfsnr_modifier, savemodel_only=True)
 
              for vis in vislist:
                 # Record gaincal details.
@@ -224,7 +224,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                       band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                       threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
                       savemodel='none',parallel=parallel,
-                      field=target, nfrms_multiplier=nfsnr_modifier, mask=mask, usermodel=usermodel)
+                      field=target, nfrms_multiplier=nfsnr_modifier)
 
              ##
              ## Do the assessment of the post- (and pre-) selfcal images.
@@ -334,7 +334,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                           band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                           threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                           savemodel='none',parallel=parallel,
-                          field=target, nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=False, mask=mask, usermodel=usermodel)
+                          field=target, nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=False)
 
                  ##
                  ## Do the assessment of the post- (and pre-) selfcal images.
