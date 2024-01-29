@@ -93,6 +93,11 @@ if run_findcont and os.path.exists("cont.dat"):
 
 if run_findcont:
     try:
+        if 'pipeline' not in sys.modules:
+            print("Pipeline found but not imported. Importing...")
+            import pipeline
+            pipeline.initcli()
+
         print("Running findcont")
         h_init()
         hifa_importdata(vis=vislist, dbservice=False)
