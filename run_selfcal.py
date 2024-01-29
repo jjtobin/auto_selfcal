@@ -378,8 +378,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
 
             if do_fallback_combinespw:
-                selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw' 
-                remove_modes(selfcal_plan,vis,iteration)
+                for vis in vislist:
+                    selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw' 
+                    remove_modes(selfcal_plan,vis,iteration)
             do_fallback_combinespw=False   # Turn off this switch if successful               
 
             if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library["SC_success"]:
