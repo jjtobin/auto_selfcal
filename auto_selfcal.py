@@ -103,6 +103,35 @@ dividing_factor=-99.0  # number that the peak SNR is divided by to determine fir
 check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
+run_findcont=False
+
+if run_findcont and os.path.exists("cont.dat"):
+    if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
+        if not os.path.exists("cont.dat.original"):
+            print("Found existing cont.dat, but it is missing targets. Backing that up to cont.dat.original")
+            os.system("mv cont.dat cont.dat.original")
+        else:
+            print("Found existing cont.dat, but it is missing targets. A backup of the original (cont.dat.original) already exists, so not backing up again.")
+    elif run_findcont:
+        print("cont.dat already exists and includes all targets, so running findcont is not needed. Continuing...")
+        run_findcont=False
+
+if run_findcont:
+    try:
+        if 'pipeline' not in sys.modules:
+            print("Pipeline found but not imported. Importing...")
+            import pipeline
+            pipeline.initcli()
+
+        print("Running findcont")
+        h_init()
+        hifa_importdata(vis=vislist, dbservice=False)
+        hif_checkproductsize(maxcubesize=60.0, maxcubelimit=70.0, maxproductsize=4000.0)
+        hif_makeimlist(specmode="mfs")
+        hif_findcont()
+    except:
+        print("\nWARNING: Cannot run findcont as the pipeline was not found. Please retry with a CASA version that includes the pipeline or start CASA with the --pipeline flag.\n")
+        sys.exit(0)
 
 if sort_targets_and_EBs:
     all_targets.sort()
