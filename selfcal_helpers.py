@@ -2,7 +2,6 @@ import numpy as np
 import numpy 
 import scipy.stats
 import scipy.signal
-import pickle
 import math
 import os
 
@@ -147,9 +146,6 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                startmodel=startmodel,
                datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True)
 
-        with open(imagename+'.return.pickle', 'wb') as handle:
-            pickle.dump(tclean_return, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
         if image_mosaic_fields_separately:
             for field_id in mosaic_field_phasecenters:
                 if 'VLA' in telescope:
@@ -243,6 +239,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  parallel=False,
                  phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
     
+    if not savemodel_only:
+        return tclean_return
 
 
 def collect_listobs_per_vis(vislist):

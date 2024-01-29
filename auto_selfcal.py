@@ -452,7 +452,7 @@ for target in all_targets:
             sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
       else:
          sensitivity=0.0
-      tclean_wrapper(vislist,sani_target+'_'+band+'_initial',
+      initial_tclean_return = tclean_wrapper(vislist,sani_target+'_'+band+'_initial',
                      band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold=str(sensitivity*4.0)+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[target][band],imsize=imsize[target][band],nterms=nterms[target][band],
@@ -483,9 +483,7 @@ for target in all_targets:
       selfcal_library[target][band]['clean_threshold_orig']=sensitivity*4.0
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
-      with open(sani_target+'_'+band+'_initial.return.pickle', 'rb') as handle:
-          initial_tclean_return = pickle.load(handle)
-          selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
+      selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
    selfcal_library[target][band]['SNR_orig']=initial_SNR
    if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
       selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
