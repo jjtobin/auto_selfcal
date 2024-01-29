@@ -3304,7 +3304,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap:
              fallback='spwmap'
              spwmap[i]=1.0
-             spwmap_widest_window_in_bb=check_spw_widest_in_bb(selfcal_library,vis,spwlist[i])
+             spwmap_widest_window_in_bb[i]=check_spw_widest_in_bb(selfcal_library,vis,spwlist[i])
        if np.sum(spwmap)/len(spwmap) > 0.5:  # if greater than 1/2 of spws need mapping, just assume that we should do combinespw or per_bb
           fallback=''
        if np.sum(spwmap_widest_window_in_bb) >= 1.0: # don't do spw mapping within a baseband if the spws to be mapped are the widest in the baseband
@@ -3394,6 +3394,8 @@ def check_spw_widest_in_bb(selfcal_library,vis,spw):
             return 1.0
         else:
             return 0.0
+    else:
+        return 1.0
 
 def get_nearest_wide_bw_spw(selfcal_library,vis,spw):
     mapped_spw=-99
