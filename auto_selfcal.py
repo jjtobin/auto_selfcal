@@ -12,8 +12,13 @@ import sys
 sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
-from casampi.MPIEnvironment import MPIEnvironment 
-parallel=MPIEnvironment.is_mpi_enabled
+
+# Mac builds of CASA lack MPI and error without this try/except
+try:
+   from casampi.MPIEnvironment import MPIEnvironment   
+   parallel=MPIEnvironment.is_mpi_enabled
+except:
+   parallel=False
 
 ###################################################################################################
 ######################## All code until line ~170 is just jumping through hoops ###################
