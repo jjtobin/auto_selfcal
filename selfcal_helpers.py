@@ -110,7 +110,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
         if not resume:
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
-        tclean(vis= vis, 
+        tclean_return = tclean(vis= vis, 
                imagename = imagename, 
                field=field,
                specmode = 'mfs', 
@@ -240,7 +240,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
     elif usermodel !='':
           print('Using user model already filled to model column, skipping model write.')
-
+    
+    if not savemodel_only:
+        return tclean_return
 
 def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
