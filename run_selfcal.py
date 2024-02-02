@@ -5,8 +5,12 @@ import sys
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
-from casampi.MPIEnvironment import MPIEnvironment 
-parallel=MPIEnvironment.is_mpi_enabled
+# Mac builds of CASA lack MPI and error without this try/except
+try:
+   from casampi.MPIEnvironment import MPIEnvironment   
+   parallel=MPIEnvironment.is_mpi_enabled
+except:
+   parallel=False
 
 def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize, imsize, \
         inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, spectral_scan, spws_set, \
