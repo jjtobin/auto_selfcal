@@ -109,6 +109,7 @@ check_all_spws=False   # generate per-spw images to check phase transfer did not
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
 run_findcont=False
+debug=False
 
 if run_findcont and os.path.exists("cont.dat"):
     if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
@@ -289,7 +290,8 @@ for target in all_targets:
               selfcal_library[target][band][fid][vis] = {}
 
 import json
-print(json.dumps(selfcal_library, indent=4))
+if debug:
+    print(json.dumps(selfcal_library, indent=4))
 ##
 ## finds solints, starting with inf, ending with int, and tries to align
 ## solints with number of integrations
@@ -450,8 +452,8 @@ for target in all_targets:
       if selfcal_library[target][band]['Total_TOS'] == 0.0:
          selfcal_library[target].pop(band)
 
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
 ## create initial images for each target to evaluate SNR and beam
 ## replicates what a preceding hif_makeimages would do
@@ -598,8 +600,8 @@ for target in all_targets:
           selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=-99.0,-99.0
 
 
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ####MAKE DIRTY PER SPW IMAGES TO PROPERLY ASSESS DR MODIFIERS
 ##
 ## Make a initial image per spw images to assess overall improvement
@@ -863,8 +865,8 @@ for target in all_targets:
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
            gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine, \
            aca_use_nfmask=aca_use_nfmask,mask=sourcemask,usermodel=sourcemodel)
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
 ## If we want to try amplitude selfcal, should we do it as a function out of the main loop or a separate loop?
 ## Mechanics are likely to be a bit more simple since I expect we'd only try a single solint=inf solution
@@ -983,8 +985,8 @@ for target in all_targets:
 
 
 
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 ##
 ## Make a final image per spw images to assess overall improvement
