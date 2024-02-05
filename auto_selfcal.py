@@ -95,7 +95,7 @@ debug=False
 ##
 selfcal_library, selfcal_plan, gaincalibrator_dict = prepare_selfcal(vislist, spectral_average=spectral_average, 
         sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
-        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal,debug=debugs)
+        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal,debug=debug)
 
 
 
