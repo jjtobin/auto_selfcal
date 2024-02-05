@@ -3259,7 +3259,11 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
             print('Fraction w/non-zero phase: {:0.3f}, N solutions w/non-zero phase: {:0.3f}, Total number of zolutions: {:0.3f}'.format(fraction_wspectral_phase, n_wspectral_phase,n_total_phase))
          if fraction_wspectral_phase >= spectral_solution_fraction:
             mode_dict[spw_mode]['status']=True
-
+         # we might want to consider allowing per-spw solutions if the work for inf_EB depending on experience.
+         #elif solint =='inf_EB':
+         #   mode_dict[spw_mode]['status']=True
+      #examine the results from checking the per_spw and per_bb solutions
+      # if per_spw doesn't meet the limit for solutions not consistent with 0, it will fall back to per_bb or combinespw
       if preferred_mode == 'per_spw' and mode_dict[preferred_mode]['status']==False:
          if 'per_bb' in mode_dict.keys():
             if mode_dict['per_bb']['status']:
