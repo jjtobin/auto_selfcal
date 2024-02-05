@@ -16,7 +16,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False, \
-        gaincalibrator_dict={}, allow_gain_interpolation=False, guess_scan_combine=False, aca_use_nfmask=False,debug=False):
+        gaincalibrator_dict={}, allow_gain_interpolation=False, guess_scan_combine=False, aca_use_nfmask=False,debug=False,spectral_solution_fraction=0.3):
 
    # If we are running this on a mosaic, we want to rerank reference antennas and have a higher gaincal_minsnr by default.
 
@@ -197,7 +197,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
-                       allow_gain_interpolation=allow_gain_interpolation)
+                       allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.

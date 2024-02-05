@@ -12,7 +12,7 @@ def prepare_selfcal(vislist,
         inf_EB_gaincal_combine='scan',
         inf_EB_gaintype='G',
         apply_cal_mode_default='calflag',
-        do_amp_selfcal=True):
+        do_amp_selfcal=True,debug=False):
 
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
@@ -146,7 +146,8 @@ def prepare_selfcal(vislist,
                   selfcal_library[target][band][fid][vis] = {}
 
     import json
-    print(json.dumps(selfcal_library, indent=4))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4))
 
     ##
     ## puts stuff in right place from other MS metadata to perform proper data selections
@@ -311,8 +312,8 @@ def prepare_selfcal(vislist,
           if selfcal_library[target][band]['Total_TOS'] == 0.0:
              selfcal_library[target].pop(band)
 
-
-    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
     ##
     ## Get the per-spw stats
     ##   

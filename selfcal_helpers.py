@@ -3114,83 +3114,9 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      # Calculate a score based on those two.
      return nflags, nunflagged,fracflagged
 
-def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan):
-   # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
-   max_flagged_ants_combspw=2.0
-   # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
-   max_flagged_ants_spwmap=1.0
-   fallback=''
-   map_index=-1
-   min_spwmap_bw=0.0
-   spwmap=[False]*len(spwlist)
-   nflags,nunflagged,fracflagged=get_flagged_solns_per_spw(spwlist,gaintable)
-   nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable)
-   eff_bws=np.zeros(len(spwlist))
-   total_bws=np.zeros(len(spwlist))
-   keylist=list(selfcal_library[vis]['per_spw_stats'].keys())
-   for i in range(len(spwlist)):
-      eff_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
-      total_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['bandwidth']
-   minimum_flagged_ants_per_spw=np.min(nflags)/2.0
-   minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
-                                                           # the impression of a lot of flagging
-   maximum_flagged_ants_per_spw=np.max(nflags)/2.0
-   delta_nflags=np.array(nflags)/2.0-minimum_flagged_ants_spwcomb #minimum_flagged_ants_per_spw
-
-   # if there are more than 3 flagged antennas for all spws (minimum_flagged_ants_spwcomb, fallback to doing spw combine for inf_EB fitting
-   # use the spw combine number of flagged ants to set the minimum otherwise could misinterpret fully flagged antennas for flagged solutions
-   # captures case where no one spws has sufficient S/N, only together do they have enough
-   if (minimum_flagged_ants_per_spw-minimum_flagged_ants_spwcomb) > max_flagged_ants_combspw:
-      fallback='combinespw'
-   
-   #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
-   for i in range(len(spwlist)):
-      if np.min(delta_nflags[i]) > max_flagged_ants_spwmap:
-         fallback='spwmap'
-         spwmap[i]=True
-         if total_bws[i] > min_spwmap_bw:
-            min_spwmap_bw=total_bws[i]
-   #also spwmap spws with similar bandwidths to the others that are getting mapped, avoid low S/N solutions
-   ### REFACTOR - want to find the maximum bw spws that are also closest in frequency to the window to be replaced
-   # Here need to find all the ones that are the minimum flagging, and max bw, not just a random one
-   if fallback=='spwmap':
-      for i in range(len(spwlist)):
-         if total_bws[i] <= min_spwmap_bw:
-            spwmap[i]=True
-      if all(spwmap):
-         fallback='combinespw'
-   #want the widest bandwidth window that also has the minimum flags to use for spw mapping
-   applycal_spwmap=[]
-   if fallback=='spwmap':
-      minflagged_index=(np.array(nflags)/2.0 == minimum_flagged_ants_per_spw).nonzero()
-      max_bw_index = (eff_bws == np.max(eff_bws[minflagged_index[0]])).nonzero()
-      max_bw_min_flags_index=np.intersect1d( minflagged_index[0],max_bw_index[0])
-      #if len(max_bw_min_flags_index) > 1:
-      #don't need the conditional since this works with array lengths of 1
-      map_index=max_bw_min_flags_index[np.argmax(eff_bws[max_bw_min_flags_index])]   
-      #else:
-      #   map_index=max_bw_min_flags_index[0]
-      
-      #make spwmap list that first maps everything to itself, need max spw to make that list
-      maxspw=np.max(selfcal_library[vis]['spwsarray']+1)
-      applycal_spwmap_int_list=list(np.arange(maxspw))
-      for i in range(len(applycal_spwmap_int_list)):
-         applycal_spwmap.append(applycal_spwmap_int_list[i])
-
-      #REFACTOR - here need to include a routine to find the spw that is also closest in frequency, and the same baseband and has a minimum of flagging
-      #replace the elements that require spwmapping (spwmap[i] == True
-      for i in range(len(spwmap)):
-         print(i,spwlist[i],spwmap[i])
-         if spwmap[i]:
-            applycal_spwmap[int(spwlist[i])]=int(spwlist[map_index])
-      # always fallback to combinespw for spectral scans
-      if fallback !='' and spectral_scan:
-         fallback='combinespw'
-   return fallback,map_index,spwmap,applycal_spwmap
 
 
-
-def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint):
+def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction):
    selected_mode='combinespw'
    polscale=2.0
    if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype']=='T':
@@ -3277,6 +3203,17 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          preferred_mode='per_spw'
       else:
          preferred_mode='per_bb'
+   print('intermediate report',preferred_mode)
+
+   # decide between per_spw and combine_spw
+   if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and 'per_bb' not in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+      print('Checking flagging per_spw, combinespw: ',selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['per_spw'],selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['combinespw'])
+      if ((selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['per_spw']-max_flagged_ants_per_spw)<=selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['combinespw']):
+         preferred_mode='per_spw'
+      else:
+         preferred_mode='combinespw'
+   print('intermediate report',preferred_mode)
+
    #only try to check between per_bb and combinespw, if per_spw is not already selected
    if preferred_mode == 'per_bb' and 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and 'combinespw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
       print('Checking flagging per_bb, combinespw: ',selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['per_bb'],selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['combinespw'])
@@ -3284,6 +3221,8 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          preferred_mode='per_bb'
       else:
          preferred_mode='combinespw'
+   print('intermediate report',preferred_mode)
+
    #check combinespw vs. per_spw just in case
    if preferred_mode=='per_spw' and 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and 'combinespw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
       print('Checking flagging per_spw, combinespw: ',selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['per_spw'],selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']['combinespw'])
@@ -3291,10 +3230,47 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          preferred_mode='per_spw'
       else:
          preferred_mode='combinespw'
- 
-        
 
+   print('intermediate report',preferred_mode)
+   #if after checking flagging, per_spw or per_bb is selected, check to make sure the solutions are not consistent with noise 
+   if (preferred_mode == 'per_spw' or preferred_mode == 'per_bb'): # and solint != 'inf_EB':
+      print('intermediate report checking on the per_spw solutions')
+      if preferred_mode == 'per_spw':
+         if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+            mode_dict={'per_spw': {'status': False}, 'per_bb': {'status':False}}
+         else:
+            mode_dict={'per_spw': {'status': False}}
+      elif preferred_mode =='per_bb':
+         mode_dict={'per_bb': {'status':False}}
+      for spw_mode in mode_dict.keys():
+         combinespw_table=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+\
+                          selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+\
+                          selfcal_plan[vis]['solint_settings'][solint]['filename_append']['combinespw']+'.g'
+         spectral_table=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+\
+                          selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+\
+                          selfcal_plan[vis]['solint_settings'][solint]['filename_append'][spw_mode]+'.g'
+         if selfcal_plan[vis]['solint_settings'][solint]['solmode'] == 'p':
+            fraction_wspectral_phase, n_wspectral_phase,n_total_phase=\
+                     evaluate_per_spw_gaintables(combinespw_table,spectral_table,vis,selfcal_library[vis],'phase')
+            print('Fraction w/non-zero phase: {:0.3f}, N solutions w/non-zero phase: {:0.3f}, Total number of zolutions: {:0.3f}'.format(fraction_wspectral_phase, n_wspectral_phase,n_total_phase))
+         elif selfcal_plan[vis]['solint_settings'][solint]['solmode'] == 'ap':
+            fraction_wspectral_phase, n_wspectral_phase,n_total_phase=\
+                     evaluate_per_spw_gaintables(combinespw_table,spectral_table,vis,selfcal_library[vis],'amp')
+            print('Fraction w/non-zero phase: {:0.3f}, N solutions w/non-zero phase: {:0.3f}, Total number of zolutions: {:0.3f}'.format(fraction_wspectral_phase, n_wspectral_phase,n_total_phase))
+         if fraction_wspectral_phase >= spectral_solution_fraction:
+            mode_dict[spw_mode]['status']=True
 
+      if preferred_mode == 'per_spw' and mode_dict[preferred_mode]['status']==False:
+         if 'per_bb' in mode_dict.keys():
+            if mode_dict['per_bb']['status']:
+               preferred_mode='per_bb'
+            else:
+               preferred_mode='combinespw'
+         else:
+             preferred_mode='combinespw'
+
+         
+   print('intermediate report',preferred_mode)
    # if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    # if doing amplitude selfcal, spw mapping might not be the best idea, so only do for phase-only
    applycal_spwmap=[]
@@ -3343,6 +3319,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
              if fallback=='spwmap':
                 preferred_mode='per_spw'
    return preferred_mode,fallback,spwmap,applycal_spwmap
+
 
 
 def check_narrow_window_flagging(selfcal_library,vis):  # return whether the narrows bws are flagged more than the widest
@@ -3489,6 +3466,264 @@ def get_gaintable_flagging_stats(gc_dict_list,spwlist):
    print('a priori flagged:',apriori_flagged)
    print('non- a priori flagged:',nflagged_non_apriori)
    return apriori_flagged,nflagged,nunflagged,ntotal,fracflagged,nflagged_non_apriori,ntotal_non_apriori_flagged,fracflagged_non_apriori
+
+#used only for testing
+def plot_phase_err(phase_err,snr,gaintable):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(1,1,figsize=(12, 12))
+    ax.scatter(snr,phase_err)
+    ax.set_xlabel('SNR',fontsize=20)
+    ax.set_ylabel('Phase Error (deg)',fontsize=20)
+    plt.savefig('phase-err-vs-snr-'+gaintable+'.png')
+
+#used only for testing
+def plot_amp_err(amp_err,snr,gaintable):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(1,1,figsize=(12, 12))
+    ax.scatter(snr,amp_err)
+    ax.set_xlabel('SNR',fontsize=20)
+    ax.set_ylabel('Amp Error',fontsize=20)
+    plt.savefig('amp-err-vs-snr-'+gaintable+'.png')
+
+#used only for testing
+def plot_spectral_phase(per_spw_phase,per_spw_phase_err,freqs):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(1,1,figsize=(12, 12))
+    for j in range(per_spw_phase.shape[1]):
+        for k in range(per_spw_phase.shape[2]):
+            ax.errorbar(freqs,per_spw_phase[:,j,k],yerr=per_spw_phase_err[:,j,k],fmt='o')
+    plt.savefig('phase-vs-freq.png')
+    for k in range(per_spw_phase.shape[2]):
+        fig, ax = plt.subplots(1,1,figsize=(12, 12))
+        for j in range(per_spw_phase.shape[1]):
+            ax.errorbar(freqs,per_spw_phase[:,j,k],yerr=per_spw_phase_err[:,j,k],fmt='o')
+        plt.savefig('phase-vs-freq-ant'+str(k)+'.png')
+
+
+#used only for testing
+def plot_spectral_amp(per_spw_amp,per_spw_amp_err,freqs):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(1,1,figsize=(12, 12))
+    for j in range(per_spw_amp.shape[1]):
+        for k in range(per_spw_amp.shape[2]):
+            ax.errorbar(freqs,per_spw_amp[:,j,k],yerr=per_spw_amp_err[:,j,k],fmt='o')
+    plt.savefig('amp-vs-freq.png')
+    for k in range(per_spw_amp.shape[2]):
+        fig, ax = plt.subplots(1,1,figsize=(12, 12))
+        for j in range(per_spw_amp.shape[1]):
+            ax.errorbar(freqs,per_spw_amp[:,j,k],yerr=per_spw_amp_err[:,j,k],fmt='o')
+        plt.savefig('amp-vs-freq-ant'+str(k)+'.png')
+
+#used only for testing
+def plot_spectral_phase_per_soln(per_spw_phase,per_spw_phase_err,per_spw_flags,freqs):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    chi2=np.zeros((per_spw_phase.shape[1],per_spw_phase.shape[2]))
+    npts=np.zeros((per_spw_phase.shape[1],per_spw_phase.shape[2]))
+    per_spw_flags=np.abs((per_spw_flags-1.0))
+    for k in range(per_spw_phase.shape[2]):
+        for j in range(per_spw_phase.shape[1]):
+            chi2[j,k]=np.sum(per_spw_phase[:,j,k]**2/per_spw_phase_err[:,j,k]**2)
+            npts[j,k]=len(per_spw_flags[:,j,k])
+             
+            fig, ax = plt.subplots(1,1,figsize=(12, 12))
+            ax.errorbar(freqs,per_spw_phase[:,j,k],yerr=per_spw_phase_err[:,j,k],fmt='o')
+            plt.savefig('phase-vs-freq-soln'+str(j)+'-ant'+str(k)+'.png')
+    return chi2,npts
+
+
+def chi2_spectral_phase_per_soln(per_spw_phase,per_spw_phase_err,per_spw_flags,freqs):
+    chi2=np.zeros((per_spw_phase.shape[1],per_spw_phase.shape[2]))
+    npts=np.zeros((per_spw_phase.shape[1],per_spw_phase.shape[2]))
+    pvalue=np.zeros((per_spw_phase.shape[1],per_spw_phase.shape[2]))
+    per_spw_flags=np.abs((per_spw_flags.astype(float)-1.0))
+    for k in range(per_spw_phase.shape[2]):
+        for j in range(per_spw_phase.shape[1]):
+            chi2[j,k]=np.sum(per_spw_phase[:,j,k]**2/per_spw_phase_err[:,j,k]**2)
+            npts[j,k]=np.sum(per_spw_flags[:,j,k]) 
+            pvalue[j,k]=1.0-scipy.stats.chi2.cdf(chi2[j,k],npts[j,k])
+    return chi2,npts,pvalue
+
+def check_spectral_gain_gradient(combine_spw_table,per_spw_table,spw_info,gaintype):
+    gaintable_dict={'combine_spw_table': {'filename': combine_spw_table},
+                    'per_spw_table': {'filename': per_spw_table}}
+    
+    for gaintable in gaintable_dict.keys():
+        print(os.getcwd(),os.path.exists(gaintable_dict[gaintable]['filename']),gaintable_dict[gaintable]['filename'])
+            
+        tb.open(gaintable_dict[gaintable]['filename'])
+        gaintable_dict[gaintable][gaintype]=tb.getcol('CPARAM')
+        gaintable_dict[gaintable][gaintype+'_err']=tb.getcol('PARAMERR')
+        gaintable_dict[gaintable]['polarizations']=gaintable_dict[gaintable][gaintype].shape[0]
+        gaintable_dict[gaintable]['snr']=tb.getcol('SNR')
+        gaintable_dict[gaintable]['flag']=tb.getcol('FLAG')
+        gaintable_dict[gaintable]['time']=tb.getcol('TIME')
+        gaintable_dict[gaintable]['antenna1']=tb.getcol('ANTENNA1')
+        gaintable_dict[gaintable]['spw']=tb.getcol('SPECTRAL_WINDOW_ID')
+        tb.close()
+        gaintable_dict[gaintable]['nspws']=len(np.unique(gaintable_dict[gaintable]['spw']))
+        gaintable_dict[gaintable]['antennas']=np.unique(gaintable_dict[gaintable]['antenna1'])
+        gaintable_dict[gaintable]['nants']=len(gaintable_dict[gaintable]['antennas'])
+        gaintable_dict[gaintable]['per_polarization']={}
+        for i in range(gaintable_dict[gaintable]['polarizations']):
+            gaintable_dict[gaintable]['per_polarization'][i]={}
+            gaintable_dict[gaintable]['per_polarization'][i][gaintype]=gaintable_dict[gaintable][gaintype][i,:,:]
+            gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_err']=gaintable_dict[gaintable][gaintype+'_err'][i,:,:]
+            gaintable_dict[gaintable]['per_polarization'][i]['snr']=gaintable_dict[gaintable]['snr'][i,:,:]
+            gaintable_dict[gaintable]['per_polarization'][i]['flag']=gaintable_dict[gaintable]['flag'][i,:,:]
+            gaintable_dict[gaintable]['per_polarization'][i]['time']=gaintable_dict[gaintable]['time'][:]
+            gaintable_dict[gaintable]['per_polarization'][i]['antenna1']=gaintable_dict[gaintable]['antenna1'][:]
+            gaintable_dict[gaintable]['per_polarization'][i]['spw']=gaintable_dict[gaintable]['spw'][:]
+
+            gaintable_dict[gaintable]['per_polarization'][i]['nspws']=len(np.unique(gaintable_dict[gaintable]['per_polarization'][i]['spw']))
+            gaintable_dict[gaintable]['per_polarization'][i]['tablesize']=len(gaintable_dict[gaintable]['per_polarization'][i]['spw'])
+            gaintable_dict[gaintable]['per_polarization'][i]['antennas']=np.unique(gaintable_dict[gaintable]['per_polarization'][i]['antenna1'])
+            gaintable_dict[gaintable]['per_polarization'][i]['nants']=len(gaintable_dict[gaintable]['per_polarization'][i]['antennas'])
+            gaintable_dict[gaintable]['per_polarization'][i]['solns']=int(gaintable_dict[gaintable]['per_polarization'][i]['tablesize']/ \
+                    gaintable_dict[gaintable]['per_polarization'][i]['nspws']/gaintable_dict[gaintable]['per_polarization'][i]['nants'])
+            gaintable_dict[gaintable]['per_polarization'][i]['spw_folded']=\
+                     gaintable_dict[gaintable]['per_polarization'][i]['spw'].reshape((gaintable_dict[gaintable]['per_polarization'][i]['nspws'],\
+                                 gaintable_dict[gaintable]['per_polarization'][i]['solns'],gaintable_dict[gaintable]['per_polarization'][i]['nants']))
+            gaintable_dict[gaintable]['per_polarization'][i]['flag_folded']=\
+                     gaintable_dict[gaintable]['per_polarization'][i]['flag'].reshape((gaintable_dict[gaintable]['per_polarization'][i]['nspws'],\
+                                 gaintable_dict[gaintable]['per_polarization'][i]['solns'],gaintable_dict[gaintable]['per_polarization'][i]['nants']))
+            gaintable_dict[gaintable]['per_polarization'][i]['antenna1_folded']=\
+                     gaintable_dict[gaintable]['per_polarization'][i]['antenna1'].reshape((gaintable_dict[gaintable]['per_polarization'][i]['nspws'],\
+                                 gaintable_dict[gaintable]['per_polarization'][i]['solns'],gaintable_dict[gaintable]['per_polarization'][i]['nants']))
+            gaintable_dict[gaintable]['per_polarization'][i]['time_folded']=\
+                     gaintable_dict[gaintable]['per_polarization'][i]['time'].reshape((gaintable_dict[gaintable]['per_polarization'][i]['nspws'],\
+                                 gaintable_dict[gaintable]['per_polarization'][i]['solns'],gaintable_dict[gaintable]['per_polarization'][i]['nants']))
+            gaintable_dict[gaintable]['per_polarization'][i]['snr_folded']=\
+                     gaintable_dict[gaintable]['per_polarization'][i]['snr'].reshape((gaintable_dict[gaintable]['per_polarization'][i]['nspws'],\
+                                 gaintable_dict[gaintable]['per_polarization'][i]['solns'],gaintable_dict[gaintable]['per_polarization'][i]['nants']))
+            gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_folded']=\
+                     gaintable_dict[gaintable]['per_polarization'][i][gaintype].reshape((gaintable_dict[gaintable]['per_polarization'][i]['nspws'],\
+                                 gaintable_dict[gaintable]['per_polarization'][i]['solns'],gaintable_dict[gaintable]['per_polarization'][i]['nants']))
+            gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_err_folded']=\
+                     gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_err'].reshape((gaintable_dict[gaintable]['per_polarization'][i]['nspws'],\
+                                 gaintable_dict[gaintable]['per_polarization'][i]['solns'],gaintable_dict[gaintable]['per_polarization'][i]['nants']))
+            if i == 0:
+                gaintable_dict[gaintable]['solns']=gaintable_dict[gaintable]['per_polarization'][i]['solns']
+                gaintable_dict[gaintable]['spw_folded']=gaintable_dict[gaintable]['per_polarization'][i]['spw_folded'].copy()
+                gaintable_dict[gaintable]['flag_folded']=gaintable_dict[gaintable]['per_polarization'][i]['flag_folded'].copy()
+                gaintable_dict[gaintable]['antenna1_folded']=gaintable_dict[gaintable]['per_polarization'][i]['antenna1_folded'].copy()
+                gaintable_dict[gaintable]['time_folded']=gaintable_dict[gaintable]['per_polarization'][i]['time_folded'].copy()
+                gaintable_dict[gaintable]['snr_folded']=gaintable_dict[gaintable]['per_polarization'][i]['snr_folded'].copy()
+                gaintable_dict[gaintable][gaintype+'_folded']=gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_folded'].copy()
+                gaintable_dict[gaintable][gaintype+'_err_folded']=gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_err_folded'].copy()
+            else:
+                #exclude this one, otherwise doubles up n solutions.  
+                #gaintable_dict[gaintable]['solns']+=gaintable_dict[gaintable]['per_polarization'][i]['solns']
+                gaintable_dict[gaintable]['spw_folded']=np.dstack((gaintable_dict[gaintable]['spw_folded'],\
+                         gaintable_dict[gaintable]['spw_folded'],gaintable_dict[gaintable]['per_polarization'][i]['spw_folded'].copy()))
+                gaintable_dict[gaintable]['flag_folded']=np.dstack((gaintable_dict[gaintable]['flag_folded'],\
+                         gaintable_dict[gaintable]['per_polarization'][i]['flag_folded'].copy()))
+                gaintable_dict[gaintable]['antenna1_folded']=np.dstack((gaintable_dict[gaintable]['antenna1_folded'],\
+                         gaintable_dict[gaintable]['per_polarization'][i]['antenna1_folded'].copy()))
+                gaintable_dict[gaintable]['time_folded']=np.dstack((gaintable_dict[gaintable]['time_folded'],\
+                         gaintable_dict[gaintable]['per_polarization'][i]['time_folded'].copy()))
+                gaintable_dict[gaintable]['snr_folded']=np.dstack((gaintable_dict[gaintable]['snr_folded'],\
+                         gaintable_dict[gaintable]['per_polarization'][i]['snr_folded'].copy()))
+                gaintable_dict[gaintable][gaintype+'_folded']=np.dstack((gaintable_dict[gaintable][gaintype+'_folded'],\
+                         gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_folded'].copy()))
+                gaintable_dict[gaintable][gaintype+'_err_folded']=np.dstack((gaintable_dict[gaintable][gaintype+'_err_folded'],\
+                         gaintable_dict[gaintable]['per_polarization'][i][gaintype+'_err_folded'].copy()))
+        if gaintype == 'amp':
+            gaintable_dict[gaintable][gaintype+'_folded']=np.absolute(gaintable_dict[gaintable][gaintype+'_folded'])-1.0
+            gaintable_dict[gaintable][gaintype+'_err_folded']=np.absolute(gaintable_dict[gaintable][gaintype+'_err_folded'])
+        if gaintype == 'phase':
+            gaintable_dict[gaintable]['phase_err_folded_deg']=(gaintable_dict[gaintable]['phase_err_folded']**2 * 1.0/(gaintable_dict[gaintable]['phase_folded'].imag)**2 * 1.0/(1.0 + (gaintable_dict[gaintable]['phase_folded'].real/gaintable_dict[gaintable]['phase_folded'].imag)**2))**0.5 * 180.0/3.14159
+
+            gaintable_dict[gaintable]['phase_folded_deg']= np.angle(gaintable_dict[gaintable]['phase_folded'])*180.0/3.14159
+            #plot_phase_err(gaintable_dict[gaintable]['phase_err_folded_deg'],gaintable_dict[gaintable]['snr_folded'],gaintable)
+            gaintable_dict[gaintable][gaintype+'_err_folded_deg']=\
+                         (gaintable_dict[gaintable][gaintype+'_err_folded']**2 * \
+                          1.0/(gaintable_dict[gaintable][gaintype+'_folded'].imag)**2 *\
+                          1.0/(1.0 + (gaintable_dict[gaintable][gaintype+'_folded'].real / \
+                         gaintable_dict[gaintable][gaintype+'_folded'].imag)**2))**0.5 * 180.0/3.14159
+
+            gaintable_dict[gaintable][gaintype+'_folded_deg']=\
+                         np.angle(gaintable_dict[gaintable][gaintype+'_folded'])*180.0/3.14159
+            #plot_phase_err(gaintable_dict[gaintable][gaintype+'_err_folded_deg'],gaintable_dict[gaintable]['snr_folded'],gaintable)
+      
+    #for gaintable in gaintable_dict.keys():
+    #    for i in range(gaintable_dict[gaintable]['nspws']):
+    #      for j in range(gaintable_dict[gaintable]['solns']):
+	#          for k in range(gaintable_dict[gaintable]['nants']):
+	#             print(i,j,k,gaintable_dict[gaintable]['time_folded'][i,j,k])
+
+    spw_freqs=np.zeros(gaintable_dict['per_spw_table']['nspws'])
+    for i,spw in enumerate(np.unique(gaintable_dict['per_spw_table']['spw'])):
+        spw_freqs[i]=spw_info[spw]['frequency']
+
+    if gaintype == 'phase':
+        phase_per_spw_gradient=gaintable_dict['per_spw_table'][gaintype+'_folded'].copy()
+        phase_per_spw_gradient_err=gaintable_dict['per_spw_table'][gaintype+'_folded'].copy()
+
+        for i in range(gaintable_dict[gaintable]['nspws']):
+            phase_per_spw_gradient[i,:,:]=(gaintable_dict['per_spw_table'][gaintype+'_folded_deg'][i,:,:]-gaintable_dict['combine_spw_table'][gaintype+'_folded_deg'][0,:,:])
+            phase_per_spw_gradient_err[i,:,:]=(gaintable_dict['per_spw_table'][gaintype+'_err_folded_deg'][i,:,:]**2+gaintable_dict['combine_spw_table'][gaintype+'_err_folded_deg'][0,:,:]**2)**0.5
+        for i in range(gaintable_dict[gaintable]['nspws']):
+            for j in range(gaintable_dict[gaintable]['solns']):
+                for k in range(gaintable_dict[gaintable]['nants']*gaintable_dict[gaintable]['polarizations']):
+                    while abs(phase_per_spw_gradient[i,j,k]) >180.0:
+                        if phase_per_spw_gradient[i,j,k] > 180.0:
+                            phase_per_spw_gradient[i,j,k]=phase_per_spw_gradient[i,j,k]-360.0
+                        elif phase_per_spw_gradient[i,j,k] < -180.0:
+                            phase_per_spw_gradient[i,j,k]=phase_per_spw_gradient[i,j,k]+360.0
+        print(phase_per_spw_gradient.shape,phase_per_spw_gradient_err.shape)
+        return phase_per_spw_gradient,phase_per_spw_gradient_err,gaintable_dict['combine_spw_table'][gaintype+'_folded_deg'],gaintable_dict['per_spw_table'][gaintype+'_folded_deg'],gaintable_dict['combine_spw_table'][gaintype+'_err_folded_deg'],gaintable_dict['per_spw_table'][gaintype+'_err_folded_deg'],gaintable_dict['combine_spw_table']['flag_folded'],gaintable_dict['per_spw_table']['flag_folded'],spw_freqs
+
+    if gaintype == 'amp':
+        gaintable_dict[gaintable]['amp_err_folded']=np.absolute(gaintable_dict[gaintable]['amp_err_folded'])
+
+        #plot_amp_err(gaintable_dict[gaintable]['amp_err_folded'],gaintable_dict[gaintable]['snr_folded'],gaintable)
+      
+        return gaintable_dict['per_spw_table']['amp_folded'],gaintable_dict['per_spw_table']['amp_err_folded'],gaintable_dict['per_spw_table']['flag_folded'],spw_freqs
+
+
+
+def evaluate_per_spw_gaintables(combine_spw_table,per_spw_table,vis,selfcal_library,gaintype):
+    try:
+        if gaintype=='phase':
+            print(selfcal_library['per_spw_stats'])
+            phase_gradient,phase_gradient_err,phase_combinespw,phase_per_spw,\
+                           phase_err_combinespw,phase_err_per_spw,combinespw_flags,\
+                           per_spw_flags,freqs=\
+                           check_spectral_gain_gradient(combine_spw_table,per_spw_table,selfcal_library['per_spw_stats'],gaintype)
+            #plot_spectral_phase(phase_gradient,phase_gradient_err,freqs)
+            #chi2,npts=plot_spectral_phase_per_soln(phase_gradient,phase_gradient_err,per_spw_flags,freqs)
+            chi2,npts,pvalue=chi2_spectral_phase_per_soln(phase_gradient,phase_gradient_err,per_spw_flags,freqs)
+
+
+        elif gaintype=='amp':
+            amp_gradient,amp_gradient_err,per_spw_flags,freqs=check_spectral_gain_gradient(combine_spw_table,per_spw_table,selfcal_library['per_spw_stats'],gaintype)
+            #plot_spectral_amp(amp_gradient,amp_gradient_err,freqs)
+            #chi2,npts=plot_spectral_phase_per_soln(phase_gradient,phase_gradient_err,per_spw_flags,freqs)
+            chi2,npts,pvalue=chi2_spectral_phase_per_soln(amp_gradient,amp_gradient_err,per_spw_flags,freqs)
+
+        sigma_5=0.000000573303
+        sigma_4=0.000063342484
+        sigma_3=0.002699796063
+        pvalue_unfolded=pvalue.reshape(pvalue.size)
+        inconsistent_withzero=(pvalue_unfolded < sigma_3).nonzero()
+        frac_inconsistent_withzero=float(np.size(inconsistent_withzero)/np.sum(np.isfinite(pvalue_unfolded)))
+        print('Nsolutions inconsistent with 0 spectral amp or phase: {}/{}; {:0.3f}'.format(np.size(inconsistent_withzero),np.sum(np.isfinite(pvalue_unfolded)),frac_inconsistent_withzero))
+        return frac_inconsistent_withzero,np.size(inconsistent_withzero),np.sum(np.isfinite(pvalue_unfolded))
+    except:
+        return -99.9,-99.9,-99.9
+
+
+
 
 
 def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 

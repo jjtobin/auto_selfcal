@@ -64,6 +64,7 @@ optimize_spw_combine=True      # if False, will not attempt per spw or per baseb
 gaincal_minsnr=2.0
 gaincal_unflag_minsnr=5.0
 minsnr_to_proceed=2.95
+spectral_solution_fraction=0.0
 delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
 telescope=get_telescope(vislist[0])
@@ -86,13 +87,15 @@ dividing_factor=-99.0  # number that the peak SNR is divided by to determine fir
 check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
+debug=False
+
 
 ##
 ## Get all of the relevant data from the MS files
 ##
 selfcal_library, selfcal_plan, gaincalibrator_dict = prepare_selfcal(vislist, spectral_average=spectral_average, 
         sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
-        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal)
+        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal,debug=debugs)
 
 
 
@@ -184,8 +187,8 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ####MAKE DIRTY PER SPW IMAGES TO PROPERLY ASSESS DR MODIFIERS
 ##
 ## Make a initial image per spw images to assess overall improvement
@@ -265,9 +268,10 @@ for target in selfcal_library:
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
            gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine, \
-           aca_use_nfmask=aca_use_nfmask,debug=debug)
+           aca_use_nfmask=aca_use_nfmask,debug=debug,spectral_solution_fraction=spectral_solution_fraction)
 
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 
 if allow_cocal:
@@ -389,8 +393,8 @@ if allow_cocal:
                second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
                mode="cocal", calibrators=calibrators, calculate_inf_EB_fb_anyways=calculate_inf_EB_fb_anyways, \
                preapply_targets_own_inf_EB=preapply_targets_own_inf_EB, gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=True)
-    
-    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 ##
 ## If we want to try amplitude selfcal, should we do it as a function out of the main loop or a separate loop?
@@ -444,8 +448,8 @@ for target in selfcal_library:
 
 
 
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 ##
 ## Make a final image per spw images to assess overall improvement
