@@ -3252,14 +3252,18 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          if selfcal_plan[vis]['solint_settings'][solint]['solmode'] == 'p':
             fraction_wspectral_phase, n_wspectral_phase,n_total_phase=\
                      evaluate_per_spw_gaintables(combinespw_table,spectral_table,vis,selfcal_library[vis],'phase')
-            print('Fraction w/non-zero phase: {:0.3f}, N solutions w/non-zero phase: {:0.3f}, Total number of zolutions: {:0.3f}'.format(fraction_wspectral_phase, n_wspectral_phase,n_total_phase))
+            print('Solint: {}, Mode: {}, Fraction w/non-zero phase: {:0.3f}, N solutions w/non-zero phase: {:0.3f}, Total number of solutions: {:0.3f}'.format(solint,spw_mode,fraction_wspectral_phase, n_wspectral_phase,n_total_phase))
          elif selfcal_plan[vis]['solint_settings'][solint]['solmode'] == 'ap':
             fraction_wspectral_phase, n_wspectral_phase,n_total_phase=\
                      evaluate_per_spw_gaintables(combinespw_table,spectral_table,vis,selfcal_library[vis],'amp')
-            print('Fraction w/non-zero phase: {:0.3f}, N solutions w/non-zero phase: {:0.3f}, Total number of zolutions: {:0.3f}'.format(fraction_wspectral_phase, n_wspectral_phase,n_total_phase))
+            print('Solint: {}, Mode: {}, Fraction w/non-zero amp: {:0.3f}, N solutions w/non-zero amp: {:0.3f}, Total number of solutions: {:0.3f}'.format(solint,spw_mode,fraction_wspectral_phase, n_wspectral_phase,n_total_phase))
          if fraction_wspectral_phase >= spectral_solution_fraction:
             mode_dict[spw_mode]['status']=True
-
+         # we might want to consider allowing per-spw solutions if the work for inf_EB depending on experience.
+         #elif solint =='inf_EB':
+         #   mode_dict[spw_mode]['status']=True
+      #examine the results from checking the per_spw and per_bb solutions
+      # if per_spw doesn't meet the limit for solutions not consistent with 0, it will fall back to per_bb or combinespw
       if preferred_mode == 'per_spw' and mode_dict[preferred_mode]['status']==False:
          if 'per_bb' in mode_dict.keys():
             if mode_dict['per_bb']['status']:
@@ -3558,7 +3562,7 @@ def check_spectral_gain_gradient(combine_spw_table,per_spw_table,spw_info,gainty
                     'per_spw_table': {'filename': per_spw_table}}
     
     for gaintable in gaintable_dict.keys():
-        print(os.getcwd(),os.path.exists(gaintable_dict[gaintable]['filename']),gaintable_dict[gaintable]['filename'])
+        print('Checking: ',gaintable_dict[gaintable]['filename'])
             
         tb.open(gaintable_dict[gaintable]['filename'])
         gaintable_dict[gaintable][gaintype]=tb.getcol('CPARAM')
@@ -3695,7 +3699,6 @@ def check_spectral_gain_gradient(combine_spw_table,per_spw_table,spw_info,gainty
 def evaluate_per_spw_gaintables(combine_spw_table,per_spw_table,vis,selfcal_library,gaintype):
     try:
         if gaintype=='phase':
-            print(selfcal_library['per_spw_stats'])
             phase_gradient,phase_gradient_err,phase_combinespw,phase_per_spw,\
                            phase_err_combinespw,phase_err_per_spw,combinespw_flags,\
                            per_spw_flags,freqs=\
