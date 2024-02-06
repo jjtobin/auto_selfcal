@@ -3233,7 +3233,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
 
    print('intermediate report',preferred_mode)
    #if after checking flagging, per_spw or per_bb is selected, check to make sure the solutions are not consistent with noise 
-   if (preferred_mode == 'per_spw' or preferred_mode == 'per_bb'): # and solint != 'inf_EB':
+   if (preferred_mode == 'per_spw' or preferred_mode == 'per_bb' and solint != 'inf_EB'):
       print('intermediate report checking on the per_spw solutions')
       if preferred_mode == 'per_spw':
          if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
