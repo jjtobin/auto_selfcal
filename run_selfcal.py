@@ -1050,6 +1050,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
                 selfcal_library[target][band]['SC_success']=True
                 selfcal_library[target][band]['Stop_Reason']='None'
+                #keep track of whether inf_EB had a S/N decrease
+                if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+                   selfcal_library[target][band]['inf_EB_SNR_decrease']=True
+                elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
+                   selfcal_library[target][band]['inf_EB_SNR_decrease']=False
                 for vis in vislist:
                    selfcal_library[target][band][vis]['gaintable_final']=selfcal_library[target][band][vis][solint]['gaintable']
                    selfcal_library[target][band][vis]['spwmap_final']=selfcal_library[target][band][vis][solint]['spwmap'].copy()
@@ -1068,6 +1073,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     if field_by_field_success[ind]:
                         selfcal_library[target][band][fid]['SC_success']=True
                         selfcal_library[target][band][fid]['Stop_Reason']='None'
+                        if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+                           selfcal_library[target][band][fid]['inf_EB_SNR_decrease']=True
+                        elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
+                           selfcal_library[target][band][fid]['inf_EB_SNR_decrease']=False
+
                         for vis in selfcal_library[target][band][fid]['vislist']:
                            selfcal_library[target][band][fid][vis]['gaintable_final']=selfcal_library[target][band][fid][vis][solint]['gaintable']
                            selfcal_library[target][band][fid][vis]['spwmap_final']=selfcal_library[target][band][fid][vis][solint]['spwmap'].copy()
@@ -1189,6 +1199,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  else:
                      print('FIELD: '+str(fid)+', REASON: Failed earlier solint')
              print('****************Reapplying previous solint solutions where available*************')
+             #if the final successful solint was inf_EB but inf_EB had a S/N decrease, don't count it as a success and revert to no selfcal
+             if selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']:
+                selfcal_library[target][band]['SC_success']=False
+                for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                   if selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease']:
+                      selfcal_library[target][band][fid]['SC_success']=False
+
              for vis in vislist:
                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
                  for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
