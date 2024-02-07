@@ -426,7 +426,6 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
         applycal_spwmap.append(selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode])
 
-
         applycal_interpolate.append(selfcal_plan[vis]['solint_settings'][solint]['applycal_interpolate'])
         #applycal_gaintable=selfcal_library[fid][vis][selfcal_library[fid]['final_phase_solint']]['gaintable']+[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_ap.g']
         applycal_gaintable.append(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g')

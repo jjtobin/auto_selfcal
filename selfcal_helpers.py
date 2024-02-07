@@ -3645,7 +3645,9 @@ def check_spectral_gain_gradient(combine_spw_table,per_spw_table,spw_info,gainty
             gaintable_dict[gaintable][gaintype+'_folded']=np.absolute(gaintable_dict[gaintable][gaintype+'_folded'])-1.0
             gaintable_dict[gaintable][gaintype+'_err_folded']=np.absolute(gaintable_dict[gaintable][gaintype+'_err_folded'])
         if gaintype == 'phase':
-            gaintable_dict[gaintable]['phase_err_folded_deg']=(gaintable_dict[gaintable]['phase_err_folded']**2 * 1.0/(gaintable_dict[gaintable]['phase_folded'].imag)**2 * 1.0/(1.0 + (gaintable_dict[gaintable]['phase_folded'].real/gaintable_dict[gaintable]['phase_folded'].imag)**2))**0.5 * 180.0/3.14159
+            gaintable_dict[gaintable]['phase_err_folded_deg']=(gaintable_dict[gaintable]['phase_err_folded']**2 *\
+                        1.0/(gaintable_dict[gaintable]['phase_folded'].imag)**2 * 1.0/(1.0 + \
+                        (gaintable_dict[gaintable]['phase_folded'].real/gaintable_dict[gaintable]['phase_folded'].imag)**2))**0.5 * 180.0/3.14159
 
             gaintable_dict[gaintable]['phase_folded_deg']= np.angle(gaintable_dict[gaintable]['phase_folded'])*180.0/3.14159
             #plot_phase_err(gaintable_dict[gaintable]['phase_err_folded_deg'],gaintable_dict[gaintable]['snr_folded'],gaintable)
@@ -4329,11 +4331,11 @@ def get_min_SNR_spw(snr_per_spw):
       if snr_per_spw[spw] < minsnr: minsnr=snr_per_spw[spw]
    return minsnr
       
-def remove_modes(selfcal_plan,vis,start_index):
+def remove_modes(selfcal_plan,vis,start_index):  # remove the per_spw and/or per_bb modes for solints following current solint
+    preferred_mode=selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][start_index]]['final_mode']
     for j in range(start_index+1,len(selfcal_plan['solints'])):
        if 'ap' in selfcal_plan['solints'][j] and 'ap' not in selfcal_plan['solints'][start_index]: # exempt over ap solints since they go back to a longer solint
           continue
-       preferred_mode=selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['final_mode']
        if preferred_mode == 'per_bb' or preferred_mode == 'combinespw':
           if 'per_spw' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
              selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_spw')
