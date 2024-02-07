@@ -1978,7 +1978,7 @@ def get_max_uvdist(vislist,bands,band_properties,telescope):
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
       min_baseline=np.min(all_baselines)
-      if telescope == 'VLA':
+      if 'VLA' in telescope:
          baseline_5=numpy.percentile(all_baselines[all_baselines > 0.05*all_baselines.max()],5.0)
       else: # ALMA
          baseline_5=numpy.percentile(all_baselines,5.0)
