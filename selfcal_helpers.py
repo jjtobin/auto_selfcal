@@ -1790,7 +1790,7 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
          observed_bands[vis][band]['minfreq']=minfreq
          observed_bands[vis][band]['fracbw']=fracbw
          observed_bands[vis][band]['baseband']=get_basebands(observed_bands,vis,band,spwarray[vis])
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
+   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'ALMA')
    return bands,observed_bands
 
 
@@ -1863,7 +1863,7 @@ def get_VLA_bands(vislist,fields):
             bands_match=False
    if not bands_match:
      print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
+   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
    return observed_bands[vislist[0]]['bands'].copy(),observed_bands
 
 def get_basebands(observed_bands,vis,band,spwarray):
@@ -1970,7 +1970,7 @@ def get_baseline_dist(vis):
 
 
 
-def get_max_uvdist(vislist,bands,band_properties):
+def get_max_uvdist(vislist,bands,band_properties,telescope):
    for band in bands:   
       all_baselines=np.array([])
       for vis in vislist:
@@ -1978,6 +1978,10 @@ def get_max_uvdist(vislist,bands,band_properties):
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
       min_baseline=np.min(all_baselines)
+      if telescope == 'VLA':
+         baseline_5=numpy.percentile(all_baselines[all_baselines > 0.05*all_baselines.max()],5.0)
+      else: # ALMA
+         baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
@@ -1989,7 +1993,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          band_properties[vis][band]['minuv']=min_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
-         band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
+         band_properties[vis][band]['LAS']=0.6 * (meanlam/baseline_5) * 180./np.pi * 3600.
 
 
 def get_uv_range(band,band_properties,vislist):
