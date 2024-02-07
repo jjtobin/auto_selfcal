@@ -320,7 +320,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                    line+='<td>-</td>\n'
             line+='</tr>\n    '
             htmlOut.writelines(line)
-            for quantity in ['Nsols_with_preflagged_data','Flagged_Sols_with_preflagged_data','Frac_Flagged_with_preflagged_data','Nsols_without_preflagged_data','Flagged_Sols_without_preflagged_data','Frac_Flagged_without_preflagged_data','SPW_Combine_Mode']:
+            for quantity in ['Nsols_with_preflagged_data','Flagged_Sols_with_preflagged_data','Frac_Flagged_with_preflagged_data','Nsols_without_preflagged_data','Flagged_Sols_without_preflagged_data','Frac_Flagged_without_preflagged_data','Frac_sols_not_equiv_zero_per_spw','Frac_sols_not_equiv_zero_per_bb','SPW_Combine_Mode']:
                line='<tr bgcolor="#ffffff">\n    <td>'+quantity+'</td>\n'
                for solint in solint_list:
                   if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None' and 'gaintable' in sclib[target][band][vis][solint]:
@@ -335,7 +335,14 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                      #nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                      frac_flagged_sols=nflagged_sols/nsols
                      frac_flagged_sols_total=nflagged_sols_total/nsols_total
-
+                     if 'per_spw' in selfcal_plan[target][band][vis]['solint_settings'][solint]['non_zero_fraction'].keys():
+                        nonzero_frac_per_spw='{:0.3f}'.format(selfcal_plan[target][band][vis]['solint_settings'][solint]['non_zero_fraction']['per_spw'])
+                     else:
+                        nonzero_frac_per_spw='...'
+                     if 'per_bb' in selfcal_plan[target][band][vis]['solint_settings'][solint]['non_zero_fraction'].keys():
+                        nonzero_frac_per_bb='{:0.3f}'.format(selfcal_plan[target][band][vis]['solint_settings'][solint]['non_zero_fraction']['per_bb'])
+                     else:
+                        nonzero_frac_per_bb='...'
                      if quantity =='Nsols_with_preflagged_data':
                         line+='<td>'+str(nsols_total)+'</td>\n'
                      if quantity =='Flagged_Sols_with_preflagged_data':
@@ -348,8 +355,10 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                         line+='<td>'+str(nflagged_sols)+'</td>\n'
                      if quantity =='Frac_Flagged_without_preflagged_data':
                         line+='<td>'+'{:0.3f}'.format(frac_flagged_sols)+'</td>\n'
-
-
+                     if quantity =='Frac_sols_not_equiv_zero_per_spw':
+                        line+='<td>'+nonzero_frac_per_spw+'</td>\n'
+                     if quantity =='Frac_sols_not_equiv_zero_per_bb':
+                        line+='<td>'+nonzero_frac_per_bb+'</td>\n'
 
                      if quantity =='SPW_Combine_Mode':
                         solint_index=selfcal_plan[target][band]['solints'].index(solint)

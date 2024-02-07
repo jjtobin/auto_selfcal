@@ -13,6 +13,7 @@ sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
 from image_analysis_helpers import *
+from weblog_creation import *
 from prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_per_solint
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
