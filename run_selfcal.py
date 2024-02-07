@@ -1244,7 +1244,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                     print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
                     get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][target][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
-                    print('FIeld '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
+                    print('Field '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
