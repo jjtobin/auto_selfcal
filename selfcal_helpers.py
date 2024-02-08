@@ -2267,8 +2267,9 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
    htmlOut.writelines(''+bands_string+'\n')
    htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
    for band in bands:
-      solints_string=', '.join([str(elem) for elem in solints[band][target]])
-      htmlOut.writelines('<br>'+band+': '+solints_string)
+      for target in solints[band].keys():     
+         solints_string=', '.join([str(elem) for elem in solints[band][target]])
+         htmlOut.writelines('<br>'+band+': '+solints_string)
 
    for target in targets:
       htmlOut.writelines('<a name="'+target+'"></a>\n')
