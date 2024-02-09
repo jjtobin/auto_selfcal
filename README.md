@@ -21,7 +21,7 @@ Brief instructions:
 1. Create an empty directory
 2. Copy into this directory the *_target.ms files that have identical setups (targets and spectral windows) to be self-calibrated (must contain only the targets desired for self-calibration and only TARGET observation intents)
 3. Copy cont.dat file for all targets into directory (will be used to flag out spectral lines).
-4. Copy auto_selfcal.py and selfcal_helpers.py into this directory (and regenerate_weblog.py if needed)
+4. Copy all .py files in the cloned auto_selfcal repo into your working directory
 5. Run script with mpicasa -n X casa -c auto_selfcal.py; X is the number of mpi threads to use
 
 If serial operation is desired (without mpicasa), run with casa -c auto_selfcal.py

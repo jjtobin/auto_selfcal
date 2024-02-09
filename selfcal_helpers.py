@@ -26,7 +26,8 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True):
+                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True, \
+                   store_threshold=''):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -157,7 +158,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
         if not resume:
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
-        tclean(vis=vlist, 
+        tclean_return = tclean(vis=vlist, 
                imagename = imagename, 
                field=field,
                specmode = 'mfs', 
@@ -192,6 +193,12 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                phasecenter=phasecenter,
                startmodel=startmodel,
                datacolumn=datacolumn,spw=spws_per_vis,wprojplanes=wprojplanes, verbose=True)
+
+        if store_threshold != '':
+            if telescope == "ALMA" or telescope == "ACA":
+                selfcal_library["clean_threshold_"+store_threshold] = float(threshold[0:-1])
+            elif "VLA" in telescope and tclean_return['iterdone'] > 0:
+                selfcal_library["clean_threshold_"+store_threshold] = initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
 
         if image_mosaic_fields_separately and selfcal_library['obstype'] == 'mosaic':
             for field_id in selfcal_library['sub-fields-phasecenters']:
@@ -288,7 +295,9 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     
     elif savemodel=='modelcolumn' and selfcal_library['usermodel'] !='':
           print('Using user model already filled to model column, skipping model write.')
-
+    
+    if not savemodel_only:
+        return tclean_return
 
 def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
@@ -763,7 +772,7 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
            gaincal_combine.append('field,scan')
 
    #insert solint = inf
-   if (not mosaic and median_scans_per_obs > 1) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
+   if (not mosaic and (median_scans_per_obs > 2 or (median_scans_per_obs == 2 and max_scantime / min_scantime < 4))) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
       solints_list.append('inf')
       if spwcombine:
          gaincal_combine.append('spw')
@@ -1889,7 +1898,7 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
          msmd.open(vis)
          observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(spwarray[vis][0]))
          msmd.close()
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
+   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'ALMA')
    return bands,observed_bands
 
 
@@ -1965,7 +1974,7 @@ def get_VLA_bands(vislist,fields):
             bands_match=False
    if not bands_match:
      print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
+   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
    return observed_bands[vislist[0]]['bands'].copy(),observed_bands
 
 
@@ -2050,7 +2059,7 @@ def get_baseline_dist(vis):
 
 
 
-def get_max_uvdist(vislist,bands,band_properties):
+def get_max_uvdist(vislist,bands,band_properties,telescope):
    for band in bands:   
       all_baselines=np.array([])
       for vis in vislist:
@@ -2058,7 +2067,10 @@ def get_max_uvdist(vislist,bands,band_properties):
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
       min_baseline=np.min(all_baselines)
-      baseline_5=numpy.percentile(all_baselines,5.0)
+      if 'VLA' in telescope:
+         baseline_5=numpy.percentile(all_baselines[all_baselines > 0.05*all_baselines.max()],5.0)
+      else: # ALMA
+         baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
@@ -2069,7 +2081,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          band_properties[vis][band]['minuv']=min_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
-         band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
+         band_properties[vis][band]['LAS']=0.6 * (meanlam/baseline_5) * 180./np.pi * 3600.
 
 
 def get_uv_range(band,band_properties,vislist):
@@ -2351,9 +2363,10 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    bands_string=', '.join([str(elem) for elem in bands])
    htmlOut.writelines(''+bands_string+'\n')
    htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
-   for band in bands:
-      solints_string=', '.join([str(elem) for elem in selfcal_plan[target][band]['solints']])
-      htmlOut.writelines('<br>'+band+': '+solints_string)
+   for target in selfcal_plan:
+       for band in selfcal_plan[target]:
+          solints_string=', '.join([str(elem) for elem in selfcal_plan[target][band]['solints']])
+          htmlOut.writelines('<br>'+band+': '+solints_string)
 
    for target in targets:
       htmlOut.writelines('<a name="'+target+'"></a>\n')

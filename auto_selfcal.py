@@ -8,14 +8,20 @@ import numpy as np
 from scipy import stats
 import glob
 import sys
+import pickle
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
 from image_analysis_helpers import *
 from prepare_selfcal import prepare_selfcal, set_clean_thresholds
-from casampi.MPIEnvironment import MPIEnvironment 
-parallel=MPIEnvironment.is_mpi_enabled
+
+# Mac builds of CASA lack MPI and error without this try/except
+try:
+   from casampi.MPIEnvironment import MPIEnvironment   
+   parallel=MPIEnvironment.is_mpi_enabled
+except:
+   parallel=False
 
 ###################################################################################################
 ######################## All code until line ~170 is just jumping through hoops ###################
@@ -82,6 +88,7 @@ check_all_spws=False   # generate per-spw images to check phase transfer did not
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
 run_findcont=False
+debug=False
 
 if run_findcont and os.path.exists("cont.dat"):
     if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
@@ -96,6 +103,11 @@ if run_findcont and os.path.exists("cont.dat"):
 
 if run_findcont:
     try:
+        if 'pipeline' not in sys.modules:
+            print("Pipeline found but not imported. Importing...")
+            import pipeline
+            pipeline.initcli()
+
         print("Running findcont")
         h_init()
         hifa_importdata(vis=vislist, dbservice=False)
@@ -158,7 +170,7 @@ for target in selfcal_library:
                imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty',
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
-   if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0'):
+   if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0') or 'VLA' in telescope:
       tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_initial',
                      band,telescope=telescope,nsigma=4.0, scales=[0],
                      threshold='theoretical_with_drmod',
@@ -179,6 +191,8 @@ for target in selfcal_library:
                imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig',
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
+   if "VLA" in telescope and "clean_threshold_orig" not in selfcal_library[target][band]:
+             selfcal_library[target][band]['clean_threshold_orig']=4.0*initial_RMS
 
    if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
       selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
@@ -193,8 +207,12 @@ for target in selfcal_library:
        selfcal_library[target][band][fid]['RMS_curr']=mosaic_initial_RMS[fid]
        selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid] if mosaic_initial_NF_RMS[fid] > 0 else mosaic_initial_RMS[fid]
 
+ #update selfcal library after each
+ with open('selfcal_library.pickle', 'wb') as handle:
+    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 import json
+
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
@@ -205,7 +223,9 @@ class NpEncoder(json.JSONEncoder):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
 
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+
 ####MAKE DIRTY PER SPW IMAGES TO PROPERLY ASSESS DR MODIFIERS
 ##
 ## Make a initial image per spw images to assess overall improvement
@@ -267,7 +287,7 @@ set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=dividing_fac
 ##
 ## Save self-cal library
 ##
-import pickle
+
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -286,7 +306,8 @@ for target in selfcal_library:
            gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine, \
            aca_use_nfmask=aca_use_nfmask)
 
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 
 if allow_cocal:
@@ -409,7 +430,8 @@ if allow_cocal:
                mode="cocal", calibrators=calibrators, calculate_inf_EB_fb_anyways=calculate_inf_EB_fb_anyways, \
                preapply_targets_own_inf_EB=preapply_targets_own_inf_EB, gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=True)
     
-    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 ##
 ## If we want to try amplitude selfcal, should we do it as a function out of the main loop or a separate loop?
@@ -423,8 +445,11 @@ for target in selfcal_library:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
+   clean_threshold = min(selfcal_library[target][band]['clean_threshold_orig'], selfcal_library[target][band]['RMS_NF_curr']*3.0)
+   if selfcal_library[target][band]['clean_threshold_orig'] < selfcal_library[target][band]['RMS_NF_curr']*3.0:
+       print("WARNING: The clean threshold used for the initial image was less than 3*RMS_NF_curr, using that for the final image threshold instead.")
    tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_final',\
-               band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
+               band,telescope=telescope,nsigma=3.0, threshold=str(clean_threshold)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,
                field=target,datacolumn='corrected',\
                nfrms_multiplier=nfsnr_modifier)
@@ -462,8 +487,8 @@ for target in selfcal_library:
 
 
 
-
-print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+if debug:
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 ##
 ## Make a final image per spw images to assess overall improvement
@@ -639,7 +664,7 @@ if check_all_spws:
 ##
 ## Save final library results
 ##
-import pickle
+
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

@@ -164,7 +164,8 @@ def prepare_selfcal(vislist,
                   selfcal_library[target][band][fid][vis] = {}
 
     import json
-    print(json.dumps(selfcal_library, indent=4))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4))
 
     ##
     ## puts stuff in right place from other MS metadata to perform proper data selections
@@ -306,7 +307,8 @@ def prepare_selfcal(vislist,
              selfcal_library[target].pop(band)
 
 
-    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
     ##
     ## Get the per-spw stats
     ##   
