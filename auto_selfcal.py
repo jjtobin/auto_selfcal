@@ -8,6 +8,7 @@ import numpy as np
 from scipy import stats
 import glob
 import sys
+import pickle
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
@@ -434,6 +435,7 @@ for target in all_targets:
        selfcal_library[target][band][fid]['75thpct_uv']=band_properties[vislist[0]][band]['75thpct_uv']
        selfcal_library[target][band][fid]['LAS']=band_properties[vislist[0]][band]['LAS']
 
+
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
@@ -510,7 +512,7 @@ for target in all_targets:
       dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,vislist)
       sensitivity_nomod=sensitivity.copy()
       print('DR modifier: ',dr_mod)
-   if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0'):
+   if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0') or 'VLA' in telescope:
       if telescope=='ALMA' or telescope =='ACA':
          sensitivity=sensitivity*dr_mod   # apply DR modifier
          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
@@ -548,7 +550,7 @@ for target in all_targets:
       selfcal_library[target][band]['clean_threshold_orig']=sensitivity*4.0
    if 'VLA' in telescope:
       selfcal_library[target][band]['theoretical_sensitivity']=-99.0
-      selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
+
    selfcal_library[target][band]['SNR_orig']=initial_SNR
    if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
       selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
@@ -562,6 +564,10 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_major_orig']=header['restoringbeam']['major']['value']
    selfcal_library[target][band]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
    selfcal_library[target][band]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
+   if initial_tclean_return['iterdone'] > 0:
+      selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
+   else:
+      selfcal_library[target][band]['clean_threshold_orig']=4.0*initial_RMS
    goodMask=checkmask(imagename=sani_target+'_'+band+'_initial.image.tt0')
    if goodMask:
       selfcal_library[target][band]['intflux_orig'],selfcal_library[target][band]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_initial.image.tt0',initial_RMS)
@@ -598,6 +604,9 @@ for target in all_targets:
                   mosaic_initial_RMS[fid], mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
        else:
           selfcal_library[target][band][fid]['intflux_orig'],selfcal_library[target][band][fid]['e_intflux_orig']=-99.0,-99.0
+ #update selfcal library after each
+ with open('selfcal_library.pickle', 'wb') as handle:
+    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if debug:
@@ -838,7 +847,7 @@ for target in all_targets:
 ##
 ## Save self-cal library
 ##
-import pickle
+
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -1195,7 +1204,7 @@ if check_all_spws:
 ##
 ## Save final library results
 ##
-import pickle
+
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
