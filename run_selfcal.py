@@ -5,8 +5,12 @@ import sys
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
-from casampi.MPIEnvironment import MPIEnvironment 
-parallel=MPIEnvironment.is_mpi_enabled
+# Mac builds of CASA lack MPI and error without this try/except
+try:
+   from casampi.MPIEnvironment import MPIEnvironment   
+   parallel=MPIEnvironment.is_mpi_enabled
+except:
+   parallel=False
 
 def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize, imsize, \
         inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, spectral_scan, spws_set, \
@@ -1210,6 +1214,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                 selfcal_library[target][band]['SC_success']=True
                 selfcal_library[target][band]['Stop_Reason']='None'
+                #keep track of whether inf_EB had a S/N decrease
+                if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+                   selfcal_library[target][band]['inf_EB_SNR_decrease']=True
+                elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
+                   selfcal_library[target][band]['inf_EB_SNR_decrease']=False
                 for vis in vislist:
                    selfcal_library[target][band][vis]['gaintable_final']=selfcal_library[target][band][vis][solint]['gaintable']
                    selfcal_library[target][band][vis]['spwmap_final']=selfcal_library[target][band][vis][solint]['spwmap'].copy()
@@ -1228,6 +1237,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     if field_by_field_success[ind]:
                         selfcal_library[target][band][fid]['SC_success']=True
                         selfcal_library[target][band][fid]['Stop_Reason']='None'
+                        if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+                           selfcal_library[target][band][fid]['inf_EB_SNR_decrease']=True
+                        elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
+                           selfcal_library[target][band][fid]['inf_EB_SNR_decrease']=False
+
                         for vis in selfcal_library[target][band][fid]['vislist']:
                            selfcal_library[target][band][fid][vis]['gaintable_final']=selfcal_library[target][band][fid][vis][solint]['gaintable']
                            selfcal_library[target][band][fid][vis]['spwmap_final']=selfcal_library[target][band][fid][vis][solint]['spwmap'].copy()
@@ -1350,6 +1364,19 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  else:
                      print('FIELD: '+str(fid)+', REASON: Failed earlier solint')
              print('****************Reapplying previous solint solutions where available*************')
+
+             #if the final successful solint was inf_EB but inf_EB had a S/N decrease, don't count it as a success and revert to no selfcal
+             if selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']:
+                selfcal_library[target][band]['SC_success']=False
+                selfcal_library[target][band]['final_solint']='None'
+                for vis in vislist:
+                   selfcal_library[target][band][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+                for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                   if selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease']:
+                      selfcal_library[target][band][fid]['SC_success']=False
+                      for vis in vislist:
+                         selfcal_library[target][band][fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+
              for vis in vislist:
                  versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target
                  flagmanager(vis=vis,mode='restore',versionname=versionname)
@@ -1389,7 +1416,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                     print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
                     get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][target][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
-                    print('FIeld '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
+                    print('Field '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
