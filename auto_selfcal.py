@@ -564,10 +564,11 @@ for target in all_targets:
    selfcal_library[target][band]['Beam_major_orig']=header['restoringbeam']['major']['value']
    selfcal_library[target][band]['Beam_minor_orig']=header['restoringbeam']['minor']['value']
    selfcal_library[target][band]['Beam_PA_orig']=header['restoringbeam']['positionangle']['value'] 
-   if initial_tclean_return['iterdone'] > 0 and 'VLA' in telescope:
-      selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
-   elif 'VLA' in telescope:
-      selfcal_library[target][band]['clean_threshold_orig']=4.0*initial_RMS
+   if 'VLA' in telescope:
+       if initial_tclean_return['iterdone'] > 0:
+          selfcal_library[target][band]['clean_threshold_orig']=initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
+       else:
+          selfcal_library[target][band]['clean_threshold_orig']=4.0*initial_RMS
    goodMask=checkmask(imagename=sani_target+'_'+band+'_initial.image.tt0')
    if goodMask:
       selfcal_library[target][band]['intflux_orig'],selfcal_library[target][band]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_initial.image.tt0',initial_RMS)
