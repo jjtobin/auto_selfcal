@@ -146,15 +146,14 @@ for target in selfcal_library:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target]:
    #make images using the appropriate tclean heuristics for each telescope
-   if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
-      # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
-      # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
-      # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
-      tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_dirty',
-                     band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold='0.0Jy',niter=1, gain=0.00001,
-                     savemodel='none',parallel=parallel,
-                     field=target)
+   # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+   # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+   # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+   tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_dirty',
+                  band,telescope=telescope,nsigma=4.0, scales=[0],
+                  threshold='0.0Jy',niter=1, gain=0.00001,
+                  savemodel='none',parallel=parallel,
+                  field=target)
 
    dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_dirty.image.tt0', sani_target+'_'+band+'_dirty.mask',
             '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
@@ -170,12 +169,11 @@ for target in selfcal_library:
                imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty',
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
-   if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0') or 'VLA' in telescope:
-      tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_initial',
-                     band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold='theoretical_with_drmod',
-                     savemodel='none',parallel=parallel,
-                     field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS)
+   tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_initial',
+                  band,telescope=telescope,nsigma=4.0, scales=[0],
+                  threshold='theoretical_with_drmod',
+                  savemodel='none',parallel=parallel,
+                  field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS)
 
    initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', 
            sani_target+'_'+band+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
@@ -240,23 +238,21 @@ if check_all_spws:
             keylist=selfcal_library[target][band]['per_spw_stats'].keys()
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
-            if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0'):
-               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
-                     band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold='0.0Jy',niter=1,gain=0.00001,
-                     savemodel='none',parallel=parallel,
-                     field=target,spw=spw)
+            tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
+                  band,telescope=telescope,nsigma=4.0, scales=[0],
+                  threshold='0.0Jy',niter=1,gain=0.00001,
+                  savemodel='none',parallel=parallel,
+                  field=target,spw=spw)
 
             dirty_SNR, dirty_RMS, dirty_per_spw_NF_SNR, dirty_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
                     '_dirty.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_dirty.mask','', selfcal_library[target][band], 
                     (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty', spw=spw)
 
-            if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0'):
-               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_initial',\
-                          band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
-                          savemodel='none',parallel=parallel,\
-                          field=target,datacolumn='corrected',\
-                          spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
+            tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_initial',\
+                       band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
+                       savemodel='none',parallel=parallel,\
+                       field=target,datacolumn='corrected',\
+                       spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
 
             per_spw_SNR, per_spw_RMS, initial_per_spw_NF_SNR, initial_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
                     '_initial.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_initial.mask', '', selfcal_library[target][band], 
