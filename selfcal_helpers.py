@@ -26,7 +26,8 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True):
+                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True, \
+                   store_threshold=''):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
@@ -52,7 +53,11 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
     if mask == '':
-       usemask='auto-multithresh'
+       if selfcal_library['usermask'] != '':
+           mask = selfcal_library['usermask']
+           usemask = 'user'
+       else:
+           usemask='auto-multithresh'
     else:
        usemask='user'
     if telescope=='ALMA':
@@ -153,7 +158,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
         if not resume:
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
-        tclean(vis=vlist, 
+        tclean_return = tclean(vis=vlist, 
                imagename = imagename, 
                field=field,
                specmode = 'mfs', 
@@ -188,6 +193,12 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                phasecenter=phasecenter,
                startmodel=startmodel,
                datacolumn=datacolumn,spw=spws_per_vis,wprojplanes=wprojplanes, verbose=True)
+
+        if store_threshold != '':
+            if telescope == "ALMA" or telescope == "ACA":
+                selfcal_library["clean_threshold_"+store_threshold] = float(threshold[0:-2])
+            elif "VLA" in telescope and tclean_return['iterdone'] > 0:
+                selfcal_library["clean_threshold_"+store_threshold] = initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
 
         if image_mosaic_fields_separately and selfcal_library['obstype'] == 'mosaic':
             for field_id in selfcal_library['sub-fields-phasecenters']:
@@ -243,7 +254,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
 
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
-    if savemodel=='modelcolumn':
+    if savemodel=='modelcolumn' and selfcal_library['usermodel']=='':
           print("")
           print("Running tclean a second time to save the model...")
           tclean(vis= vlist, 
@@ -282,7 +293,155 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                  parallel=False,
                  phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
     
+    elif savemodel=='modelcolumn' and selfcal_library['usermodel'] !='':
+          print('Using user model already filled to model column, skipping model write.')
+    
+    if not savemodel_only:
+        return tclean_return
 
+def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
+                   nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
+                   cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
+                   lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
+                   savemodel_only=False, resume=False):
+    vlist = selfcal_library['vislist']
+    if type(selfcal_library['usermodel'])==list:
+       nterms=len(selfcal_library['usermodel'])
+       for i, image in enumerate(selfcal_library['usermodel']):
+           if 'fits' in image:
+               importfits(fitsimage=image,imagename=image.replace('.fits',''))
+               selfcal_library['usermodel'][i]=image.replace('.fits','')
+    elif type(selfcal_library['usermodel'])==str:
+       importfits(fitsimage=selfcal_library['usermodel'],imagename=usermmodel.replace('.fits',''))
+       nterms=1
+   
+    msmd.open(vlist[0])
+    fieldid=msmd.fieldsforname(field)
+    msmd.done()
+    tb.open(vlist[0]+'/FIELD')
+    try:
+       ephem_column=tb.getcol('EPHEMERIS_ID')
+       tb.close()
+       if ephem_column[fieldid[0]] !=-1:
+          phasecenter='TRACKFIELD'
+    except:
+       tb.close()
+       phasecenter=''
+
+    if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
+
+    if mask == '':
+       if selfcal_library['usermask'] != '':
+           mask = selfcal_library['usermask']
+           usemask = 'user'
+       else:
+           usemask='auto-multithresh'
+    else:
+       usemask='user'
+
+    wprojplanes=1
+    if band=='EVLA_L' or band =='EVLA_S':
+       gridder='wproject'
+       wplanes=384 # normalized to S-band A-config
+       #scale by 75th percentile uv distance divided by A-config value
+       wplanes=wplanes * selfcal_library['75thpct_uv']/20000.0
+       if band=='EVLA_L':
+          wplanes=wplanes*2.0 # compensate for 1.5 GHz being 2x longer than 3 GHz
+
+
+       wprojplanes=int(wplanes)
+    if (band=='EVLA_L' or band =='EVLA_S') and selfcal_library['obstype']=='mosaic':
+       print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
+    if selfcal_library['obstype']=='mosaic':
+       gridder='mosaic'
+    else:
+       if gridder !='wproject':
+          gridder='standard' 
+
+    if gridder=='mosaic' and startmodel!='':
+       parallel=False
+    for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+        os.system('rm -rf '+ imagename + ext)
+    #regrid start model
+    if not resume:
+        for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+           os.system('rm -rf '+ imagename+'_usermodel_prep' + ext)
+    tclean(vis= vlist, 
+               imagename = imagename+'_usermodel_prep', 
+               field=field,
+               specmode = 'mfs', 
+               deconvolver = 'mtmfs',
+               scales = scales, 
+               gridder=gridder,
+               weighting='briggs', 
+               robust = robust,
+               gain = gain,
+               imsize = selfcal_library['imsize'],
+               cell = selfcal_library['cellsize'], 
+               smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
+               niter = 0, #we want to end on the threshold
+               interactive = interactive,
+               nsigma=nsigma,    
+               cycleniter = cycleniter,
+               cyclefactor = selfcal_library['cyclefactor'], 
+               uvtaper = uvtaper, 
+               mask=mask,
+               usemask=usemask,
+               sidelobethreshold=sidelobethreshold,
+               noisethreshold=noisethreshold,
+               lownoisethreshold=lownoisethreshold,
+               smoothfactor=smoothfactor,
+               pbmask=pbmask,
+               pblimit=pblimit,
+               nterms = nterms,
+               uvrange=selfcal_library['uvrange'],
+               threshold=threshold,
+               parallel=parallel,
+               phasecenter=phasecenter,
+               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True,startmodel=selfcal_library['usermodel'],savemodel='modelcolumn')
+
+     #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
+    if savemodel=='modelcolumn':
+          print("")
+          print("Running tclean a second time to save the model...")
+          tclean(vis= vlist, 
+                 imagename = imagename+'_usermodel_prep', 
+                 field=field,
+                 specmode = 'mfs', 
+                 deconvolver = 'mtmfs',
+                 scales = scales, 
+                 gridder=gridder,
+                 weighting='briggs', 
+                 robust = robust,
+                 gain = gain,
+                 imsize = selfcal_library['imsize'],
+                 cell = selfcal_library['cellsize'], 
+                 smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
+                 niter = 0, 
+                 interactive = False,
+                 nsigma=0.0, 
+                 cycleniter = cycleniter,
+                 cyclefactor = selfcal_library['cyclefactor'], 
+                 uvtaper = uvtaper, 
+                 usemask='user',
+                 savemodel = savemodel,
+                 sidelobethreshold=sidelobethreshold,
+                 noisethreshold=noisethreshold,
+                 lownoisethreshold=lownoisethreshold,
+                 smoothfactor=smoothfactor,
+                 pbmask=pbmask,
+                 pblimit=pblimit,
+                 calcres = False,
+                 calcpsf = False,
+                 restoration = False,
+                 nterms = nterms,
+                 uvrange=selfcal_library['uvrange'],
+                 threshold=threshold,
+                 parallel=False,
+                 phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
+ 
 
 def collect_listobs_per_vis(vislist):
    listdict={}
@@ -616,7 +775,7 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
            gaincal_combine.append('field,scan')
 
    #insert solint = inf
-   if (not mosaic and median_scans_per_obs > 1) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
+   if (not mosaic and (median_scans_per_obs > 2 or (median_scans_per_obs == 2 and max_scantime / min_scantime < 4))) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
       solints_list.append('inf')
       if spwcombine:
          gaincal_combine.append('spw')
@@ -1742,7 +1901,7 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
          msmd.open(vis)
          observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(spwarray[vis][0]))
          msmd.close()
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
+   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'ALMA')
    return bands,observed_bands
 
 
@@ -1818,7 +1977,7 @@ def get_VLA_bands(vislist,fields):
             bands_match=False
    if not bands_match:
      print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands)
+   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
    return observed_bands[vislist[0]]['bands'].copy(),observed_bands
 
 
@@ -1903,7 +2062,7 @@ def get_baseline_dist(vis):
 
 
 
-def get_max_uvdist(vislist,bands,band_properties):
+def get_max_uvdist(vislist,bands,band_properties,telescope):
    for band in bands:   
       all_baselines=np.array([])
       for vis in vislist:
@@ -1911,7 +2070,10 @@ def get_max_uvdist(vislist,bands,band_properties):
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
       min_baseline=np.min(all_baselines)
-      baseline_5=numpy.percentile(all_baselines,5.0)
+      if 'VLA' in telescope:
+         baseline_5=numpy.percentile(all_baselines[all_baselines > 0.05*all_baselines.max()],5.0)
+      else: # ALMA
+         baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
       for vis in vislist:
@@ -1922,7 +2084,7 @@ def get_max_uvdist(vislist,bands,band_properties):
          band_properties[vis][band]['minuv']=min_uv_dist
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
-         band_properties[vis][band]['LAS']=0.6 / (1000*baseline_5) * 180./np.pi * 3600.
+         band_properties[vis][band]['LAS']=0.6 * (meanlam/baseline_5) * 180./np.pi * 3600.
 
 
 def get_uv_range(band,band_properties,vislist):
@@ -2204,9 +2366,10 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    bands_string=', '.join([str(elem) for elem in bands])
    htmlOut.writelines(''+bands_string+'\n')
    htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
-   for band in bands:
-      solints_string=', '.join([str(elem) for elem in selfcal_plan[target][band]['solints']])
-      htmlOut.writelines('<br>'+band+': '+solints_string)
+   for target in selfcal_plan:
+       for band in selfcal_plan[target]:
+          solints_string=', '.join([str(elem) for elem in selfcal_plan[target][band]['solints']])
+          htmlOut.writelines('<br>'+band+': '+solints_string)
 
    for target in targets:
       htmlOut.writelines('<a name="'+target+'"></a>\n')
@@ -2861,7 +3024,7 @@ def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
 
 
 def check_mosaic(vislist,target):
-   msmd.open(vis[0])
+   msmd.open(vislist[0])
    fieldid=msmd.fieldsforname(field)
    msmd.done()
    if len(fieldid) > 1:

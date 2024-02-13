@@ -12,7 +12,10 @@ def prepare_selfcal(vislist,
         inf_EB_gaincal_combine='scan',
         inf_EB_gaintype='G',
         apply_cal_mode_default='calflag',
-        do_amp_selfcal=True):
+        do_amp_selfcal=True,
+        usermask={},
+        usermodel={},
+        debug=False):
 
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
@@ -109,6 +112,24 @@ def prepare_selfcal(vislist,
           else:
              selfcal_library[target][band]['obstype']='single-point'
 
+          # Fill in the usermask and usermodel, if supplied.
+
+          if target in usermask:
+              if band in usermask[target]:
+                  selfcal_library[target][band]['usermask'] = usermask[target][band]
+              else:
+                  selfcal_library[target][band]['usermask'] = ''
+          else:
+              selfcal_library[target][band]['usermask'] = ''
+
+          if target in usermodel:
+              if band in usermodel[target]:
+                  selfcal_library[target][band]['usermodel'] = usermodel[target][band]
+              else:
+                  selfcal_library[target][band]['usermodel'] = ''
+          else:
+              selfcal_library[target][band]['usermodel'] = ''
+
           # Make sure the fields get mapped properly, in case the order in which they are observed changes from EB to EB.
 
           selfcal_library[target][band]['sub-fields-fid_map'] = {}
@@ -146,7 +167,8 @@ def prepare_selfcal(vislist,
                   selfcal_library[target][band][fid][vis] = {}
 
     import json
-    print(json.dumps(selfcal_library, indent=4))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4))
 
     ##
     ## puts stuff in right place from other MS metadata to perform proper data selections
@@ -288,7 +310,8 @@ def prepare_selfcal(vislist,
              selfcal_library[target].pop(band)
 
 
-    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
     ##
     ## Get the per-spw stats
     ##   

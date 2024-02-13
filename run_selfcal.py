@@ -9,8 +9,13 @@ from gaincal_wrapper import gaincal_wrapper
 from image_analysis_helpers import *
 from mosaic_helpers import *
 from applycal_wrapper import applycal_wrapper
-from casampi.MPIEnvironment import MPIEnvironment 
-parallel=MPIEnvironment.is_mpi_enabled
+
+# Mac builds of CASA lack MPI and error without this try/except
+try:
+   from casampi.MPIEnvironment import MPIEnvironment   
+   parallel=MPIEnvironment.is_mpi_enabled
+except:
+   parallel=False
 
 def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, \
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
@@ -50,7 +55,17 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
 
+   if selfcal_library['usermodel'] != '':
+      print('Setting model column to user model')
+      usermodel_wrapper(selfcal_library,sani_target+'_'+band,
+                     band,telescope=telescope,nsigma=0.0, scales=[0],
+                     threshold='0.0Jy',
+                     savemodel='modelcolumn',parallel=parallel,
+                     field=target,spw=selfcal_library['spws_per_vis'],resume=False, 
+                     cyclefactor=selfcal_library['cyclefactor'])
+
    print('Starting selfcal procedure on: '+target+' '+band)
+
    for iteration in range(len(selfcal_plan['solints'])):
       if (iterjump !=-1) and (iteration < iterjump): # allow jumping to amplitude selfcal and not need to use a while loop
          continue
@@ -121,6 +136,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              resume = False
 
          nfsnr_modifier = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
+         #remove mask if exists from previous selfcal _post image user is specifying a mask
+         if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and selfcal_library['usermask'] != '':
+            os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
          tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
@@ -380,6 +398,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
                 selfcal_library['SC_success']=True
                 selfcal_library['Stop_Reason']='None'
+                #keep track of whether inf_EB had a S/N decrease
+                if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+                   selfcal_library['inf_EB_SNR_decrease']=True
+                elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
+                   selfcal_library['inf_EB_SNR_decrease']=False
                 for vis in vislist:
                    selfcal_library[vis]['gaintable_final']=selfcal_library[vis][solint]['gaintable']
                    selfcal_library[vis]['spwmap_final']=selfcal_library[vis][solint]['spwmap'].copy()
@@ -398,6 +421,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     if field_by_field_success[ind]:
                         selfcal_library[fid]['SC_success']=True
                         selfcal_library[fid]['Stop_Reason']='None'
+                        if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+                           selfcal_library[fid]['inf_EB_SNR_decrease']=True
+                        elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
+                           selfcal_library[fid]['inf_EB_SNR_decrease']=False
+
                         for vis in selfcal_library[fid]['vislist']:
                            selfcal_library[fid][vis]['gaintable_final']=selfcal_library[fid][vis][solint]['gaintable']
                            selfcal_library[fid][vis]['spwmap_final']=selfcal_library[fid][vis][solint]['spwmap'].copy()
@@ -510,6 +538,19 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  else:
                      print('FIELD: '+str(fid)+', REASON: Failed earlier solint')
              print('****************Reapplying previous solint solutions where available*************')
+
+             #if the final successful solint was inf_EB but inf_EB had a S/N decrease, don't count it as a success and revert to no selfcal
+             if selfcal_library['final_solint'] == 'inf_EB' and selfcal_library['inf_EB_SNR_decrease']:
+                selfcal_library['SC_success']=False
+                selfcal_library['final_solint']='None'
+                for vis in vislist:
+                   selfcal_library[vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+                for fid in np.intersect1d(selfcal_library['sub-fields'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                   if selfcal_library[fid]['final_solint'] == 'inf_EB' and selfcal_library[fid]['inf_EB_SNR_decrease']:
+                      selfcal_library[fid]['SC_success']=False
+                      for vis in vislist:
+                         selfcal_library[fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+
              for vis in vislist:
                  applycal_wrapper(vis, target, band, solint, selfcal_library, 
                          final=lambda f: selfcal_library[f]['SC_success'],
@@ -541,7 +582,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     print('Field '+str(fid)+' Was: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
                     get_SNR_self_update(selfcal_library[fid],n_ants,solint,selfcal_plan['solints'][iteration+1],
                             selfcal_plan['integration_time'],selfcal_plan[fid]['solint_snr_per_field'])
-                    print('FIeld '+str(fid)+' Now: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
+                    print('Field '+str(fid)+' Now: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
