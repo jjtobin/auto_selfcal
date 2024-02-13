@@ -73,8 +73,7 @@ allow_gain_interpolation=False
 guess_scan_combine=False
 aca_use_nfmask=False
 allow_cocal=False
-cals_directory="<fill with path to untarred calibration tables from pipeline>"
-aquareport="<fill with path to aqua report>" 
+aquareport=""
 scale_fov=1.0   # option to make field of view larger than the default
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
@@ -424,6 +423,18 @@ for target in all_targets:
                 mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], 
                 cyclefactor=selfcal_library[target][band]['cyclefactor'])
 
+       initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_'+vis+'_initial.image.tt0')
+       if telescope!='ACA' or aca_use_nfmask:
+          initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+vis+'_initial.image.tt0', las=selfcal_library[target][band]['LAS'])
+       else:
+          initial_NF_SNR,initial_NF_RMS=initial_SNR,initial_RMS
+
+       goodMask=checkmask(imagename=sani_target+'_'+band+'_'+vis+'_initial.image.tt0')
+       if goodMask:
+          selfcal_library[target][band][vis]['intflux_orig'],selfcal_library[target][band][vis]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_'+vis+'_initial.image.tt0',initial_RMS)
+       else:
+          selfcal_library[target][band][vis]['intflux_orig'],selfcal_library[target][band][vis]['e_intflux_orig']=-99.0,-99.0
+
 
 ##
 ## Align the EBs prior to running selfcal on them.
@@ -433,7 +444,7 @@ offsets = {}
 for target in all_targets:
     offsets[target] = {}
     for band in bands:
-        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target, cals_directory=cals_directory,
+        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target, selfcal_library[target][band][vis]['intflux_orig'],
                 aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
                 spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
                 suffix='')
@@ -489,6 +500,7 @@ for target in all_targets:
 
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+
 ##
 ## create initial images for each target to evaluate SNR and beam
 ## replicates what a preceding hif_makeimages would do
