@@ -2923,11 +2923,9 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
     good_spws = np.logical_and(good_spws, good_antennas)
  
     antennas = antennas[good_spws]
-    """
     flags = flags[:,:,good_spws]
     cals = cals[:,:,good_spws]
     snr = snr[:,:,good_spws]
-    """
 
     # Get the percentage of flagged solutions for each antenna.
     unique_antennas = np.unique(antennas)
@@ -2939,11 +2937,11 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
 
     nflagged = np.array([[(gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() - 
             gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["above_minsnr"].sum()) for ant in good_antenna_ids] 
-            for spw in gaincal_return['selectvis']['spw']])
+            for spw in good_spw_ids])
     nsolutions = np.array([[gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() 
             for ant in good_antenna_ids] for spw in good_spw_ids])
 
-    percentage_flagged = nflagged.sum(axis=0) / nsolutions.sum(axis=0)
+    percentage_flagged = nflagged.sum(axis=0) / np.clip(nsolutions.sum(axis=0), 1., np.inf)
 
  
     # Load in the positions of the antennas and calculate their offsets from the geometric center.
