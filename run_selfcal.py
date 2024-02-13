@@ -1073,9 +1073,9 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     if field_by_field_success[ind]:
                         selfcal_library[target][band][fid]['SC_success']=True
                         selfcal_library[target][band][fid]['Stop_Reason']='None'
-                        if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+                        if (solint =='inf_EB') and not strict_field_by_field_success[ind]:
                            selfcal_library[target][band][fid]['inf_EB_SNR_decrease']=True
-                        elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
+                        elif (solint =='inf_EB') and strict_field_by_field_success[ind]:
                            selfcal_library[target][band][fid]['inf_EB_SNR_decrease']=False
 
                         for vis in selfcal_library[target][band][fid]['vislist']:
@@ -1206,11 +1206,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 selfcal_library[target][band]['final_solint']='None'
                 for vis in vislist:
                    selfcal_library[target][band][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
-                for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                   if selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease']:
-                      selfcal_library[target][band][fid]['SC_success']=False
-                      for vis in vislist:
-                         selfcal_library[target][band][fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+                
+             for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                if (selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease']) or 
+                      (selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']):
+                   selfcal_library[target][band][fid]['SC_success']=False
+                   selfcal_library[target][band][fid]['final_solint']='None'
+                   for vis in vislist:
+                      selfcal_library[target][band][fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
 
              for vis in vislist:
                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
