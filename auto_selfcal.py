@@ -47,17 +47,20 @@ if len(vislist) == 0:
 spectral_average=True
 do_amp_selfcal=True
              # input as dictionary for target name to allow support of multiple targets           
-usermask={}  # require that it is a CRTF region (CASA region format)
-             # usermask={'Band_6':{'IRAS32':'IRAS32.rgn', 'IRS5N':'IRS5N.rgn'}}
+usermask={'AS_205A':{'Band_8':'AS_205A.rgn'}}  # require that it is a CRTF region (CASA region format)
+             # usermask={'IRAS32':{'Band_6':'IRAS32.rgn'}, 'IRS5N':{'Band_6': 'IRS5N.rgn'}}
              # If multiple sources and only want to use a mask for one, just specify that source.
              # The keys for remaining sources will be filled with empty strings
+             # NOTE THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
 
-usermodel={} # input as dictionary for target name to allow support of multiple targets
+usermodel={'AS_205A':{'Band_8':['AS_205A.model.tt0']}} 
+             # input as dictionary for target name to allow support of multiple targets
              # if includes .fits, assume a fits image, otherwise assume a CASA image
              # for spectral image, input as list i.e., usermodel=['usermodel.tt0','usermodel.tt1']
-             # usermodel={'Band_6':{'IRAS32':['IRAS32-model.tt0','IRAS32-model.tt1'], 'IRS5N':['IRS5N-model.tt0','IRS5N-model.tt1']}}
+             # usermodel={'IRAS32':{'Band_6':['IRAS32-model.tt0','IRAS32-model.tt1']}, 'IRS5N':{'Band_6'['IRS5N-model.tt0','IRS5N-model.tt1']}}
              # If multiple sources and only want to use a model for one, just specify that source.
              # The keys for remaining sources will be filled with empty strings
+             # NOTE THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
 
 
 inf_EB_gaincal_combine='scan'
@@ -124,10 +127,13 @@ if run_findcont:
 selfcal_library, selfcal_plan, gaincalibrator_dict = prepare_selfcal(vislist, spectral_average=spectral_average, 
         sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
         inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-        usermask=usermask, usermodel=usermodel)
+        usermask=usermask, usermodel=usermodel,debug=debug)
 
 
-
+with open('selfcal_library.pickle', 'wb') as handle:
+    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open('selfcal_plan.pickle', 'wb') as handle:
+    pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 ###################################################################################################
@@ -173,7 +179,7 @@ for target in selfcal_library:
                   band,telescope=telescope,nsigma=4.0, scales=[0],
                   threshold='theoretical_with_drmod',
                   savemodel='none',parallel=parallel,
-                  field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS)
+                  field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS,store_threshold='orig')
 
    initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', 
            sani_target+'_'+band+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')

@@ -137,7 +137,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
          nfsnr_modifier = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
          #remove mask if exists from previous selfcal _post image user is specifying a mask
-         if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and mask != '':
+         if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and selfcal_library['usermask'] != '':
             os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
          tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],

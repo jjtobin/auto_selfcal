@@ -196,7 +196,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
 
         if store_threshold != '':
             if telescope == "ALMA" or telescope == "ACA":
-                selfcal_library["clean_threshold_"+store_threshold] = float(threshold[0:-1])
+                selfcal_library["clean_threshold_"+store_threshold] = float(threshold[0:-2])
             elif "VLA" in telescope and tclean_return['iterdone'] > 0:
                 selfcal_library["clean_threshold_"+store_threshold] = initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
 
@@ -305,7 +305,7 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
                    savemodel_only=False, resume=False):
-    
+    vlist = selfcal_library['vislist']
     if type(selfcal_library['usermodel'])==list:
        nterms=len(selfcal_library['usermodel'])
        for i, image in enumerate(selfcal_library['usermodel']):
@@ -316,10 +316,10 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
        importfits(fitsimage=selfcal_library['usermodel'],imagename=usermmodel.replace('.fits',''))
        nterms=1
    
-    msmd.open(vis[0])
+    msmd.open(vlist[0])
     fieldid=msmd.fieldsforname(field)
     msmd.done()
-    tb.open(vis[0]+'/FIELD')
+    tb.open(vlist[0]+'/FIELD')
     try:
        ephem_column=tb.getcol('EPHEMERIS_ID')
        tb.close()
@@ -365,7 +365,10 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
     for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
         os.system('rm -rf '+ imagename + ext)
     #regrid start model
-    tclean(vis= vis, 
+    if not resume:
+        for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+           os.system('rm -rf '+ imagename+'_usermodel_prep' + ext)
+    tclean(vis= vlist, 
                imagename = imagename+'_usermodel_prep', 
                field=field,
                specmode = 'mfs', 
@@ -403,7 +406,7 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
     if savemodel=='modelcolumn':
           print("")
           print("Running tclean a second time to save the model...")
-          tclean(vis= vis, 
+          tclean(vis= vlist, 
                  imagename = imagename+'_usermodel_prep', 
                  field=field,
                  specmode = 'mfs', 
@@ -3021,7 +3024,7 @@ def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
 
 
 def check_mosaic(vislist,target):
-   msmd.open(vis[0])
+   msmd.open(vislist[0])
    fieldid=msmd.fieldsforname(field)
    msmd.done()
    if len(fieldid) > 1:

@@ -12,7 +12,10 @@ def prepare_selfcal(vislist,
         inf_EB_gaincal_combine='scan',
         inf_EB_gaintype='G',
         apply_cal_mode_default='calflag',
-        do_amp_selfcal=True):
+        do_amp_selfcal=True,
+        usermask={},
+        usermodel={},
+        debug=False):
 
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
