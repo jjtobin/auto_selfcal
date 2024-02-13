@@ -47,13 +47,13 @@ if len(vislist) == 0:
 spectral_average=True
 do_amp_selfcal=True
              # input as dictionary for target name to allow support of multiple targets           
-usermask={'AS_205A':{'Band_8':'AS_205A.rgn'}}  # require that it is a CRTF region (CASA region format)
+usermask={}  # require that it is a CRTF region (CASA region format)
              # usermask={'IRAS32':{'Band_6':'IRAS32.rgn'}, 'IRS5N':{'Band_6': 'IRS5N.rgn'}}
              # If multiple sources and only want to use a mask for one, just specify that source.
              # The keys for remaining sources will be filled with empty strings
              # NOTE THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
 
-usermodel={'AS_205A':{'Band_8':['AS_205A.model.tt0']}} 
+usermodel={} 
              # input as dictionary for target name to allow support of multiple targets
              # if includes .fits, assume a fits image, otherwise assume a CASA image
              # for spectral image, input as list i.e., usermodel=['usermodel.tt0','usermodel.tt1']
