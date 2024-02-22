@@ -444,7 +444,7 @@ offsets = {}
 for target in all_targets:
     offsets[target] = {}
     for band in bands:
-        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target, selfcal_library[target][band][vis]['intflux_orig'],
+        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target,
                 aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
                 spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
                 suffix='')
@@ -497,7 +497,6 @@ for target in all_targets:
                 mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
                 mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], 
                 cyclefactor=selfcal_library[target][band]['cyclefactor'])
-
 
 print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
