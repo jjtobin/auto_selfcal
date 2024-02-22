@@ -1094,6 +1094,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     else:
                         for vis in selfcal_library[target][band][fid]['vislist']:
                             selfcal_library[target][band][fid][vis][solint]['Pass']=False
+                        if solint == 'inf_EB':
+                            selfcal_library[target][band][fid]['inf_EB_SNR_decrease']=False
 
                 # To exit out of the applymode loop.
                 break
@@ -1207,9 +1209,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 for vis in vislist:
                    selfcal_library[target][band][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
                 
+             # Only set the inf_EB Pass flag to False if the mosaic as a whole failed or if this is the last phase-only solint (either because it is int or
+             # because the solint failed, because for mosaics we can keep trying the field as we clean deeper. If we set to False now, that wont happen.
              for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                if (selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease']) or 
-                      (selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']):
+                if (selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']) or \
+                        ((not selfcal_library[target][band][vislist[0]][solint]['Pass'] or solint == 'int') and \
+                        (selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease'])):
                    selfcal_library[target][band][fid]['SC_success']=False
                    selfcal_library[target][band][fid]['final_solint']='None'
                    for vis in vislist:
