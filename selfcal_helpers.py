@@ -2233,7 +2233,8 @@ def create_noise_histogram_plots(N_1,N_2,intensity_1,intensity_2,rms_1,rms_2,out
    ax.plot(intensity_1,gaussian_norm(intensity_1,0,rms_1),label='Initial Gaussian')
    ax.plot(intensity_2,gaussian_norm(intensity_2,0,rms_2),label='Final Gaussian')
    if rms_theory !=0.0:
-      ax.plot([-1.0*rms_theory,rms_theory],[0.606,0.606],label='Theoretical Sensitivity')
+      ax.fill(intensity_2,gaussian_norm(intensity_2,0,rms_theory),color='gray',label='Theoretical Sensitivity')
+      #ax.plot([-1.0*rms_theory,rms_theory],[0.606,0.606],label='Theoretical Sensitivity')
    ax.legend(fontsize=20)
    ax.set_xlabel('Intensity (mJy/Beam)',fontsize=20)
    ax.set_ylabel('N',fontsize=20)
