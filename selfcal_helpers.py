@@ -2724,7 +2724,7 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                plot_ants_flagging_colored(directory+'/images/plot_ants_'+gaintable+'.png',vis,gaintable)
                htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a>')
                if 'unflagged_lbs' in sclib[target][band][vis][solints[band][target][i]]:
-                   unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), flagged_fraction=0.25, \
+                   unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), sclib[target][band][vis][solints[band][target][i]]['gaincal_return'], flagged_fraction=0.25, \
                            spwmap=sclib[target][band][vis][solints[band][target][i]]['unflag_spwmap'], \
                            plot=True, plot_directory=directory+'/images/')
                    htmlOutSolint.writelines('\n<a href="images/'+gaintable.replace('.g.','.pre-pass.pass')+'.png"><img src="images/'+gaintable.replace('.g','.pre-pass.pass')+'.png" ALT="Long baseline unflagging thresholds" HEIGHT=400></a><br>\n')
@@ -3043,7 +3043,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
 
 
 
-def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
+def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
         fb_to_prev_solint=False, solints=[], iteration=0, plot=False, plot_directory="./"):
     tb.open(caltable, nomodify=plot) # Because we only modify if we aren't plotting, i.e. in the selfcal loop itself plot=False
     antennas = tb.getcol("ANTENNA1")
@@ -3054,9 +3054,11 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     if len(spwmap) > 0:
         spws = tb.getcol("SPECTRAL_WINDOW_ID")
         good_spws = np.repeat(False, spws.size)
-        for spw in np.unique(spwmap):
+        good_spw_ids = np.unique(spwmap)
+        for spw in good_spw_ids:
             good_spws = np.logical_or(good_spws, spws == spw)
     else:
+        good_spw_ids = gaincal_return['selectvis']['spw']
         good_spws = np.repeat(True, antennas.size)
 
     msmd.open(vis)
@@ -3076,8 +3078,19 @@ def unflag_failed_antennas(vis, caltable, flagged_fraction=0.25, only_long_basel
     # Get the percentage of flagged solutions for each antenna.
     unique_antennas = np.unique(antennas)
     nants = unique_antennas.size
+    """
     ordered_flags = flags.reshape(flags.shape[0:2] + (flags.shape[2]//nants, nants))
     percentage_flagged = (ordered_flags.sum(axis=2) / ordered_flags.shape[2]).mean(axis=0).mean(axis=0)
+    """
+
+    nflagged = np.array([[(gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() - 
+            gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["above_minsnr"].sum()) for ant in good_antenna_ids] 
+            for spw in good_spw_ids])
+    nsolutions = np.array([[gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() 
+            for ant in good_antenna_ids] for spw in good_spw_ids])
+
+    percentage_flagged = nflagged.sum(axis=0) / np.clip(nsolutions.sum(axis=0), 1., np.inf)
+
  
     # Load in the positions of the antennas and calculate their offsets from the geometric center.
     msmd.open(vis)

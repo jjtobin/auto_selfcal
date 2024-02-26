@@ -387,7 +387,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                            else:
                               spwselect=selfcal_library[target][band][vis]['spws']
                            print('Running gaincal on '+spwselect+' for '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
-                           gaincal(vis=vis,\
+                           gaincal_return = gaincal(vis=vis,\
                              caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',\
                              gaintype=gaincal_gaintype, spw=spwselect,
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][target][iteration], solnorm=solnorm if applymode=="calflag" else False,
@@ -442,7 +442,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             else:
                                 splinetime = float(splinetime[0:-1])
 
-                        gaincal(vis=vis,\
+                        gaincal_return = gaincal(vis=vis,\
                              #caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',\
                              caltable="temp.g",\
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][fid][vis]['spws'],
@@ -491,7 +491,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                     unflag_spwmap = []
 
                                 unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
-                                        solmode[band][target][it]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                                        solmode[band][target][it]+'.g', selfcal_library[target][band][vis][sint]['gaincal_return'], flagged_fraction=0.25, solnorm=solnorm, \
                                         only_long_baselines=solmode[band][target][it]=="ap" if unflag_only_lbants and \
                                         unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
                                         spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band][target], iteration=it)
@@ -519,7 +519,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                       else:
                          spwselect=','.join(str(spw) for spw in spws_set[band][vis][i].tolist())
 
-                      gaincal(vis=vis,\
+                      test_gaincal_return = gaincal(vis=vis,\
                         caltable='test_inf_EB.g',\
                         gaintype=gaincal_gaintype, spw=spwselect,
                         refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
@@ -538,6 +538,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                          applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                          os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
                          os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
+                         gaincal_return = test_gaincal_return
                       if fallback[vis] =='spwmap':
                          gaincal_spwmap[vis]=applycal_spwmap_inf_EB
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan'
@@ -552,6 +553,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
 
                    os.system('rm -rf test_inf_EB.g')               
+
+                selfcal_library[target][band][vis][solint]['gaincal_return'] = gaincal_return
 
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
                 # Should we also restrict to just long baseline antennas?
@@ -570,7 +573,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     selfcal_library[target][band][vis][solint]['unflagged_lbs'] = True
 
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                            solmode[band][target][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                            solmode[band][target][iteration]+'.g', selfcal_library[target][band][vis][solint]['gaincal_return'], flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=solmode[band][target][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                             unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                             fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band][target], iteration=iteration)
