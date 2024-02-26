@@ -2234,9 +2234,10 @@ def create_noise_histogram_plots(N_1,N_2,intensity_1,intensity_2,rms_1,rms_2,out
    ax.plot(intensity_2,gaussian_norm(intensity_2,0,rms_2),label='Final Gaussian')
    xplotrange=np.abs(ax.get_xlim()[0])+np.abs(ax.get_xlim()[1])
    if rms_theory !=0.0:
-      alpha_plot=-1.0*2.0*rms_theory/xplotrange*0.75 +1.0
-      if (2.0*rms_theory > xplotrange) or (alpha_plot < 0.0):
+      alpha_plot=-1.0*9.0*2.0*rms_theory/xplotrange*0.75 +1.0
+      if (9.0*2.0*rms_theory > xplotrange) or (alpha_plot < 0.0):
          alpha_plot=0.25
+      print('alpha_plot',alpha_plot,rms_theory,xplotrange)
       ax.fill(intensity_2,gaussian_norm(intensity_2,0,rms_theory),color='gray',label='Theoretical Sensitivity',alpha=alpha_plot)
       #ax.plot([-1.0*rms_theory,rms_theory],[0.606,0.606],label='Theoretical Sensitivity')
    ax.legend(fontsize=20)
