@@ -1143,7 +1143,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          ## if S/N worsens, and/or beam area increases reject current solutions and reapply previous (or revert to origional data)
          ##
 
-         if not selfcal_library[target][band][vislist[0]][solint]['Pass']:
+         if not selfcal_library[target][band][vislist[0]][solint]['Pass'] or (solint == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']):
             reason=''
             if (post_SNR <= SNR):
                reason=reason+' S/N decrease'
@@ -1161,13 +1161,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 reason=reason+'All sub-fields failed'
             selfcal_library[target][band]['Stop_Reason']=reason
             for vis in vislist:
-               selfcal_library[target][band][vis][solint]['Pass']=False
+               #selfcal_library[target][band][vis][solint]['Pass']=False
                selfcal_library[target][band][vis][solint]['Fail_Reason']=reason
 
          mosaic_reason = {}
          new_fields_to_selfcal = []
          for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
-             if not selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]][solint]['Pass']:
+             if not selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]][solint]['Pass'] or \
+                     (solint == "inf_EB" and selfcal_library[target][band][fid]['inf_EB_SNR_decrease']):
                  mosaic_reason[fid]=''
                  if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
                     mosaic_reason[fid]=mosaic_reason[fid]+' SNR decrease'
@@ -1183,9 +1184,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      mosaic_reason[fid] = "Global selfcal failed"
                  selfcal_library[target][band][fid]['Stop_Reason']=mosaic_reason[fid]
                  for vis in selfcal_library[target][band][fid]['vislist']:
-                    selfcal_library[target][band][fid][vis][solint]['Pass']=False
+                    #selfcal_library[target][band][fid][vis][solint]['Pass']=False
                     selfcal_library[target][band][fid][vis][solint]['Fail_Reason']=mosaic_reason[fid]
-             else:
+
+             if selfcal_library[target][band][fid][selfcal_library[target][band][fid]['vislist'][0]][solint]['Pass']:
                  new_fields_to_selfcal.append(fid)
 
          # If any of the fields failed self-calibration, we need to re-apply calibrations for all fields because we need to revert flagging back
@@ -1208,6 +1210,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 selfcal_library[target][band]['final_solint']='None'
                 for vis in vislist:
                    selfcal_library[target][band][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+                   selfcal_library[target][band][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
                 
              # Only set the inf_EB Pass flag to False if the mosaic as a whole failed or if this is the last phase-only solint (either because it is int or
              # because the solint failed, because for mosaics we can keep trying the field as we clean deeper. If we set to False now, that wont happen.
@@ -1219,6 +1222,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                    selfcal_library[target][band][fid]['final_solint']='None'
                    for vis in vislist:
                       selfcal_library[target][band][fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+                      selfcal_library[target][band][fid][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
 
              for vis in vislist:
                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
