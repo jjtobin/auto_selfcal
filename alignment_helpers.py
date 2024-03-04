@@ -448,6 +448,11 @@ def find_offset(reference_ms, offset_ms, target, aquareport='', npix=1024, cell_
     ms1 = [entry[overlap > 0] for entry in ms1]
     ms2 = [entry[overlap > 0] for entry in ms2]
 
+    # If the model == 0 (because no cleaning was done, set to the RMS value of the image, as estimated by the visibility data.
+
+    for ms in [ms1,ms2]:
+        ms[5] = np.where(ms[5] == 0, 1./ms[4].sum()**0.5, ms[5])
+    
     # Derive the offset. The starting point x0 is picked as a fraction (chosen as 1/6)
     #of the "resolution" expected from the longest baseline of the offset data set
     contains_data = ms2[1] > 0
