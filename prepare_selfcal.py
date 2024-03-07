@@ -546,10 +546,12 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        gaincal_combine='spw'
                        filename_append='per_bb'
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']['per_bb']=selfcal_library[target][band][vis]['baseband_spwmap']
-                    if solint in ['inf_EB','300s_ap']:
+                    if solint in ['inf_EB','scan_inf','300s_ap']:
                        if gaincal_combine!='':
                           gaincal_combine+=','
                        gaincal_combine+='scan'
+                       if solint in ['inf_EB','scan_inf'] and selfcal_library[target][band]['obstype'] == 'mosaic':
+                           gaincal_combine+=',field'
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_combine'][mode]=gaincal_combine
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['filename_append'][mode]=filename_append
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_return_dict'][mode]=[]

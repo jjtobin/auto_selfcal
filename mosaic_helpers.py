@@ -95,7 +95,8 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
                 continue
             ## NEXT TO DO: check % of flagged solutions - DONE, see above
             ## After that enable option for interpolation through inf - DONE
-            tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[iteration]+'.g')
+            tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[iteration]+'_'+
+                    selfcal_library[vis][solint]['final_mode']+'.g')
             fields = tb.getcol("FIELD_ID")
             scans = tb.getcol("SCAN_NUMBER")
 
