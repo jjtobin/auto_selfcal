@@ -40,7 +40,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      band_properties,band,telescope=telescope,nsigma=0.0, scales=[0],
                      threshold='0.0Jy',
                      savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-                     nterms=selfcal_library[target][band]['nterms'],
+                     nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], resume=False, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
    for iteration in range(len(solints[band][target])):
@@ -100,7 +100,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-                     nterms=selfcal_library[target][band]['nterms'],
+                     nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
          # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
@@ -137,7 +137,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                              threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                              savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-                             nterms=selfcal_library[target][band]['nterms'],
+                             nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
                              field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, savemodel_only=True, cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
              for vis in vislist:
@@ -720,7 +720,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                       band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                       threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-                      nterms=selfcal_library[target][band]['nterms'],
+                      nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
                       field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
              ##
@@ -968,7 +968,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
                           threshold=str(selfcal_library[target][band][vislist[0]][solint]['clean_threshold'])+'Jy',
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
-                          nterms=selfcal_library[target][band]['nterms'],
+                          nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
                           field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=False, mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
                  ##
