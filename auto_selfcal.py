@@ -108,7 +108,7 @@ dividing_factor=-99.0  # number that the peak SNR is divided by to determine fir
                        # default is 40 for <8ghz and 15.0 for all other frequencies
 check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
-sort_targets_and_EBs=False
+sort_targets_and_EBs=True
 run_findcont=False
 debug=False
 
@@ -215,8 +215,8 @@ for target in all_targets:
           cellsize[target][band],imsize[target][band],nterms[target][band],reffreq[target][band] = \
                   get_image_parameters(vislist,telescope,target,dict(zip(vislist,[mosaic_field[band][vis][target]['field_ids'] for vis in vislist])),band, \
                   band_properties,scale_fov=scale_fov,mosaic=mosaic_field[band][vislist[0]][target]['mosaic'])
-
-       print("Reffreq = ",reffreq[target][band])
+       if band in reffreq[target].keys():
+          print("Reffreq = ",reffreq[target][band])
 
        if band_properties[vislist[0]][band]['meanfreq'] >12.0e9:
           applycal_interp[target][band]='linearPD'
