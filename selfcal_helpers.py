@@ -2959,10 +2959,10 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      os.system('cp -r '+gaintable.replace(' ','\ ')+' tempgaintable.g')
      gaintable='tempgaintable.g'
      nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
-             spwlist[i]+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
+             spwlist[i]+' giving  [any(FLAG)]]')['0'].sum() for i in \
              range(len(spwlist))]
      nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
-             spwlist[i]+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
+             spwlist[i]+' giving  [nfalse(any(FLAG))]]')['0'].sum() for i in \
              range(len(spwlist))]
      os.system('rm -rf tempgaintable.g')
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
@@ -2971,10 +2971,6 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
 
 
 def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan):
-   # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
-   max_flagged_ants_combspw=2.0
-   # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
-   max_flagged_ants_spwmap=1.0
    fallback=''
    map_index=-1
    min_spwmap_bw=0.0
@@ -2987,11 +2983,16 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    for i in range(len(spwlist)):
       eff_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
       total_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['bandwidth']
-   minimum_flagged_ants_per_spw=np.min(nflags)/2.0
-   minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
+   minimum_flagged_ants_per_spw=np.min(nflags)
+   minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb) # account for the fact that some antennas might be completely flagged and give 
                                                            # the impression of a lot of flagging
-   maximum_flagged_ants_per_spw=np.max(nflags)/2.0
-   delta_nflags=np.array(nflags)/2.0-minimum_flagged_ants_spwcomb #minimum_flagged_ants_per_spw
+   maximum_flagged_ants_per_spw=np.max(nflags)
+   delta_nflags=np.array(nflags)-minimum_flagged_ants_spwcomb #minimum_flagged_ants_per_spw
+
+   # if more than two antennas (in 45 antenna array) are fully flagged relative to the combinespw results, fallback to combinespw
+   max_flagged_ants_combspw=(2./45)*np.max(np.array(nflags)+np.array(nunflagged))
+   # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
+   max_flagged_ants_spwmap=(1./45)*np.max(np.array(nflags)+np.array(nunflagged))
 
    # if there are more than 3 flagged antennas for all spws (minimum_flagged_ants_spwcomb, fallback to doing spw combine for inf_EB fitting
    # use the spw combine number of flagged ants to set the minimum otherwise could misinterpret fully flagged antennas for flagged solutions
