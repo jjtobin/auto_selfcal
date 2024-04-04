@@ -3017,7 +3017,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    #want the widest bandwidth window that also has the minimum flags to use for spw mapping
    applycal_spwmap=[]
    if fallback=='spwmap':
-      minflagged_index=(np.array(nflags)/2.0 == minimum_flagged_ants_per_spw).nonzero()
+      minflagged_index=(np.array(nflags) == minimum_flagged_ants_per_spw).nonzero()
       max_bw_index = (eff_bws == np.max(eff_bws[minflagged_index[0]])).nonzero()
       max_bw_min_flags_index=np.intersect1d( minflagged_index[0],max_bw_index[0])
       #if len(max_bw_min_flags_index) > 1:
