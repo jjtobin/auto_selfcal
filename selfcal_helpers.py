@@ -73,6 +73,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        dogrowprune = True
        minpercentchange = 1.0
        growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=1.0
        print(band_properties)
        if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:   # not in ALMA heuristics, but we've been using it
@@ -83,7 +84,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
           smoothfactor=1.0
           noisethreshold=4.25*nfrms_multiplier
           lownoisethreshold=1.5*nfrms_multiplier
-          minbeamfrac = 0.3
+
        if band_properties[vis[0]][band]['75thpct_uv'] < baselineThresholdALMA:
           sidelobethreshold = 2.0
 
@@ -94,6 +95,11 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        lownoisethreshold=2.0*nfrms_multiplier
        cycleniter=-1
        fastnoise=False
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=1.0
 
     elif 'VLA' in telescope:
@@ -104,6 +110,11 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        lownoisethreshold=1.5*nfrms_multiplier
        pblimit=-0.1
        cycleniter=-1
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=3.0
        pbmask=0.0
     wprojplanes=1
@@ -1787,7 +1798,7 @@ def get_desired_width(meanfreq):
    elif (meanfreq < 40.0e9) and (meanfreq >=26.0e9):
       desiredWidth=8.0e6
    elif (meanfreq < 26.0e9) and (meanfreq >=18.0e9):
-      desiredWidth=16.0e6
+      desiredWidth=8.0e6
    elif (meanfreq < 18.0e9) and (meanfreq >=8.0e9):
       desiredWidth=8.0e6
    elif (meanfreq < 8.0e9) and (meanfreq >=4.0e9):
