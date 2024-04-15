@@ -1062,11 +1062,11 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                        get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][target][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
                        print('Field '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
                 if solint_snr[target][band][solints[band][target][iteration+1]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]] < minsnr_to_proceed
-                   marginal_inf_EB_will_attempt_inf = False
+                   marginal_inf_EB_will_attempt_next_solint = False
                 else:
-                   marginal_inf_EB_will_attempt_inf =  True
+                   marginal_inf_EB_will_attempt_next_solint =  True
 
-             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and marginal_inf_EB_will_attempt_inf and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
+             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
                 selfcal_library[target][band]['SC_success']=True
                 selfcal_library[target][band]['Stop_Reason']='None'
                 #keep track of whether inf_EB had a S/N decrease
