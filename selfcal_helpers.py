@@ -828,12 +828,12 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
        maskImage=imagename.replace('image','mask').replace('.tt0','')
     else:
        maskImage=maskname
-    residualImage=imagename.replace('image','residual')
+    residualImage=imagename # change to .image JT 04-15-2024 .replace('image','residual')
     os.system('rm -rf temp.mask temp.residual')
     if os.path.exists(maskImage):
        os.system('cp -r '+maskImage+ ' temp.mask')
        maskImage='temp.mask'
-    os.system('cp -r '+residualImage+ ' temp.residual')
+    os.system('cp -r '+residualImage+ ' temp.residual')   # leave this as .residual to avoid clashing with another temp.image
     residualImage='temp.residual'
     if 'dirty' not in imagename:
        goodMask=checkmask(imagename)
@@ -850,7 +850,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
        rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
        residualMean = mask0Stats['median'][0]
     else:
-       residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
+       residual_stats=imstat(imagename=imagename,algorithm='chauvenet')
        rms = residual_stats['rms'][0]
     peak_intensity = image_stats['max'][0]
     SNR = peak_intensity/rms
@@ -896,10 +896,10 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     else:
         image_stats= imstat(imagename = imagename)
 
-    residualImage=imagename.replace('image','residual')
+    residualImage=imagename   # change to .image JT 04-15-2024 .replace('image','residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     os.system('cp -r '+maskImage+ ' temp.mask')
-    os.system('cp -r '+residualImage+ ' temp.residual')
+    os.system('cp -r '+residualImage+ ' temp.residual')   # keep as .residual to avoid clashing with another temp.image
     residualImage='temp.residual'
     maskStats=imstat(imagename='temp.mask')
     imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*1.0)+'arcsec',minor=str(beammajor*1.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
