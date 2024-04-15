@@ -51,6 +51,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
+    baselineThresholdALMA = 400.0
+
     if mask == '':
        usemask='auto-multithresh'
     else:
@@ -58,15 +60,33 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if threshold != '0.0Jy':
        nsigma=0.0
     if telescope=='ALMA':
+       if band_properties[vis[0]][band]['75thpct_uv'] > baselineThresholdALMA:
+          fastnoise = True
+       else:
+          fastnoise = False
        sidelobethreshold=2.5
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
        cycleniter=-1
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=1.0
        print(band_properties)
-       if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:
+       if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:   # not in ALMA heuristics, but we've been using it
           sidelobethreshold=2.0
+
+       if band_properties[vis[0]][band]['75thpct_uv'] < 300.0:
+          sidelobethreshold=2.0
+          smoothfactor=1.0
+          noisethreshold=4.25*nfrms_multiplier
+          lownoisethreshold=1.5*nfrms_multiplier
+
+       if band_properties[vis[0]][band]['75thpct_uv'] < baselineThresholdALMA:
+          sidelobethreshold = 2.0
 
     if telescope=='ACA':
        sidelobethreshold=1.25
@@ -74,15 +94,27 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=2.0*nfrms_multiplier
        cycleniter=-1
+       fastnoise=False
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=1.0
 
     elif 'VLA' in telescope:
+       fastnoise=True
        sidelobethreshold=2.0
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
        pblimit=-0.1
        cycleniter=-1
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=3.0
        pbmask=0.0
     wprojplanes=1
@@ -136,6 +168,12 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                noisethreshold=noisethreshold,
                lownoisethreshold=lownoisethreshold,
                smoothfactor=smoothfactor,
+               growiterations=growiterations,
+               negativethreshold=negativethreshold,
+               minbeamfrac=minbeamfrac,
+               dogrowprune=dogrowprune,
+               minpercentchange=minpercentchange,
+               fastnoise=fastnoise,
                pbmask=pbmask,
                pblimit=pblimit,
                nterms = nterms,
@@ -228,6 +266,12 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  noisethreshold=noisethreshold,
                  lownoisethreshold=lownoisethreshold,
                  smoothfactor=smoothfactor,
+                 growiterations=growiterations,
+                 negativethreshold=negativethreshold,
+                 minbeamfrac=minbeamfrac,
+                 dogrowprune=dogrowprune,
+                 minpercentchange=minpercentchange,
+                 fastnoise=fastnoise,
                  pbmask=pbmask,
                  pblimit=pblimit,
                  calcres = False,
@@ -1754,7 +1798,7 @@ def get_desired_width(meanfreq):
    elif (meanfreq < 40.0e9) and (meanfreq >=26.0e9):
       desiredWidth=8.0e6
    elif (meanfreq < 26.0e9) and (meanfreq >=18.0e9):
-      desiredWidth=16.0e6
+      desiredWidth=8.0e6
    elif (meanfreq < 18.0e9) and (meanfreq >=8.0e9):
       desiredWidth=8.0e6
    elif (meanfreq < 8.0e9) and (meanfreq >=4.0e9):
