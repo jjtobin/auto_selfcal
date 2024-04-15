@@ -1051,7 +1051,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=-99.0,-99.0
 
              #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
-             if ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))):
+             if (solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh):
                 if (selfcal_library[target][band][vis][solint]['SNR_post'] >  selfcal_library[target][band]['SNR_orig']):
                    print('Updating solint = '+solints[band][target][iteration+1]+' SNR')
                    print('Was: ',solint_snr[target][band][solints[band][target][iteration+1]])
@@ -1061,7 +1061,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                        print('Field '+str(fid)+' Was: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
                        get_SNR_self_update([target],band,vislist,selfcal_library[target][band][fid],n_ants,solint,solints[band][target][iteration+1],integration_time,solint_snr_per_field[target][band][fid])
                        print('Field '+str(fid)+' Now: ',solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]])
-                if solint_snr[target][band][solints[band][target][iteration+1]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]] < minsnr_to_proceed
+                if solint_snr[target][band][solints[band][target][iteration+1]] < minsnr_to_proceed and  np.all([solint_snr_per_field[target][band][fid][solints[band][target][iteration]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
                    marginal_inf_EB_will_attempt_next_solint = False
                 else:
                    marginal_inf_EB_will_attempt_next_solint =  True
