@@ -1683,7 +1683,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,band_properties
    nterms=1
    if band_properties[vislist[0]][band]['fracbw'] > 0.1:
       nterms=2
-   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[band_properties[vis][band]['spwarray'] for vis in vislist])))
+   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[band_properties[vis][band]['spwarray'] for vis in vislist])), telescope)
 
    if 'VLA' in telescope:
       fov=45.0e9/band_properties[vislist[0]][band]['meanfreq']*60.0*1.5
@@ -1757,23 +1757,50 @@ def get_mean_freq(vislist,spwsarray):
    fracbw=np.abs(maxfreq-minfreq)/meanfreq
    return meanfreq, maxfreq,minfreq,fracbw
 
-def get_reffreq(vislist,field_ids,spwsarray):
+def get_reffreq(vislist,field_ids,spwsarray,telescope):
     meanfreqs = []
     weights = []
+    bandwidth_weights = []
+    all_bandwidths = []
     for vis in vislist:
         for fid in field_ids[vis]:
             msmd.open(vis)
             spws = spwsarray[vis]
+            data_desc_ids = [msmd.datadescids(spw)[0] for spw in spws]
             meanfreqs += [msmd.meanfreq(spw) for spw in spws]
+            bandwidths = msmd.bandwidths(spws)
+            all_bandwidths += bandwidths.tolist()
             msmd.close()
 
             weights += [tb.calc('sum([select from '+vis+' where DATA_DESC_ID=={0:d} && FIELD_ID=={1:d} giving [sum(WEIGHT)*nFalse(FLAG)]])'.\
                     format(spw, fid))[0] for spw in spws]
 
-    meanfreqs, weights = np.array(meanfreqs), np.array(weights)
-    reffreq = str((meanfreqs*weights).sum() / (weights).sum() / 1e9)+'GHz'
+            nflags = np.array([tb.calc('sum([select from '+vis+' where DATA_DESC_ID=={0:d} && FIELD_ID=={1:d} giving [nTrue(FLAG)]])'.\
+                    format(data_desc_id, fid))[0] for data_desc_id in data_desc_ids])
+            nunflagged = np.array([tb.calc('sum([select from '+vis+' where DATA_DESC_ID=={0:d} && FIELD_ID=={1:d} giving [nFalse(FLAG)]])'.\
+                    format(data_desc_id, fid))[0] for data_desc_id in data_desc_ids])
+            unflagged_fraction = nunflagged / (nflags + nunflagged)
 
-    return reffreq
+            bandwidth_weights += (unflagged_fraction*bandwidths).tolist()
+
+    meanfreqs, weights = np.array(meanfreqs), np.array(weights)
+    bandwidth_weights = np.array(bandwidth_weights)
+
+    sumwt_reffreq = (meanfreqs*weights).sum() / (weights).sum()
+    bandwidth_reffreq = (meanfreqs*bandwidth_weights).sum() / (bandwidth_weights).sum()
+
+    print("Bandwidth reffreq = ", bandwidth_reffreq/1e9, "GHz")
+    print("SumWt reffreq = ", sumwt_reffreq/1e9, "GHz")
+    print("Diff = ", np.abs(bandwidth_reffreq - sumwt_reffreq)/1e9, "GHz")
+    print("Max SPW Bandwidth = ", np.max(all_bandwidths)/1e9, "GHz")
+    if (telescope == "ALMA" or telescope == "ACA") and abs(bandwidth_reffreq - sumwt_reffreq) > np.max(all_bandwidths):
+        print("Using sumwt reffreq")
+        reffreq = sumwt_reffreq
+    else:
+        print("Using bandwidth reffreq")
+        reffreq = bandwidth_reffreq
+
+    return str(reffreq/1e9)+"GHz"
 
 
 def get_desired_width(meanfreq):
