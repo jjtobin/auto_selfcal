@@ -54,6 +54,8 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if nterms == 1:
        reffreq = ''
 
+    baselineThresholdALMA = 400.0
+
     if mask == '':
        usemask='auto-multithresh'
     else:
@@ -61,15 +63,33 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     if threshold != '0.0Jy':
        nsigma=0.0
     if telescope=='ALMA':
+       if band_properties[vis[0]][band]['75thpct_uv'] > baselineThresholdALMA:
+          fastnoise = True
+       else:
+          fastnoise = False
        sidelobethreshold=2.5
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
        cycleniter=-1
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=1.0
        print(band_properties)
-       if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:
+       if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:   # not in ALMA heuristics, but we've been using it
           sidelobethreshold=2.0
+
+       if band_properties[vis[0]][band]['75thpct_uv'] < 300.0:
+          sidelobethreshold=2.0
+          smoothfactor=1.0
+          noisethreshold=4.25*nfrms_multiplier
+          lownoisethreshold=1.5*nfrms_multiplier
+
+       if band_properties[vis[0]][band]['75thpct_uv'] < baselineThresholdALMA:
+          sidelobethreshold = 2.0
 
     if telescope=='ACA':
        sidelobethreshold=1.25
@@ -77,15 +97,27 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=2.0*nfrms_multiplier
        cycleniter=-1
+       fastnoise=False
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=1.0
 
     elif 'VLA' in telescope:
+       fastnoise=True
        sidelobethreshold=2.0
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
        pblimit=-0.1
        cycleniter=-1
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
        #cyclefactor=3.0
        pbmask=0.0
     wprojplanes=1
@@ -139,6 +171,12 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                noisethreshold=noisethreshold,
                lownoisethreshold=lownoisethreshold,
                smoothfactor=smoothfactor,
+               growiterations=growiterations,
+               negativethreshold=negativethreshold,
+               minbeamfrac=minbeamfrac,
+               dogrowprune=dogrowprune,
+               minpercentchange=minpercentchange,
+               fastnoise=fastnoise,
                pbmask=pbmask,
                pblimit=pblimit,
                nterms = nterms,
@@ -232,6 +270,12 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  noisethreshold=noisethreshold,
                  lownoisethreshold=lownoisethreshold,
                  smoothfactor=smoothfactor,
+                 growiterations=growiterations,
+                 negativethreshold=negativethreshold,
+                 minbeamfrac=minbeamfrac,
+                 dogrowprune=dogrowprune,
+                 minpercentchange=minpercentchange,
+                 fastnoise=fastnoise,
                  pbmask=pbmask,
                  pblimit=pblimit,
                  calcres = False,
@@ -838,12 +882,12 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
        maskImage=imagename.replace('image','mask').replace('.tt0','')
     else:
        maskImage=maskname
-    residualImage=imagename.replace('image','residual')
+    residualImage=imagename # change to .image JT 04-15-2024 .replace('image','residual')
     os.system('rm -rf temp.mask temp.residual')
     if os.path.exists(maskImage):
        os.system('cp -r '+maskImage+ ' temp.mask')
        maskImage='temp.mask'
-    os.system('cp -r '+residualImage+ ' temp.residual')
+    os.system('cp -r '+residualImage+ ' temp.residual')   # leave this as .residual to avoid clashing with another temp.image
     residualImage='temp.residual'
     if 'dirty' not in imagename:
        goodMask=checkmask(imagename)
@@ -860,7 +904,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
        rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
        residualMean = mask0Stats['median'][0]
     else:
-       residual_stats=imstat(imagename=imagename.replace('image','residual'),algorithm='chauvenet')
+       residual_stats=imstat(imagename=imagename,algorithm='chauvenet')
        rms = residual_stats['rms'][0]
     peak_intensity = image_stats['max'][0]
     SNR = peak_intensity/rms
@@ -906,10 +950,10 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     else:
         image_stats= imstat(imagename = imagename)
 
-    residualImage=imagename.replace('image','residual')
+    residualImage=imagename   # change to .image JT 04-15-2024 .replace('image','residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
     os.system('cp -r '+maskImage+ ' temp.mask')
-    os.system('cp -r '+residualImage+ ' temp.residual')
+    os.system('cp -r '+residualImage+ ' temp.residual')   # keep as .residual to avoid clashing with another temp.image
     residualImage='temp.residual'
     maskStats=imstat(imagename='temp.mask')
     imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*1.0)+'arcsec',minor=str(beammajor*1.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
@@ -1811,7 +1855,7 @@ def get_desired_width(meanfreq):
    elif (meanfreq < 40.0e9) and (meanfreq >=26.0e9):
       desiredWidth=8.0e6
    elif (meanfreq < 26.0e9) and (meanfreq >=18.0e9):
-      desiredWidth=16.0e6
+      desiredWidth=8.0e6
    elif (meanfreq < 18.0e9) and (meanfreq >=8.0e9):
       desiredWidth=8.0e6
    elif (meanfreq < 8.0e9) and (meanfreq >=4.0e9):
@@ -3027,11 +3071,18 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      return nflags, nunflagged,fracflagged
 
 
-def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan):
-   # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
-   max_flagged_ants_combspw=2.0
-   # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
-   max_flagged_ants_spwmap=1.0
+def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan,telescope):
+   if telescope != 'ACA':
+       # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
+       max_flagged_ants_combspw=2.0
+       # if only a single (or few) spw(s) has flagging, allow at most this number of antennas to be flagged before mapping
+       max_flagged_ants_spwmap=1.0
+   else:
+       # For the ACA, don't allow any flagging of antennas before trying fallbacks, because it is more damaging due to the smaller
+       # number of antennas
+       max_flagged_ants_combspw=0.0
+       max_flagged_ants_spwmap=0.0
+
    fallback=''
    map_index=-1
    min_spwmap_bw=0.0

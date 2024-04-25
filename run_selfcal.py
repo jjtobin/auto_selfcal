@@ -526,7 +526,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
                         field=include_targets[0],gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB.g')) 
                    spwlist=selfcal_library[target][band][vis]['spws'].split(',')
-                   fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',vis,target,'test_inf_EB.g',spectral_scan)
+                   fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',vis,target,'test_inf_EB.g',spectral_scan,telescope)
 
                    inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
                    print('inf_EB',fallback[vis],applycal_spwmap_inf_EB)
@@ -1050,7 +1050,15 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     else:
                         selfcal_library[target][band][vis][solint]['intflux_post'],selfcal_library[target][band][vis][solint]['e_intflux_post']=-99.0,-99.0
 
-             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
+             #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
+             if (solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00) and (delta_beamarea < delta_beam_thresh):
+                if solint_snr[target][band][solints[band][target][iteration+1]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
+                   marginal_inf_EB_will_attempt_next_solint = False
+                else:
+                   marginal_inf_EB_will_attempt_next_solint =  True
+
+
+             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
                 selfcal_library[target][band]['SC_success']=True
                 selfcal_library[target][band]['Stop_Reason']='None'
                 #keep track of whether inf_EB had a S/N decrease
