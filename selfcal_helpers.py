@@ -24,7 +24,7 @@ im = imager()
 def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
-                   lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
+                   lownoisethreshold=1.5,parallel=False,nterms=1,reffreq='',cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', nfrms_multiplier=1.0, \
                    savemodel_only=False, resume=False, image_mosaic_fields_separately=False, mosaic_field_phasecenters={}, mosaic_field_fid_map={},usermodel=''):
     """
@@ -50,6 +50,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
+
+    if nterms == 1:
+       reffreq = ''
 
     baselineThresholdALMA = 400.0
 
@@ -177,6 +180,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                pbmask=pbmask,
                pblimit=pblimit,
                nterms = nterms,
+               reffreq = reffreq,
                uvrange=uvrange,
                threshold=threshold,
                parallel=parallel,
@@ -278,6 +282,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  calcpsf = False,
                  restoration = False,
                  nterms = nterms,
+                 reffreq = reffreq,
                  uvrange=uvrange,
                  threshold=threshold,
                  parallel=False,
@@ -291,7 +296,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
 def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
-                   lownoisethreshold=1.5,parallel=False,nterms=1,cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
+                   lownoisethreshold=1.5,parallel=False,nterms=1,reffreq='',cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point',\
                    savemodel_only=False, resume=False, image_mosaic_fields_separately=False, mosaic_field_phasecenters={}, mosaic_field_fid_map={},usermodel=''):
     
@@ -320,6 +325,9 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
 
     if obstype=='mosaic' and phasecenter != 'TRACKFIELD':
        phasecenter=get_phasecenter(vis[0],field)
+
+    if nterms == 1:
+       reffreq = ''
 
     if mask == '':
        usemask='auto-multithresh'
@@ -377,6 +385,7 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
                pbmask=pbmask,
                pblimit=pblimit,
                nterms = nterms,
+               reffreq = reffreq,
                uvrange=uvrange,
                threshold=threshold,
                parallel=parallel,
@@ -418,6 +427,7 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
                  calcpsf = False,
                  restoration = False,
                  nterms = nterms,
+                 reffreq = reffreq,
                  uvrange=uvrange,
                  threshold=threshold,
                  parallel=False,
@@ -1704,7 +1714,7 @@ def largest_prime_factor(n):
     return n
 
 
-def get_image_parameters(vislist,telescope,target,band,band_properties,scale_fov=1.0,mosaic=False):
+def get_image_parameters(vislist,telescope,target,field_ids,band,band_properties,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -1717,6 +1727,7 @@ def get_image_parameters(vislist,telescope,target,band,band_properties,scale_fov
    nterms=1
    if band_properties[vislist[0]][band]['fracbw'] > 0.1:
       nterms=2
+   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[band_properties[vis][band]['spwarray'] for vis in vislist])), telescope)
 
    if 'VLA' in telescope:
       fov=45.0e9/band_properties[vislist[0]][band]['meanfreq']*60.0*1.5
@@ -1753,7 +1764,7 @@ def get_image_parameters(vislist,telescope,target,band,band_properties,scale_fov
    while largest_prime_factor(npixels) >= 7:
        npixels += 2
 
-   return cellsize,npixels,nterms
+   return cellsize,npixels,nterms,reffreq
 
 
 def check_image_nterms(fracbw, SNR):
@@ -1789,6 +1800,52 @@ def get_mean_freq(vislist,spwsarray):
    maxfreq=np.max(freqarray[spwsarray[vislist[0]]])
    fracbw=np.abs(maxfreq-minfreq)/meanfreq
    return meanfreq, maxfreq,minfreq,fracbw
+
+def get_reffreq(vislist,field_ids,spwsarray,telescope):
+    meanfreqs = []
+    weights = []
+    bandwidth_weights = []
+    all_bandwidths = []
+    for vis in vislist:
+        for fid in field_ids[vis]:
+            msmd.open(vis)
+            spws = spwsarray[vis]
+            data_desc_ids = [msmd.datadescids(spw)[0] for spw in spws]
+            meanfreqs += [msmd.meanfreq(spw) for spw in spws]
+            bandwidths = msmd.bandwidths(spws)
+            all_bandwidths += bandwidths.tolist()
+            msmd.close()
+
+            weights += [tb.calc('sum([select from '+vis+' where DATA_DESC_ID=={0:d} && FIELD_ID=={1:d} giving [sum(WEIGHT)*nFalse(FLAG)]])'.\
+                    format(spw, fid))[0] for spw in spws]
+
+            nflags = np.array([tb.calc('sum([select from '+vis+' where DATA_DESC_ID=={0:d} && FIELD_ID=={1:d} giving [nTrue(FLAG)]])'.\
+                    format(data_desc_id, fid))[0] for data_desc_id in data_desc_ids])
+            nunflagged = np.array([tb.calc('sum([select from '+vis+' where DATA_DESC_ID=={0:d} && FIELD_ID=={1:d} giving [nFalse(FLAG)]])'.\
+                    format(data_desc_id, fid))[0] for data_desc_id in data_desc_ids])
+            unflagged_fraction = nunflagged / (nflags + nunflagged)
+
+            bandwidth_weights += (unflagged_fraction*bandwidths).tolist()
+
+    meanfreqs, weights = np.array(meanfreqs), np.array(weights)
+    bandwidth_weights = np.array(bandwidth_weights)
+
+    sumwt_reffreq = (meanfreqs*weights).sum() / (weights).sum()
+    bandwidth_reffreq = (meanfreqs*bandwidth_weights).sum() / (bandwidth_weights).sum()
+
+    print("Bandwidth reffreq = ", bandwidth_reffreq/1e9, "GHz")
+    print("SumWt reffreq = ", sumwt_reffreq/1e9, "GHz")
+    print("Diff = ", np.abs(bandwidth_reffreq - sumwt_reffreq)/1e9, "GHz")
+    print("Max SPW Bandwidth = ", np.max(all_bandwidths)/1e9, "GHz")
+    if (telescope == "ALMA" or telescope == "ACA") and abs(bandwidth_reffreq - sumwt_reffreq) > np.max(all_bandwidths):
+        print("Using sumwt reffreq")
+        reffreq = sumwt_reffreq
+    else:
+        print("Using bandwidth reffreq")
+        reffreq = bandwidth_reffreq
+
+    return str(reffreq/1e9)+"GHz"
+
 
 def get_desired_width(meanfreq):
    if meanfreq >= 50.0e9:
