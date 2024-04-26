@@ -1829,12 +1829,13 @@ def get_reffreq(vislist,field_ids,spwsarray,telescope):
 
     meanfreqs, weights = np.array(meanfreqs), np.array(weights)
     bandwidth_weights = np.array(bandwidth_weights)
+    all_bandwidths = np.array(all_bandwidths)
 
     sumwt_reffreq = (meanfreqs*weights).sum() / (weights).sum()
     bandwidth_reffreq = (meanfreqs*bandwidth_weights).sum() / (bandwidth_weights).sum()
 
     #mean_total_bandwidth = np.sum(all_bandwidths) / len(vislist)
-    bandwidth_spread = np.max(meanfreqs) - np.min(meanfreqs)
+    bandwidth_spread = np.max(meanfreqs + 0.5*all_bandwidths) - np.min(meanfreqs - 0.5*all_bandwidths)
 
     print("Bandwidth reffreq = ", bandwidth_reffreq/1e9, "GHz")
     print("SumWt reffreq = ", sumwt_reffreq/1e9, "GHz")
