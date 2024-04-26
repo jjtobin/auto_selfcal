@@ -387,9 +387,13 @@ def prepare_selfcal(vislist,
     for target in selfcal_library:
         #cellsize[target], imsize[target], nterms[target], applycal_interp[target] = {}, {}, {}, {}
         for band in selfcal_library[target]:
-           selfcal_library[target][band]['cellsize'],selfcal_library[target][band]['imsize'],selfcal_library[target][band]['nterms'] = \
-                   get_image_parameters(selfcal_library[target][band]['vislist'],telescope,target,band, \
+           selfcal_library[target][band]['cellsize'],selfcal_library[target][band]['imsize'],selfcal_library[target][band]['nterms'],\
+                   selfcal_library[target][band]['reffreq'] = \
+                   get_image_parameters(selfcal_library[target][band]['vislist'],telescope,target,\
+                   dict(zip(vislist,[mosaic_field[band][vis][target]['field_ids'] for vis in vislist])),band, \
                    selfcal_library,scale_fov=scale_fov,mosaic=selfcal_library[target][band]['obstype']=='mosaic')
+
+           print("Reffreq = ",reffreq[target][band])
 
            if selfcal_library[target][band]['meanfreq'] >12.0e9:
               selfcal_library[target][band]['applycal_interp']='linearPD'

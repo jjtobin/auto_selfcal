@@ -8,7 +8,7 @@ from selfcal_helpers import *
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
-def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, 
+def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, 
         second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False):
@@ -270,7 +270,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                          spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
                    else:
                       spwselect=selfcal_library[vis]['spws']
-                   gaincal(vis=vis,\
+                   gaincal_return = gaincal(vis=vis,\
                      caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
                      gaintype=gaincal_gaintype, spw=spwselect,
                      refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
@@ -327,7 +327,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 else:
                     splinetime = float(splinetime[0:-1])
 
-            gaincal(vis=vis,\
+            gaincal_return = gaincal(vis=vis,\
                  #caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
                  caltable="temp.g",\
                  gaintype=gaincal_gaintype, spw=selfcal_library[fid][vis]['spws'],
@@ -376,7 +376,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                         unflag_spwmap = []
 
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
-                            selfcal_plan['solmode'][it]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                            selfcal_plan['solmode'][it]+'.g', selfcal_library[vis][sint]['gaincal_return'], \
+                            flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=selfcal_plan['solmode'][it]=="ap" if unflag_only_lbants and \
                             unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
                             spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=it)
@@ -404,14 +405,14 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
           else:
              spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
 
-          gaincal(vis=vis,\
+          test_gaincal_return = gaincal(vis=vis,\
             caltable='test_inf_EB.g',\
             gaintype=gaincal_gaintype, spw=spwselect,
             refant=selfcal_library[vis]['refant'], calmode='p', 
             solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
             field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB.g')) 
        spwlist=selfcal_library[vis]['spws'].split(',')
-       fallback,map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',vis,target,'test_inf_EB.g',selfcal_library['spectral_scan'])
+       fallback,map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',vis,target,'test_inf_EB.g',selfcal_library['spectral_scan'],telescope)
 
        selfcal_plan[vis]['inf_EB_fallback_mode']=fallback+''
        print(solint,fallback,applycal_spwmap_inf_EB)
@@ -423,6 +424,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
              applycal_spwmap=[selfcal_library[vis]['spwmap']]
              os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')
              os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')
+             gaincal_return = test_gaincal_return
           if fallback =='spwmap':
              gaincal_spwmap=applycal_spwmap_inf_EB
              selfcal_plan[vis]['inf_EB_gaincal_combine']='scan'
@@ -438,6 +440,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
        os.system('rm -rf test_inf_EB.g')               
 
+    selfcal_library[vis][solint]'gaincal_return'] = gaincal_return
     selfcal_library[vis][solint]['fallback']=fallback+''
     for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
         selfcal_library[fid][vis][solint]['fallback']=fallback+''
@@ -459,7 +462,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         selfcal_library[vis][solint]['unflagged_lbs'] = True
 
         unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                selfcal_plan['solmode'][iteration]+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                selfcal_plan['solmode'][iteration]+'.g', selfcal_library[vis][solint]['gaincal_return'], flagged_fraction=0.25, solnorm=solnorm, \
                 only_long_baselines=selfcal_plan['solmode'][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                 unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                 fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=iteration)
