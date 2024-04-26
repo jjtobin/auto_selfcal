@@ -8,7 +8,7 @@ from selfcal_helpers import *
 from casampi.MPIEnvironment import MPIEnvironment 
 parallel=MPIEnvironment.is_mpi_enabled
 
-def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, 
+def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, 
         second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3):
@@ -373,7 +373,6 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 else:
                     splinetime = float(splinetime[0:-1])
 
-
             for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
                gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][mode]
                filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]
@@ -505,7 +504,9 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                         unflag_spwmap = []
 
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
-                            selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                            selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', \
+                            selfcal_plan[vis]['solint_settings'][sint]['gaincal_return_dict'][selfcal_library[vis][sint]['final_mode']][0], \
+                            flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=selfcal_plan['solmode'][it]=="ap" if unflag_only_lbants and \
                             unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
                             spwmap=unflag_spwmap, fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=it)
@@ -517,8 +518,6 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                     sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.pre-rerefant.g')
             rerefant(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', \
                     refant=selfcal_library[vis]["refant"], refantmode=refantmode if 'inf_EB' not in solint else 'flex')
-
-
 
     selfcal_library[vis][solint]['fallback']=fallback+''
     for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
@@ -541,7 +540,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         selfcal_library[vis][solint]['unflagged_lbs'] = True
 
         unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', flagged_fraction=0.25, solnorm=solnorm, \
+                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][selfcal_library[vis][solint]['final_mode']][0], flagged_fraction=0.25, solnorm=solnorm, \
                 only_long_baselines=selfcal_plan['solmode'][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                 unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                 fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=iteration)

@@ -12,7 +12,10 @@ def prepare_selfcal(vislist,
         inf_EB_gaincal_combine='scan',
         inf_EB_gaintype='G',
         apply_cal_mode_default='calflag',
-        do_amp_selfcal=True,debug=False):
+        do_amp_selfcal=True,
+        usermask={},
+        usermodel={},
+        debug=False):
 
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
@@ -109,6 +112,24 @@ def prepare_selfcal(vislist,
           else:
              selfcal_library[target][band]['obstype']='single-point'
 
+          # Fill in the usermask and usermodel, if supplied.
+
+          if target in usermask:
+              if band in usermask[target]:
+                  selfcal_library[target][band]['usermask'] = usermask[target][band]
+              else:
+                  selfcal_library[target][band]['usermask'] = ''
+          else:
+              selfcal_library[target][band]['usermask'] = ''
+
+          if target in usermodel:
+              if band in usermodel[target]:
+                  selfcal_library[target][band]['usermodel'] = usermodel[target][band]
+              else:
+                  selfcal_library[target][band]['usermodel'] = ''
+          else:
+              selfcal_library[target][band]['usermodel'] = ''
+
           # Make sure the fields get mapped properly, in case the order in which they are observed changes from EB to EB.
 
           selfcal_library[target][band]['sub-fields-fid_map'] = {}
@@ -185,6 +206,14 @@ def prepare_selfcal(vislist,
           selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
           selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
           selfcal_library[target][band][vis]['baseband']=band_properties[vis][band]['baseband']
+
+          if band_properties[vis][band]['ncorrs'] == 1:
+              selfcal_library[target][band][vis]['pol_type'] = 'single-pol'
+          elif band_properties[vis][band]['ncorrs'] == 2:
+              selfcal_library[target][band][vis]['pol_type'] = 'dual-pol'
+          else:
+              selfcal_library[target][band][vis]['pol_type'] = 'full-pol'
+
           if spectral_scan:
              spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
              spwmap.fill(np.min(spws_set[band][vis]))
@@ -259,6 +288,14 @@ def prepare_selfcal(vislist,
               selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
               selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
               selfcal_library[target][band][fid][vis]['baseband']=band_properties[vis][band]['baseband']
+
+              if band_properties[vis][band]['ncorrs'] == 1:
+                  selfcal_library[target][band][fid][vis]['pol_type'] = 'single-pol'
+              elif band_properties[vis][band]['ncorrs'] == 2:
+                  selfcal_library[target][band][fid][vis]['pol_type'] = 'dual-pol'
+              else:
+                  selfcal_library[target][band][fid][vis]['pol_type'] = 'full-pol'
+
               if spectral_scan:
                  spwmap=np.zeros(np.max(spws_set[band][vis])+1,dtype='int')
                  spwmap.fill(np.min(spws_set[band][vis]))
@@ -311,6 +348,7 @@ def prepare_selfcal(vislist,
      for band in selfcal_library[target].keys():
           if selfcal_library[target][band]['Total_TOS'] == 0.0:
              selfcal_library[target].pop(band)
+
 
     if debug:
         print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
@@ -416,9 +454,13 @@ def prepare_selfcal(vislist,
     for target in selfcal_library:
         #cellsize[target], imsize[target], nterms[target], applycal_interp[target] = {}, {}, {}, {}
         for band in selfcal_library[target]:
-           selfcal_library[target][band]['cellsize'],selfcal_library[target][band]['imsize'],selfcal_library[target][band]['nterms'] = \
-                   get_image_parameters(selfcal_library[target][band]['vislist'],telescope,target,band, \
+           selfcal_library[target][band]['cellsize'],selfcal_library[target][band]['imsize'],selfcal_library[target][band]['nterms'],\
+                   selfcal_library[target][band]['reffreq'] = \
+                   get_image_parameters(selfcal_library[target][band]['vislist'],telescope,target,\
+                   dict(zip(vislist,[mosaic_field[band][vis][target]['field_ids'] for vis in vislist])),band, \
                    selfcal_library,scale_fov=scale_fov,mosaic=selfcal_library[target][band]['obstype']=='mosaic')
+
+           print("Reffreq = ",reffreq[target][band])
 
            if selfcal_library[target][band]['meanfreq'] >12.0e9:
               selfcal_library[target][band]['applycal_interp']='linearPD'
@@ -467,7 +509,12 @@ def prepare_selfcal(vislist,
         selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']=inf_EB_gaincal_combine #'scan'
         if selfcal_library[target][band]['obstype']=='mosaic':
            selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']+=',field'   
-        selfcal_plan[target][band][vis]['inf_EB_gaintype']=inf_EB_gaintype #G
+
+        if selfcal_library[target][band][vis]['pol_type'] == 'single-pol':
+            selfcal_plan[target][band][vis]['inf_EB_gaintype']='T'
+        else:
+            selfcal_plan[target][band][vis]['inf_EB_gaintype']=inf_EB_gaintype #G
+
         selfcal_plan[target][band][vis]['inf_EB_fallback_mode']='' #'scan'
 
     return selfcal_library, selfcal_plan, gaincalibrator_dict
@@ -528,7 +575,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='ap'
                     else:
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='p'
-                    if solint == 'inf_EB':
+                    if solint == 'inf_EB' and selfcal_library[target][band][vis]['pol_type'] != 'single-pol':
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype']='G'
                     if solint != 'inf_EB' and optimize_spw_combine==False:
                         selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=['combinespw']
