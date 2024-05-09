@@ -1829,15 +1829,20 @@ def get_reffreq(vislist,field_ids,spwsarray,telescope):
 
     meanfreqs, weights = np.array(meanfreqs), np.array(weights)
     bandwidth_weights = np.array(bandwidth_weights)
+    all_bandwidths = np.array(all_bandwidths)
 
     sumwt_reffreq = (meanfreqs*weights).sum() / (weights).sum()
     bandwidth_reffreq = (meanfreqs*bandwidth_weights).sum() / (bandwidth_weights).sum()
 
+    #mean_total_bandwidth = np.sum(all_bandwidths) / len(vislist)
+    bandwidth_spread = np.max(meanfreqs + 0.5*all_bandwidths) - np.min(meanfreqs - 0.5*all_bandwidths)
+
     print("Bandwidth reffreq = ", bandwidth_reffreq/1e9, "GHz")
     print("SumWt reffreq = ", sumwt_reffreq/1e9, "GHz")
     print("Diff = ", np.abs(bandwidth_reffreq - sumwt_reffreq)/1e9, "GHz")
-    print("Max SPW Bandwidth = ", np.max(all_bandwidths)/1e9, "GHz")
-    if (telescope == "ALMA" or telescope == "ACA") and abs(bandwidth_reffreq - sumwt_reffreq) > np.max(all_bandwidths):
+    print("Bandwidth Spread = ", bandwidth_spread/1e9, "GHz")
+    print("0.05*Bandwidth Spread = ", 0.05*bandwidth_spread/1e9, "GHz")
+    if abs(bandwidth_reffreq - sumwt_reffreq) > 0.1*bandwidth_spread:
         print("Using sumwt reffreq")
         reffreq = sumwt_reffreq
     else:
