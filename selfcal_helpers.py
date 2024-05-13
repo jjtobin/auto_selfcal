@@ -3441,3 +3441,23 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
         tb.flush()
         tb.close()
         subt.close()
+
+def unflag_failed_antennas_lowsnr(gaintable):
+    tb.open(gaintable, nomodify=False)
+    snr = tb.getcol("SNR")
+    flags = tb.getcol("FLAG")
+    cals = tb.getcol("CPARAM")
+
+    if snr[flags == False].mean() <= 5.0:
+        new_flags = flags.copy()
+        new_cals = cals.copy()
+
+        new_flags[:,np.any(flags, axis=0)] = False
+        new_cals[:,np.any(flags, axis=0)] = 1.0+0.j
+
+        tb.putcol("FLAG", new_flags)
+        tb.putcol("CPARAM", new_cals)
+        tb.flush()
+
+    tb.close()
+

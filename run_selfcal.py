@@ -579,23 +579,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                             fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band][target], iteration=iteration)
                 elif applymode == "calonly" and calonly_mode == "lowsnr" and fallback[vis] == "combinespw":
-                    tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g', nomodify=False)
-                    snr = tb.getcol("SNR")
-                    flags = tb.getcol("FLAG")
-                    cals = tb.getcol("CPARAM")
+                    # Make a copy of the caltable before unflagging, for reference.
+                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][target][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][target][iteration]+'.pre-pass.g')
 
-                    if snr[flags == False].mean() <= 5.0:
-                        new_flags = flags.copy()
-                        new_cals = cals.copy()
-
-                        new_flags[:,np.any(flags, axis=0)] = False
-                        new_cals[:,np.any(flags, axis=0)] = 1.0+0.j
-
-                        tb.putcol("FLAG", new_flags)
-                        tb.putcol("CPARAM", new_cals)
-                        tb.flush()
-
-                    tb.close()
+                    unflag_failed_antennas_lowsnr(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
 
                 # Do some post-gaincal cleanup for mosaics.
                 if selfcal_library[target][band]['obstype'] == 'mosaic':
@@ -1078,7 +1067,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                    marginal_inf_EB_will_attempt_next_solint =  True
 
              if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
-                
+
                 # If the inf_EB solint was successful but the RMS went up by more than 2%, try repeating but unflagging all antennas if the overall SNR is low.
                 if solint == "inf_EB" and np.any([fallback[vis] == "combinespw" for vis in vislist]) and (RMS < 0.98 * post_RMS or RMS_NF < 0.98 * post_RMS_NF):
                    for vis in vislist:
