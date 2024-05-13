@@ -391,7 +391,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',\
                              gaintype=gaincal_gaintype, spw=spwselect,
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][target][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][target][iteration],
+                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if (applymode == 'calflag' or (applymode == "calonly" and calonly_mode == "lowsnr")) else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][target][iteration],
                              field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              interp=gaincal_interpolate[vis], solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g'))
                            #
@@ -447,7 +447,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                              caltable="temp.g",\
                              gaintype=gaincal_gaintype, spw=selfcal_library[target][band][fid][vis]['spws'],
                              refant=selfcal_library[target][band][vis]['refant'], calmode=solmode[band][target][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][target][iteration],
+                             solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if (applymode == 'calflag' or (applymode == "calonly" and calonly_mode == "lowsnr")) else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine[band][target][iteration],
                              field=str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable[vis],spwmap=gaincal_spwmap[vis],uvrange=selfcal_library[target][band]['uvrange'],
                              #interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+
                              #solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g'))
@@ -523,7 +523,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                         caltable='test_inf_EB.g',\
                         gaintype=gaincal_gaintype, spw=spwselect,
                         refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                        solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
+                        solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if (applymode == "calflag" or (applymode == "calonly" and calonly_mode == "lowsnr")) else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
                         field=include_targets[0],gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB.g')) 
                    spwlist=selfcal_library[target][band][vis]['spws'].split(',')
                    fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',vis,target,'test_inf_EB.g',spectral_scan,telescope)
@@ -556,9 +556,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
                 selfcal_library[target][band][vis][solint]['gaincal_return'] = gaincal_return
 
+
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
                 # Should we also restrict to just long baseline antennas?
-                if applymode == "calonly":
+                if applymode == "calonly" and calonly_mode == "beamsize":
                     # Make a copy of the caltable before unflagging, for reference.
                     os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
                             solmode[band][target][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
@@ -577,6 +578,13 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             only_long_baselines=solmode[band][target][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                             unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                             fb_to_prev_solint=unflag_fb_to_prev_solint, solints=solints[band][target], iteration=iteration)
+                elif applymode == "calonly" and calonly_mode == "lowsnr" and fallback[vis] == "combinespw":
+                    # Make a copy of the caltable before unflagging, for reference.
+                    os.system("cp -r "+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][target][iteration]+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
+                            solmode[band][target][iteration]+'.pre-pass.g')
+
+                    unflag_failed_antennas_lowsnr(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
 
                 # Do some post-gaincal cleanup for mosaics.
                 if selfcal_library[target][band]['obstype'] == 'mosaic':
@@ -1058,8 +1066,22 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 else:
                    marginal_inf_EB_will_attempt_next_solint =  True
 
-
              if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((solint =='inf_EB') and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
+
+                # If the inf_EB solint was successful but the RMS went up by more than 2%, try repeating but unflagging all antennas if the overall SNR is low.
+                if solint == "inf_EB" and np.any([fallback[vis] == "combinespw" for vis in vislist]) and (RMS < 0.98 * post_RMS or RMS_NF < 0.98 * post_RMS_NF):
+                   for vis in vislist:
+                      inf_EB_gaincal_combine_dict[target][band][vis]=inf_EB_gaincal_combine #'scan'
+                      if selfcal_library[target][band]['obstype']=='mosaic':
+                         inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
+                      inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
+                      inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
+                   print('****************************Selfcal failed**************************')
+                   print('REASON: SNR increased, but noise increased by more than 2%')
+                   print('****************Attempting applymode="calonly-lowsnr" fallback*************')
+                   calonly_mode = "lowsnr"
+                   continue
+                  
                 selfcal_library[target][band]['SC_success']=True
                 selfcal_library[target][band]['Stop_Reason']='None'
                 #keep track of whether inf_EB had a S/N decrease
@@ -1140,7 +1162,8 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           inf_EB_gaincal_combine_dict[target][band][vis]+=',field'   
                        inf_EB_gaintype_dict[target][band][vis]=inf_EB_gaintype #G
                        inf_EB_fallback_mode_dict[target][band][vis]='' #'scan'
-                 print('****************Attempting applymode="calonly" fallback*************')
+                 print('****************Attempting applymode="calonly-beamsize" fallback*************')
+                 calonly_mode = "beamsize"
              else:
                 for vis in vislist:
                    selfcal_library[target][band][vis][solint]['Pass']=False
