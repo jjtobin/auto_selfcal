@@ -3171,7 +3171,7 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
         for spw in good_spw_ids:
             good_spws = np.logical_or(good_spws, spws == spw)
     else:
-        good_spw_ids = gaincal_return['selectvis']['spw']
+        good_spw_ids = np.unique(np.concatenate([gcdict['selectvis']['spw'] for gcdict in gaincal_return]))
         good_spws = np.repeat(True, antennas.size)
 
     msmd.open(vis)
@@ -3196,10 +3196,10 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
     percentage_flagged = (ordered_flags.sum(axis=2) / ordered_flags.shape[2]).mean(axis=0).mean(axis=0)
     """
 
-    nflagged = np.array([[(gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() - 
-            gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["above_minsnr"].sum()) for ant in good_antenna_ids] 
+    nflagged = np.array([[np.sum([gcdict['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() - 
+            gcdict['solvestats']['spw'+str(spw)]['ant'+str(ant)]["above_minsnr"].sum() for gcdict in gaincal_return]) for ant in good_antenna_ids] 
             for spw in good_spw_ids])
-    nsolutions = np.array([[gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() 
+    nsolutions = np.array([[np.sum([gcdict['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() for gcdict in gaincal_return]) 
             for ant in good_antenna_ids] for spw in good_spw_ids])
 
     percentage_flagged = nflagged.sum(axis=0) / np.clip(nsolutions.sum(axis=0), 1., np.inf)
