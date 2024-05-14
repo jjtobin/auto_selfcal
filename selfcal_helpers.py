@@ -1829,15 +1829,20 @@ def get_reffreq(vislist,field_ids,spwsarray,telescope):
 
     meanfreqs, weights = np.array(meanfreqs), np.array(weights)
     bandwidth_weights = np.array(bandwidth_weights)
+    all_bandwidths = np.array(all_bandwidths)
 
     sumwt_reffreq = (meanfreqs*weights).sum() / (weights).sum()
     bandwidth_reffreq = (meanfreqs*bandwidth_weights).sum() / (bandwidth_weights).sum()
 
+    #mean_total_bandwidth = np.sum(all_bandwidths) / len(vislist)
+    bandwidth_spread = np.max(meanfreqs + 0.5*all_bandwidths) - np.min(meanfreqs - 0.5*all_bandwidths)
+
     print("Bandwidth reffreq = ", bandwidth_reffreq/1e9, "GHz")
     print("SumWt reffreq = ", sumwt_reffreq/1e9, "GHz")
     print("Diff = ", np.abs(bandwidth_reffreq - sumwt_reffreq)/1e9, "GHz")
-    print("Max SPW Bandwidth = ", np.max(all_bandwidths)/1e9, "GHz")
-    if (telescope == "ALMA" or telescope == "ACA") and abs(bandwidth_reffreq - sumwt_reffreq) > np.max(all_bandwidths):
+    print("Bandwidth Spread = ", bandwidth_spread/1e9, "GHz")
+    print("0.05*Bandwidth Spread = ", 0.05*bandwidth_spread/1e9, "GHz")
+    if abs(bandwidth_reffreq - sumwt_reffreq) > 0.1*bandwidth_spread:
         print("Using sumwt reffreq")
         reffreq = sumwt_reffreq
     else:
@@ -3175,7 +3180,7 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
         for spw in good_spw_ids:
             good_spws = np.logical_or(good_spws, spws == spw)
     else:
-        good_spw_ids = gaincal_return['selectvis']['spw']
+        good_spw_ids = np.unique(np.concatenate([gcdict['selectvis']['spw'] for gcdict in gaincal_return]))
         good_spws = np.repeat(True, antennas.size)
 
     msmd.open(vis)
@@ -3200,10 +3205,10 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
     percentage_flagged = (ordered_flags.sum(axis=2) / ordered_flags.shape[2]).mean(axis=0).mean(axis=0)
     """
 
-    nflagged = np.array([[(gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() - 
-            gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["above_minsnr"].sum()) for ant in good_antenna_ids] 
+    nflagged = np.array([[np.sum([gcdict['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() - 
+            gcdict['solvestats']['spw'+str(spw)]['ant'+str(ant)]["above_minsnr"].sum() for gcdict in gaincal_return]) for ant in good_antenna_ids] 
             for spw in good_spw_ids])
-    nsolutions = np.array([[gaincal_return['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() 
+    nsolutions = np.array([[np.sum([gcdict['solvestats']['spw'+str(spw)]['ant'+str(ant)]["data_unflagged"].sum() for gcdict in gaincal_return]) 
             for ant in good_antenna_ids] for spw in good_spw_ids])
 
     percentage_flagged = nflagged.sum(axis=0) / np.clip(nsolutions.sum(axis=0), 1., np.inf)
