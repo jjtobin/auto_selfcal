@@ -394,6 +394,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        field=target,spw=selfcal_library[vis]['spws'])
 
          #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
+         marginal_inf_EB_will_attempt_next_solint=False
          if (solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00) and (delta_beamarea < delta_beam_thresh):
             if solint_snr[solints[band][target][iteration+1]] < minsnr_to_proceed and np.all([solint_snr_per_field[fid][solints[band][target][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
                marginal_inf_EB_will_attempt_next_solint = False

@@ -505,7 +505,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
                             selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', \
-                            selfcal_plan[vis]['solint_settings'][sint]['gaincal_return_dict'][selfcal_library[vis][sint]['final_mode']][0], \
+                            selfcal_plan[vis]['solint_settings'][sint]['gaincal_return_dict'][selfcal_library[vis][sint]['final_mode']], \
                             flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=selfcal_plan['solmode'][it]=="ap" if unflag_only_lbants and \
                             unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
@@ -540,7 +540,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         selfcal_library[vis][solint]['unflagged_lbs'] = True
 
         unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][selfcal_library[vis][solint]['final_mode']][0], flagged_fraction=0.25, solnorm=solnorm, \
+                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][selfcal_library[vis][solint]['final_mode']], flagged_fraction=0.25, solnorm=solnorm, \
                 only_long_baselines=selfcal_plan['solmode'][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                 unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                 fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=iteration)
