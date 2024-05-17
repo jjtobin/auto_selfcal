@@ -543,12 +543,12 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan,spw'
                          applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                          os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
+                         for gaintype in np.unique([gaincal_gaintype,'T']):
+                            os.system('cp -r test_inf_EB_'+gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.gaintype'+gaintype+'.g')
                          if fallback[vis] == 'combinespw':
                              gaincal_gaintype = 'G'
                          else:
                              gaincal_gaintype = 'T'
-                         for gaintype in np.unique([gaincal_gaintype,'T']):
-                            os.system('cp -r test_inf_EB_'+gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.gaintype'+gaintype+'.g')
                          os.system('mv test_inf_EB_'+gaincal_gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
                          selfcal_library[target][band][vis][solint]['gaincal_return'] = test_gaincal_return[gaincal_gaintype]
                       if fallback[vis] =='spwmap':
