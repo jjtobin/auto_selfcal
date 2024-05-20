@@ -62,6 +62,13 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        usemask='user'
     if threshold != '0.0Jy':
        nsigma=0.0
+
+    if nsigma != 0.0:
+       if nsigma*nfrms_multiplier*0.66 > nsigma:
+          nsigma=nsigma*nfrms_multiplier*0.66
+       
+    
+
     if telescope=='ALMA':
        if band_properties[vis[0]][band]['75thpct_uv'] > baselineThresholdALMA:
           fastnoise = True
