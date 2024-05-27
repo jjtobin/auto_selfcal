@@ -3163,12 +3163,13 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
       if fallback !='' and spectral_scan:
          fallback='combinespw'
 
-   # If we end up with combinespw, check whether going to combinespw with gaintype='T' offers further improvement.
-   nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable,extendpol=True)
-   nflags_spwpolcomb,nunflagged_spwpolcomb,fracflagged_spwpolcomb=get_flagged_solns_per_spw([spwlist[0]],spwpol_combine_test_gaintable)
+   if fallback == "combinespw":
+      # If we end up with combinespw, check whether going to combinespw with gaintype='T' offers further improvement.
+      nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable,extendpol=True)
+      nflags_spwpolcomb,nunflagged_spwpolcomb,fracflagged_spwpolcomb=get_flagged_solns_per_spw([spwlist[0]],spwpol_combine_test_gaintable)
 
-   if np.sqrt((nunflagged_spwcomb[0]*(nunflagged_spwcomb[0]-1)) / (nunflagged_spwpolcomb[0]*(nunflagged_spwpolcomb[0]-1))) < 0.95:
-       fallback='combinespwpol'
+      if np.sqrt((nunflagged_spwcomb[0]*(nunflagged_spwcomb[0]-1)) / (nunflagged_spwpolcomb[0]*(nunflagged_spwpolcomb[0]-1))) < 0.95:
+          fallback='combinespwpol'
 
 
    return fallback,map_index,spwmap,applycal_spwmap
