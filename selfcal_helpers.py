@@ -3152,6 +3152,12 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
       # always fallback to combinespw for spectral scans
       if fallback !='' and spectral_scan:
          fallback='combinespw'
+
+   # If all of the spws map to the same spw, we might as well do a combinespw fallback.
+   if len(np.unique(applycal_spwmap)) == 1:
+       fallback = 'combinespw'
+       applycal_spwmap = []
+
    return fallback,map_index,spwmap,applycal_spwmap
 
 
