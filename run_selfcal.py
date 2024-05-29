@@ -1181,6 +1181,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
+            if (post_RMS/RMS > 1.05 and solint_snr[target][band][solint] <= 5):
+               if reason != '':
+                  reason=reason+'; '
+               reason=reason+'RMS increase beyond 5%'
+            if (post_RMS_NF/RMS_NF > 1.05 and solint_snr[target][band][solint] <= 5):
+               if reason != '':
+                  reason=reason+'; '
+               reason=reason+'NF RMS increase beyond 5%'
             if not np.any(field_by_field_success):
                 if reason != '':
                     reason=reason+'; '
@@ -1206,6 +1214,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     if mosaic_reason[fid] !='':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'Beam change beyond '+str(delta_beam_thresh)
+                 if (post_RMS/RMS > 1.05 and solint_snr[target][band][solint] <= 5):
+                    if mosaic_reason[fid] != '':
+                       mosaic_reason[fid]=mosaic_reason[fid]+'; '
+                    mosaic_reason[fid]=mosaic_reason[fid]+'RMS increase beyond 5%'
+                 if (post_RMS_NF/RMS_NF > 1.05 and solint_snr[target][band][solint] <= 5):
+                    if mosaic_reason[fid] != '':
+                       mosaic_reason[fid]=mosaic_reason[fid]+'; '
+                    mosaic_reason[fid]=mosaic_reason[fid]+'NF RMS increase beyond 5%'
                  if mosaic_reason[fid] == '':
                      mosaic_reason[fid] = "Global selfcal failed"
                  selfcal_library[target][band][fid]['Stop_Reason']=mosaic_reason[fid]
