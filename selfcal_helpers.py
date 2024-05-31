@@ -2854,6 +2854,8 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                         fallback_mode='Combine SPW'
                      if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'spwmap':
                         fallback_mode='SPWMAP'
+                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'combinespwpol':
+                        fallback_mode='Combine SPW & Pol'
                      htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
                htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][solints[band][target][i]]['spwmap']))+']</h4>\n')
 
@@ -3062,7 +3064,7 @@ def get_phasecenter(vis,field):
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
 
-def get_flagged_solns_per_spw(spwlist,gaintable):
+def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
      # Get the antenna names and offsets.
      msmd = casatools.msmetadata()
      tb = casatools.table()
@@ -3071,19 +3073,27 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      #gaintable='"'+gaintable+'"'
      os.system('cp -r '+gaintable.replace(' ','\ ')+' tempgaintable.g')
      gaintable='tempgaintable.g'
-     nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
-             spwlist[i]+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
-             range(len(spwlist))]
-     nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
-             spwlist[i]+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
-             range(len(spwlist))]
+     if extendpol:
+         nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [any(FLAG)]]')['0'].sum() for i in \
+                 range(len(spwlist))]
+         nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [nfalse(any(FLAG))]]')['0'].sum() for i in \
+                 range(len(spwlist))]
+     else:
+         nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
+                 range(len(spwlist))]
+         nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
+                 range(len(spwlist))]
      os.system('rm -rf tempgaintable.g')
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
      # Calculate a score based on those two.
      return nflags, nunflagged,fracflagged
 
 
-def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan,telescope):
+def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan,telescope,spwpol_combine_test_gaintable=None):
    if telescope != 'ACA':
        # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
        max_flagged_ants_combspw=2.0
@@ -3159,6 +3169,20 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
       # always fallback to combinespw for spectral scans
       if fallback !='' and spectral_scan:
          fallback='combinespw'
+
+   # If all of the spws map to the same spw, we might as well do a combinespw fallback.
+   if len(np.unique(applycal_spwmap)) == 1:
+       fallback = 'combinespw'
+       applycal_spwmap = []
+
+   if fallback == "combinespw":
+      # If we end up with combinespw, check whether going to combinespw with gaintype='T' offers further improvement.
+      nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable,extendpol=True)
+      nflags_spwpolcomb,nunflagged_spwpolcomb,fracflagged_spwpolcomb=get_flagged_solns_per_spw([spwlist[0]],spwpol_combine_test_gaintable)
+
+      if np.sqrt((nunflagged_spwcomb[0]*(nunflagged_spwcomb[0]-1)) / (nunflagged_spwpolcomb[0]*(nunflagged_spwpolcomb[0]-1))) < 0.95:
+          fallback='combinespwpol'
+
    return fallback,map_index,spwmap,applycal_spwmap
 
 
