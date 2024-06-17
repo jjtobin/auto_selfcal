@@ -20,3 +20,8 @@ pipeline*
 flux.csv
 cont.dat
 casacalls*
+
+build
+__pycache__
+
+*.egg-info

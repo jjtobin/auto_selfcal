@@ -23,7 +23,7 @@ msmd = msmdtool()
 ia = image()
 im = imager()
 
-from selfcal_helpers import *
+from .selfcal_helpers import *
 
 def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    from datetime import datetime

@@ -339,7 +339,6 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                  nterms = nterms,
                  uvrange=selfcal_library['uvrange'],
                  reffreq = reffreq,
-                 uvrange=uvrange,
                  threshold=threshold,
                  parallel=False,
                  phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
