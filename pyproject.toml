@@ -35,4 +35,4 @@ Homepage = "https://github.com/jjtobin/auto_selfcal"
 Issues = "https://github.com/jjtobin/auto_selfcal/issues"
 
 [project.scripts]
-auto_selfcal = "auto_selfcal.__main__:main_cli"
+auto_selfcal = "auto_selfcal:__main__"

@@ -69,7 +69,8 @@ def auto_selfcal(vislist,
         sort_targets_and_EBs=False,
         run_findcont=False,
         debug=False, 
-        parallel=False):
+        parallel=False,
+        **kwargs):
 
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
