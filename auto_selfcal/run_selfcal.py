@@ -211,7 +211,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
-                       allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction)
+                       allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction,
+                       guess_scan_combine=guess_scan_combine)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.
@@ -393,7 +394,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
          marginal_inf_EB_will_attempt_next_solint=False
          if (solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00) and (delta_beamarea < delta_beam_thresh):
-            if solint_snr[solints[band][target][iteration+1]] < minsnr_to_proceed and np.all([solint_snr_per_field[fid][solints[band][target][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
+            if selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
                marginal_inf_EB_will_attempt_next_solint = False
             else:
                marginal_inf_EB_will_attempt_next_solint =  True
@@ -557,6 +558,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                #selfcal_library[vis][solint]['Pass']=False
                selfcal_library[vis][solint]['Fail_Reason']=reason
 
+         mosaic_reason = {}
+         new_fields_to_selfcal = []
          for fid in selfcal_library['sub-fields-to-selfcal']:
              if not selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] or \
                      (solint == "inf_EB" and selfcal_library[fid]['inf_EB_SNR_decrease']):
