@@ -1187,19 +1187,16 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
          solint_snr_per_spw[solint]={}       
          if solint == 'inf_EB':
             SNR_self_EB=np.zeros(len(selfcal_library['vislist']))
-            SNR_self_EB_spw=np.zeros([len(selfcal_library['vislist']),len(selfcal_library[maxspwvis]['spwsarray'])])
-            SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[maxspwvis]['spwsarray'])])
             SNR_self_EB_spw={}
             for i in range(len(selfcal_library['vislist'])):
                SNR_self_EB[i]=SNR/((n_ant)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)
                SNR_self_EB_spw[selfcal_library['vislist'][i]]={}
                for spw in selfcal_library[selfcal_library['vislist'][i]]['spwsarray']:
-                  if spw in SNR_self_EB_spw[selfcal_library['vislist'][i]].keys():
-                     SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][str(spw)]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
+                 SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
             for spw in selfcal_library[maxspwvis]['spwsarray']:
                mean_SNR=0.0
                for j in range(len(selfcal_library['vislist'])):
-                  if spw in SNR_self_EB_spw[selfcal_library['vislist'][j]].keys():
+                  if str(spw) in SNR_self_EB_spw[selfcal_library['vislist'][j]].keys():
                      mean_SNR+=SNR_self_EB_spw[selfcal_library['vislist'][j]][str(spw)]
                mean_SNR=mean_SNR/len(selfcal_library['vislist']) 
                solint_snr_per_spw[solint][str(spw)]=mean_SNR
@@ -3093,7 +3090,7 @@ def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
      return nflags, nunflagged,fracflagged
 
 
-def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan,telescope,spwpol_combine_test_gaintable=None):
+def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,spw_combine_test_gaintable,spectral_scan,telescope, solint_snr_per_spw, minsnr_to_proceed,spwpol_combine_test_gaintable=None):
    if telescope != 'ACA':
        # if more than two antennas are fully flagged relative to the combinespw results, fallback to combinespw
        max_flagged_ants_combspw=2.0
@@ -3131,7 +3128,8 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    
    #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    for i in range(len(spwlist)):
-      if np.min(delta_nflags[i]) > max_flagged_ants_spwmap:
+      if np.min(delta_nflags[i]) > max_flagged_ants_spwmap or \
+            solint_snr_per_spw[target][band]['inf_EB'][spwlist[i]] < minsnr_to_proceed:
          fallback='spwmap'
          spwmap[i]=True
          if total_bws[i] > min_spwmap_bw:
