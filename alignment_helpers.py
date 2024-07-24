@@ -225,7 +225,7 @@ def ingest_ms(base_ms, target, npix, cell_size, grid_needs_to_cover_all_data, sp
     # Toss out the autocorrelation placeholders.
 
     xc = np.where(ant1 != ant2)[0]
-    uu, vv, vis, wgts, model_vis = uu[xc], vv[xc], vis[:, xc], wgts[:, xc], model_vis[:, xc]
+    uu, vv, vis, wgts, model_vis, flag = uu[xc], vv[xc], vis[:, xc], wgts[:, xc], model_vis[:, xc], flag[:, :, xc]
 
     # Remove flagged visibilities.
 
