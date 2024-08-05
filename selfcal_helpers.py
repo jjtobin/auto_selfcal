@@ -206,9 +206,9 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                 if telescope=='ACA':
                    fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
 
-                center = mosaic_field_phasecenters[field_id]
+                center = np.copy(mosaic_field_phasecenters[field_id])
                 if phasecenter == 'TRACKFIELD':
-                    center += imhead(imagename+".image.tt0")['refval']
+                    center += imhead(imagename+".image.tt0")['refval'][0:2]
 
                 region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(center[0], center[1], fov)
 
