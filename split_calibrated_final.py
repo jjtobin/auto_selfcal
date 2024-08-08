@@ -30,7 +30,7 @@ for vis in vislist:
                 continue
 
         split(vis, outputvis=outputvis, observation=i, intent="*OBSERVE_TARGET*", \
-                spw=','.join(np.intersect1d(msmd.spwsforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=0)[0], obsid=0), \
+                spw=','.join(np.intersect1d(msmd.spwsforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i), \
                 np.concatenate((msmd.tdmspws(),msmd.fdmspws()))).astype(str)), \
                 antenna=','.join(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i).astype(str)), \
                 datacolumn=datacolumn)
