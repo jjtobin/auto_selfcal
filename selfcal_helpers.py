@@ -206,8 +206,11 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                 if telescope=='ACA':
                    fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
 
-                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(mosaic_field_phasecenters[field_id]['m0']['value'], \
-                        mosaic_field_phasecenters[field_id]['m1']['value'], fov)
+                center = np.copy(mosaic_field_phasecenters[field_id])
+                if phasecenter == 'TRACKFIELD':
+                    center += imhead(imagename+".image.tt0")['refval'][0:2]
+
+                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(center[0], center[1], fov)
 
                 for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
                     target = sanitize_string(field)
@@ -555,7 +558,13 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
 
          mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target]).tolist()
          mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
-         mosaic_field[vis][target]['phasecenters'] = [msmd.phasecenter(fid) for fid in mosaic_field[vis][target]['field_ids']]
+
+         mosaic_field[vis][target]['phasecenters'] = []
+         for fid in mosaic_field[vis][target]['field_ids']:
+             tb.open(vis+'/FIELD')
+             mosaic_field[vis][target]['phasecenters'].append(tb.getcol("PHASE_DIR")[:,0,fid])
+             tb.close()
+
          if len(mosaic_field[vis][target]['field_ids']) > 1:
             mosaic_field[vis][target]['mosaic']=True
          scantimes=np.array([])

@@ -266,8 +266,8 @@ for target in all_targets:
           for i in range(len(mosaic_field[band][vis][target]['field_ids'])):
               found = False
               for j in range(len(all_phasecenters)):
-                  distance = ((all_phasecenters[j]["m0"]["value"] - mosaic_field[band][vis][target]['phasecenters'][i]["m0"]["value"])**2 + \
-                          (all_phasecenters[j]["m1"]["value"] - mosaic_field[band][vis][target]['phasecenters'][i]["m1"]["value"])**2)**0.5
+                  distance = ((all_phasecenters[j][0] - mosaic_field[band][vis][target]['phasecenters'][i][0])**2 + \
+                          (all_phasecenters[j][1] - mosaic_field[band][vis][target]['phasecenters'][i][1])**2)**0.5
 
                   if distance < 4.84814e-6:
                       selfcal_library[target][band]['sub-fields-fid_map'][vis][j] = mosaic_field[band][vis][target]['field_ids'][i]
@@ -294,8 +294,19 @@ for target in all_targets:
               selfcal_library[target][band][fid][vis] = {}
 
 import json
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
 if debug:
-    print(json.dumps(selfcal_library, indent=4))
+    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 ##
 ## finds solints, starting with inf, ending with int, and tries to align
 ## solints with number of integrations
@@ -440,16 +451,6 @@ for target in all_targets:
        selfcal_library[target][band][fid]['75thpct_uv']=band_properties[vislist[0]][band]['75thpct_uv']
        selfcal_library[target][band][fid]['LAS']=band_properties[vislist[0]][band]['LAS']
 
-
-class NpEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
 
 ##
 ## 
