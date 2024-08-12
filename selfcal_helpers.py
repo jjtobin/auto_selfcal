@@ -3096,6 +3096,13 @@ def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
          nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
                  spwlist[i]+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
                  range(len(spwlist))]
+
+     nflags = np.array(nflags)
+     nunflagged = np.array(nunflagged)
+
+     nodata = np.where(nflags + nunflagged == 0)
+     nflags[nodata] = (nflags + nunflagged).max()
+
      os.system('rm -rf tempgaintable.g')
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
      # Calculate a score based on those two.
