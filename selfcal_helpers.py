@@ -1191,14 +1191,16 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
             for i in range(len(selfcal_library['vislist'])):
                SNR_self_EB[i]=SNR/((n_ant)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)
                SNR_self_EB_spw[selfcal_library['vislist'][i]]={}
-               for spw in selfcal_library[selfcal_library['vislist'][i]]['spwsarray']:
-                 SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
-            for spw in selfcal_library[maxspwvis]['spwsarray']:
+               for spw in selfcal_library['spw_map']:
+                 SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][selfcal_library['spw_map'][spw][selfcal_library['vislist'][i]]]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
+            for spw in selfcal_library['spw_map']:
                mean_SNR=0.0
+               total_vis = 0
                for j in range(len(selfcal_library['vislist'])):
-                  if str(spw) in SNR_self_EB_spw[selfcal_library['vislist'][j]].keys():
+                  if selfcal_library['vislist'][j] in selfcal_library['spw_map'][spw]:
                      mean_SNR+=SNR_self_EB_spw[selfcal_library['vislist'][j]][str(spw)]
-               mean_SNR=mean_SNR/len(selfcal_library['vislist']) 
+                     total_vis += 1
+               mean_SNR=mean_SNR/total_vis
                solint_snr_per_spw[solint][str(spw)]=mean_SNR
             solint_snr[solint]=np.mean(SNR_self_EB)
             selfcal_library['per_EB_SNR']=np.mean(SNR_self_EB)
@@ -1652,10 +1654,12 @@ def get_spw_map(selfcal_library, target, band, telescope):
         vislist = [maxspwvis] + vislist
 
     spw_map = {}
+    reverse_spw_map = {}
     virtual_index = 0
     # This code is meant to be generic in order to prepare for cases where multiple EBs might have unique SPWs in them (e.g. inhomogeneous data),
     # but the criterea for which SPWs match will need to be updated for this to truly generalize.
     for vis in vislist:
+        reverse_spw_map[vis] = {}
         for spw in selfcal_library[target][band][vis]['spwsarray']:
             found_match = False
             for s in spw_map:
@@ -1693,6 +1697,7 @@ def get_spw_map(selfcal_library, target, band, telescope):
 
                    if found_match:
                        spw_map[s][vis] = spw
+                       reverse_spw_map[vis][spw] = s
                        break
 
                 if found_match:
@@ -1701,11 +1706,14 @@ def get_spw_map(selfcal_library, target, band, telescope):
             if not found_match:
                 spw_map[virtual_index] = {}
                 spw_map[virtual_index][vis] = spw
+                reverse_spw_map[vis][spw] = virtual_index
                 virtual_index += 1
 
     print("spw_map:")
     print(spw_map)
-    return spw_map
+    print("reverse_spw_map:")
+    print(reverse_spw_map)
+    return spw_map, reverse_spw_map
 
 
 def largest_prime_factor(n):
@@ -3129,7 +3137,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    for i in range(len(spwlist)):
       if np.min(delta_nflags[i]) > max_flagged_ants_spwmap or \
-            solint_snr_per_spw[target][band]['inf_EB'][spwlist[i]] < minsnr_to_proceed:
+            solint_snr_per_spw[target][band]['inf_EB'][str(selfcal_library[target][band]['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
          fallback='spwmap'
          spwmap[i]=True
          if total_bws[i] > min_spwmap_bw:
