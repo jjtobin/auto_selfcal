@@ -630,7 +630,7 @@ for target in all_targets:
       selfcal_library[target][band]['per_spw_stats']={}
       vislist=selfcal_library[target][band]['vislist'].copy()
 
-      selfcal_library[target][band]['spw_map'] = get_spw_map(selfcal_library, 
+      selfcal_library[target][band]['spw_map'], selfcal_library[target][band]['reverse_spw_map'] = get_spw_map(selfcal_library, 
               target, band, telescope)
 
       #code to work around some VLA data not having the same number of spws due to missing BlBPs
@@ -664,6 +664,7 @@ for target in all_targets:
       for fid in selfcal_library[target][band]['sub-fields']:
           selfcal_library[target][band][fid]['per_spw_stats']={}
           selfcal_library[target][band][fid]['spw_map'] = selfcal_library[target][band]['spw_map']
+          selfcal_library[target][band][fid]['reverse_spw_map'] = selfcal_library[target][band]['reverse_spw_map']
           for vis in selfcal_library[target][band][fid]['vislist']:
               selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
 
@@ -779,11 +780,11 @@ for target in all_targets:
     for solint in solints[band][target]:
       if solint == 'inf_EB':
          print('{}: {:0.2f}'.format(solint,solint_snr[target][band][solint]))
-         ''' 
          for spw in solint_snr_per_spw[target][band][solint].keys():
-            print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+            print('{}: spw: {}: {:0.2f}'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw]))
             if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
                minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
+         ''' 
          if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
             print('Switching Gaintype to T for: '+target)
             inf_EB_gaintype_dict[target][band]='T'
@@ -873,7 +874,7 @@ for target in all_targets:
       sourcemodel=usermodel[target]
    else:
       sourcemodel=''
-   run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize[target], imsize[target], \
+   run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, solint_snr_per_spw, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize[target], imsize[target], \
            inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp[target], integration_time, spectral_scan, spws_set,\
            gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
            inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
