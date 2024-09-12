@@ -12,7 +12,7 @@ try:
 except:
    parallel=False
 
-def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize, imsize, \
+def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_per_field, solint_snr_per_spw, applycal_mode, solmode, band_properties, telescope, n_ants, cellsize, imsize, \
         inf_EB_gaintype_dict, inf_EB_gaincal_combine_dict, inf_EB_fallback_mode_dict, gaincal_combine, applycal_interp, integration_time, spectral_scan, spws_set, \
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
@@ -645,33 +645,40 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                    test_gaincal_combine='scan,spw'
                    if selfcal_library[target][band]['obstype']=='mosaic' or mode=="cocal":
                       test_gaincal_combine+=',field'   
-                   test_gaincal_return = []
-                   for i in range(spws_set[band][vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
-                      if nspw_sets == 1 and spws_set[band][vis].ndim == 1:
-                         spwselect=','.join(str(spw) for spw in spws_set[band][vis].tolist())
-                      else:
-                         spwselect=','.join(str(spw) for spw in spws_set[band][vis][i].tolist())
+                   test_gaincal_return = {'G':[], 'T':[]}
+                   for gaintype in np.unique([gaincal_gaintype,'T']):
+                       for i in range(spws_set[band][vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
+                          if nspw_sets == 1 and spws_set[band][vis].ndim == 1:
+                             spwselect=','.join(str(spw) for spw in spws_set[band][vis].tolist())
+                          else:
+                             spwselect=','.join(str(spw) for spw in spws_set[band][vis][i].tolist())
 
-                      test_gaincal_return += [gaincal(vis=vis,\
-                        caltable='test_inf_EB.g',\
-                        gaintype=gaincal_gaintype, spw=spwselect,
-                        refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
-                        solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
-                        field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB.g'))]
+                          test_gaincal_return[gaintype] += [gaincal(vis=vis,\
+                            caltable='test_inf_EB_'+gaintype+'.g',\
+                            gaintype=gaintype, spw=spwselect,
+                            refant=selfcal_library[target][band][vis]['refant'], calmode='p', 
+                            solint=solint.replace('_EB','').replace('_ap',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
+                            field=include_targets[0],gaintable='',spwmap=[],uvrange=selfcal_library[target][band]['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB_'+gaintype+'.g'))]
                    spwlist=selfcal_library[target][band][vis]['spws'].split(',')
-                   fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',vis,target,'test_inf_EB.g',spectral_scan,telescope)
+                   fallback[vis],map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g',vis,target,'test_inf_EB_'+gaincal_gaintype+'.g',spectral_scan,telescope, solint_snr_per_spw, minsnr_to_proceed,'test_inf_EB_T.g' if gaincal_gaintype=='G' else None)
 
                    inf_EB_fallback_mode_dict[target][band][vis]=fallback[vis]+''
                    print(solint,fallback[vis],applycal_spwmap_inf_EB)
                    if fallback[vis] != '':
-                      if fallback[vis] =='combinespw':
+                      if 'combinespw' in fallback[vis]:
                          gaincal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                          gaincal_combine[band][target][iteration]='scan,spw'
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan,spw'
                          applycal_spwmap[vis]=[selfcal_library[target][band][vis]['spwmap']]
                          os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
-                         os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
-                         selfcal_library[target][band][vis][solint]['gaincal_return'] = test_gaincal_return
+                         for gaintype in np.unique([gaincal_gaintype,'T']):
+                            os.system('cp -r test_inf_EB_'+gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.gaintype'+gaintype+'.g')
+                         if fallback[vis] == 'combinespw':
+                             gaincal_gaintype = 'G'
+                         else:
+                             gaincal_gaintype = 'T'
+                         os.system('mv test_inf_EB_'+gaincal_gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[band][target][iteration]+'.g')
+                         selfcal_library[target][band][vis][solint]['gaincal_return'] = test_gaincal_return[gaincal_gaintype]
                       if fallback[vis] =='spwmap':
                          gaincal_spwmap[vis]=applycal_spwmap_inf_EB
                          inf_EB_gaincal_combine_dict[target][band][vis]='scan'
@@ -685,7 +692,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           selfcal_library[target][band][fid][vis][solint]['spwmap']=applycal_spwmap[vis]
                           selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
 
-                   os.system('rm -rf test_inf_EB.g')               
+                   os.system('rm -rf test_inf_EB_*.g')               
 
 
                 # If iteration two, try restricting to just the antennas with enough unflagged data.
@@ -1056,18 +1063,26 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              strict_field_by_field_success = []
              loose_field_by_field_success = []
              beam_field_by_field_success = []
+             rms_field_by_field_success = []
              for fid in selfcal_library[target][band]['sub-fields-to-selfcal']:
                  strict_field_by_field_success += [(post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NF[fid] >= mosaic_SNR_NF[fid])]
                  loose_field_by_field_success += [((post_mosaic_SNR[fid]-mosaic_SNR[fid])/mosaic_SNR[fid] > -0.02) and \
                          ((post_mosaic_SNR_NF[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
                  beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
+                 rms_field_by_field_success = ((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] < 1.05 and \
+                         (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] < 1.05) or \
+                         (((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] > 1.05 or \
+                         (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] > 1.05) and \
+                         solint_snr_per_field[target][band][fid][solint] > 5)
 
              if 'inf_EB' in solint:
                  # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
                  # fields because there's a good chance that those are just noise being pushed around.
-                 field_by_field_success = numpy.logical_and(loose_field_by_field_success, beam_field_by_field_success)
+                 field_by_field_success = numpy.logical_and(numpy.logical_and(loose_field_by_field_success, beam_field_by_field_success), \
+                         rms_field_by_field_success)
              else:
-                 field_by_field_success = numpy.logical_and(strict_field_by_field_success, beam_field_by_field_success)
+                 field_by_field_success = numpy.logical_and(numpy.logical_and(strict_field_by_field_success, beam_field_by_field_success), \
+                         rms_field_by_field_success)
 
              # If not all fields were successful, we need to make an additional image to evaluate whether the image as a whole improved,
              # otherwise the _post image won't be exactly representative.
@@ -1207,14 +1222,16 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
 
              marginal_inf_EB_will_attempt_next_solint=False
              #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
-             if (solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00) and (delta_beamarea < delta_beam_thresh):
+             if (solint =='inf_EB') and ((((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00)) or (((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00))) and (delta_beamarea < delta_beam_thresh):
                 if solint_snr[target][band][solints[band][target][iteration+1]] < minsnr_to_proceed and np.all([solint_snr_per_field[target][band][fid][solints[band][target][iteration+1]] < minsnr_to_proceed for fid in selfcal_library[target][band]['sub-fields']]):
                    marginal_inf_EB_will_attempt_next_solint = False
                 else:
                    marginal_inf_EB_will_attempt_next_solint =  True
 
+             RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
+                     ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and solint_snr[target][band][solint] > 5)
 
-             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
+             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
 
                 if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library[target][band]["SC_success"]:
                     for vis in vislist:
@@ -1337,6 +1354,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
+            if (post_RMS/RMS > 1.05 and solint_snr[target][band][solint] <= 5):
+               if reason != '':
+                  reason=reason+'; '
+               reason=reason+'RMS increase beyond 5%'
+            if (post_RMS_NF/RMS_NF > 1.05 and solint_snr[target][band][solint] <= 5):
+               if reason != '':
+                  reason=reason+'; '
+               reason=reason+'NF RMS increase beyond 5%'
             if not np.any(field_by_field_success):
                 if reason != '':
                     reason=reason+'; '
@@ -1362,6 +1387,14 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     if mosaic_reason[fid] !='':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'Beam change beyond '+str(delta_beam_thresh)
+                 if (post_RMS/RMS > 1.05 and solint_snr[target][band][solint] <= 5):
+                    if mosaic_reason[fid] != '':
+                       mosaic_reason[fid]=mosaic_reason[fid]+'; '
+                    mosaic_reason[fid]=mosaic_reason[fid]+'RMS increase beyond 5%'
+                 if (post_RMS_NF/RMS_NF > 1.05 and solint_snr[target][band][solint] <= 5):
+                    if mosaic_reason[fid] != '':
+                       mosaic_reason[fid]=mosaic_reason[fid]+'; '
+                    mosaic_reason[fid]=mosaic_reason[fid]+'NF RMS increase beyond 5%'
                  if mosaic_reason[fid] == '':
                      mosaic_reason[fid] = "Global selfcal failed"
                  selfcal_library[target][band][fid]['Stop_Reason']=mosaic_reason[fid]
