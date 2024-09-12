@@ -403,33 +403,42 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
        test_gaincal_combine='scan,spw'
        if selfcal_library['obstype']=='mosaic' or mode=="cocal":
           test_gaincal_combine+=',field'   
-       test_gaincal_return = []
-       for i in range(selfcal_library['spws_set'][vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
-          if nspw_sets == 1 and selfcal_library['spws_set'][vis].ndim == 1:
-             spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis].tolist())
-          else:
-             spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
+       test_gaincal_return = {'G':[], 'T':[]}
+       for gaintype in np.unique([gaincal_gaintype,'T']):
+           for i in range(selfcal_library['spws_set'][vis].shape[0]):  # run gaincal on each spw set to handle spectral scans
+              if nspw_sets == 1 and selfcal_library['spws_set'][vis].ndim == 1:
+                 spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis].tolist())
+              else:
+                 spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
 
-          test_gaincal_return += [gaincal(vis=vis,\
-            caltable='test_inf_EB.g',\
-            gaintype=gaincal_gaintype, spw=spwselect,
-            refant=selfcal_library[vis]['refant'], calmode='p', 
-            solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
-            field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB.g'))]
+              test_gaincal_return[gaintype] += [gaincal(vis=vis,\
+                caltable='test_inf_EB_'+gaintype+'.g',\
+                gaintype=gaintype, spw=spwselect,
+                refant=selfcal_library[vis]['refant'], calmode='p', 
+                solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
+                field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB_'+gaintype+'.g'))]
        spwlist=selfcal_library[vis]['spws'].split(',')
        fallback,map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',vis,target,'test_inf_EB.g',selfcal_library['spectral_scan'],telescope)
+       fallback,map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',vis,target,'test_inf_EB_'+gaincal_gaintype+'.g',selfcal_library['spectral_scan'],telescope, selfcal_plan['solint_snr_per_spw'], minsnr_to_proceed,'test_inf_EB_T.g' if gaincal_gaintype=='G' else None)
 
        selfcal_plan[vis]['inf_EB_fallback_mode']=fallback+''
        print(solint,fallback,applycal_spwmap_inf_EB)
        if fallback != '':
-          if fallback =='combinespw':
+          if 'combinespw' in fallback:
              gaincal_spwmap=[selfcal_library[vis]['spwmap']]
              selfcal_plan['gaincal_combine'][iteration]='scan,spw'
              selfcal_plan[vis]['inf_EB_gaincal_combine']='scan,spw'
              applycal_spwmap=[selfcal_library[vis]['spwmap']]
              os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')
-             os.system('mv test_inf_EB.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')
-             selfcal_library[vis][solint]['gaincal_return'] = test_gaincal_return
+             for gaintype in np.unique([gaincal_gaintype,'T']):
+                os.system('cp -r test_inf_EB_'+gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.gaintype'+gaintype+'.g')
+             if fallback[vis] == 'combinespw':
+                 gaincal_gaintype = 'G'
+             else:
+                 gaincal_gaintype = 'T'
+             os.system('mv test_inf_EB_'+gaincal_gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')
+             selfcal_library[vis][solint]['gaincal_return'] = test_gaincal_return[gaincal_gaintype]
+
           if fallback =='spwmap':
              gaincal_spwmap=applycal_spwmap_inf_EB
              selfcal_plan[vis]['inf_EB_gaincal_combine']='scan'
@@ -443,7 +452,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
               selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap
               selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan['gaincal_combine'][iteration]+''
 
-       os.system('rm -rf test_inf_EB.g')               
+       os.system('rm -rf test_inf_EB_*.g')               
 
     selfcal_library[vis][solint]['fallback']=fallback+''
     for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):

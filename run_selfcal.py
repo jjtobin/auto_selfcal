@@ -303,18 +303,26 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              strict_field_by_field_success = []
              loose_field_by_field_success = []
              beam_field_by_field_success = []
+             rms_field_by_field_success = []
              for fid in selfcal_library['sub-fields-to-selfcal']:
                  strict_field_by_field_success += [(post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NF[fid] >= mosaic_SNR_NF[fid])]
                  loose_field_by_field_success += [((post_mosaic_SNR[fid]-mosaic_SNR[fid])/mosaic_SNR[fid] > -0.02) and \
                          ((post_mosaic_SNR_NF[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
                  beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
+                 rms_field_by_field_success = ((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] < 1.05 and \
+                         (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] < 1.05) or \
+                         (((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] > 1.05 or \
+                         (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] > 1.05) and \
+                         selfcal_plan['solint_snr_per_field'][fid][solint] > 5)
 
              if 'inf_EB' in solint:
                  # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
                  # fields because there's a good chance that those are just noise being pushed around.
-                 field_by_field_success = numpy.logical_and(loose_field_by_field_success, beam_field_by_field_success)
+                 field_by_field_success = numpy.logical_and(numpy.logical_and(loose_field_by_field_success, beam_field_by_field_success), \
+                         rms_field_by_field_success)
              else:
-                 field_by_field_success = numpy.logical_and(strict_field_by_field_success, beam_field_by_field_success)
+                 field_by_field_success = numpy.logical_and(numpy.logical_and(strict_field_by_field_success, beam_field_by_field_success), \
+                         rms_field_by_field_success)
 
              # If not all fields were successful, we need to make an additional image to evaluate whether the image as a whole improved,
              # otherwise the _post image won't be exactly representative.
@@ -383,14 +391,16 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
              marginal_inf_EB_will_attempt_next_solint=False
              #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
-             if (solint =='inf_EB') and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00) and (delta_beamarea < delta_beam_thresh):
-                if solint_snr[solints[band][target][iteration+1]] < minsnr_to_proceed and np.all([solint_snr_per_field[fid][solints[band][target][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
+             if (solint =='inf_EB') and ((((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00)) or (((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00))) and (delta_beamarea < delta_beam_thresh):
+                if selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed and np.all([selfcal_plan['solint_snr_per_field'][fid][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
                    marginal_inf_EB_will_attempt_next_solint = False
                 else:
                    marginal_inf_EB_will_attempt_next_solint =  True
 
+             RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
+                     ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and selfcal_plan['solint_snr'][solint] > 5)
 
-             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success): 
+             if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
 
                 if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library["SC_success"]:
                     for vis in vislist:
@@ -503,6 +513,14 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
+            if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+               if reason != '':
+                  reason=reason+'; '
+               reason=reason+'RMS increase beyond 5%'
+            if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+               if reason != '':
+                  reason=reason+'; '
+               reason=reason+'NF RMS increase beyond 5%'
             if not np.any(field_by_field_success):
                 if reason != '':
                     reason=reason+'; '
@@ -526,6 +544,14 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     if mosaic_reason[fid] !='':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'Beam change beyond '+str(delta_beam_thresh)
+                 if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                    if mosaic_reason[fid] != '':
+                       mosaic_reason[fid]=mosaic_reason[fid]+'; '
+                    mosaic_reason[fid]=mosaic_reason[fid]+'RMS increase beyond 5%'
+                 if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                    if mosaic_reason[fid] != '':
+                       mosaic_reason[fid]=mosaic_reason[fid]+'; '
+                    mosaic_reason[fid]=mosaic_reason[fid]+'NF RMS increase beyond 5%'
                  if mosaic_reason[fid] == '':
                      mosaic_reason[fid] = "Global selfcal failed"
                  selfcal_library[fid]['Stop_Reason']=mosaic_reason[fid]
