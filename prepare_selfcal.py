@@ -395,7 +395,7 @@ def prepare_selfcal(vislist,
                    dict(zip(vislist,[mosaic_field[band][vis][target]['field_ids'] for vis in vislist])),band, \
                    selfcal_library,scale_fov=scale_fov,mosaic=selfcal_library[target][band]['obstype']=='mosaic')
 
-           print("Reffreq = ",reffreq[target][band])
+           print("Reffreq = ",selfcal_library[target][band]['reffreq'])
 
            if selfcal_library[target][band]['meanfreq'] >12.0e9:
               selfcal_library[target][band]['applycal_interp']='linearPD'

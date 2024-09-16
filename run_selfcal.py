@@ -200,8 +200,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                      continue
 
                 gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, gaincal_minsnr, 
-                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, rerank_refants=rerank_refants, unflag_only_lbants=unflag_only_lbants, 
-                        unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
+                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, rerank_refants=rerank_refants, \
+                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                         second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                         refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
                         allow_gain_interpolation=allow_gain_interpolation)
@@ -530,6 +530,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                #selfcal_library[vis][solint]['Pass']=False
                selfcal_library[vis][solint]['Fail_Reason']=reason
 
+         mosaic_reason = {}
          for fid in selfcal_library['sub-fields-to-selfcal']:
              if not selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] or \
                      (solint == "inf_EB" and selfcal_library[fid]['inf_EB_SNR_decrease']):
@@ -558,9 +559,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  for vis in selfcal_library[fid]['vislist']:
                     #selfcal_library[fid][vis][solint]['Pass']=False
                     selfcal_library[fid][vis][solint]['Fail_Reason']=mosaic_reason[fid]
-
-             if selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass']:
-                 new_fields_to_selfcal.append(fid)
 
          # If any of the fields failed self-calibration, we need to re-apply calibrations for all fields because we need to revert flagging back
          # to the starting point.

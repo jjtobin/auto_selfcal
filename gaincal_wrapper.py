@@ -9,8 +9,8 @@ from casampi.MPIEnvironment import MPIEnvironment
 parallel=MPIEnvironment.is_mpi_enabled
 
 def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
-        gaincal_minsnr, gaincal_unflag_minsnr=5.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, 
-        second_iter_solmode="", unflag_fb_to_prev_solint=False, \
+        gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, \
+        calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False):
 
     sani_target=sanitize_string(target)
@@ -418,7 +418,6 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
                 field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB_'+gaintype+'.g'))]
        spwlist=selfcal_library[vis]['spws'].split(',')
-       fallback,map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',vis,target,'test_inf_EB.g',selfcal_library['spectral_scan'],telescope)
        fallback,map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',vis,target,'test_inf_EB_'+gaincal_gaintype+'.g',selfcal_library['spectral_scan'],telescope, selfcal_plan['solint_snr_per_spw'], minsnr_to_proceed,'test_inf_EB_T.g' if gaincal_gaintype=='G' else None)
 
        selfcal_plan[vis]['inf_EB_fallback_mode']=fallback+''
@@ -432,7 +431,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
              os.system('rm -rf           '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g')
              for gaintype in np.unique([gaincal_gaintype,'T']):
                 os.system('cp -r test_inf_EB_'+gaintype+'.g '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.gaintype'+gaintype+'.g')
-             if fallback[vis] == 'combinespw':
+             if fallback == 'combinespw':
                  gaincal_gaintype = 'G'
              else:
                  gaincal_gaintype = 'T'

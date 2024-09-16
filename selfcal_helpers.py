@@ -52,11 +52,6 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
-    if nterms == 1:
-       reffreq = ''
-    else:
-       reffreq = selfcal_library['reffreq']
-
     baselineThresholdALMA = 400.0
 
     if mask == '':
@@ -160,6 +155,11 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
         vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
         spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
         nterms = 1
+
+    if nterms == 1:
+       reffreq = ''
+    else:
+       reffreq = selfcal_library['reffreq']
 
     if "theoretical" in threshold:
         dr_mod=1.0
@@ -1850,7 +1850,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    nterms=1
    if selfcal_library[target][band]['fracbw'] > 0.1:
       nterms=2
-   reffreq = get_reffreq(vislist,field_ids,selfcal_library[target][band]['spwsarray'], telescope)
+   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
 
    if 'VLA' in telescope:
       fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
@@ -2981,7 +2981,7 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                         fallback_mode='Combine SPW'
                      if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'spwmap':
                         fallback_mode='SPWMAP'
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'combinespwpol':
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'combinespwpol':
                         fallback_mode='Combine SPW & Pol'
                      htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
                htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
@@ -3266,7 +3266,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    for i in range(len(spwlist)):
       if np.min(delta_nflags[i]) > max_flagged_ants_spwmap or \
-            solint_snr_per_spw[target][band]['inf_EB'][str(selfcal_library[target][band]['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
+            solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
          fallback='spwmap'
          spwmap[i]=True
          if total_bws[i] > min_spwmap_bw:
