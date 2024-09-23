@@ -313,7 +313,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                          (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] < 1.05) or \
                          (((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] > 1.05 or \
                          (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] > 1.05) and \
-                         selfcal_plan['solint_snr_per_field'][fid][solint] > 5)
+                         selfcal_plan[fid]['solint_snr_per_field'][solint] > 5)
 
              if 'inf_EB' in solint:
                  # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
@@ -392,7 +392,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              marginal_inf_EB_will_attempt_next_solint=False
              #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
              if (solint =='inf_EB') and ((((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00)) or (((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00))) and (delta_beamarea < delta_beam_thresh):
-                if selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed and np.all([selfcal_plan['solint_snr_per_field'][fid][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
+                if selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
                    marginal_inf_EB_will_attempt_next_solint = False
                 else:
                    marginal_inf_EB_will_attempt_next_solint =  True

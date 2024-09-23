@@ -62,14 +62,6 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
            usemask='auto-multithresh'
     else:
        usemask='user'
-    if threshold != '0.0Jy':
-       nsigma=0.0
-
-    if nsigma != 0.0:
-       if nsigma*nfrms_multiplier*0.66 > nsigma:
-          nsigma=nsigma*nfrms_multiplier*0.66
-       
-    
 
     if telescope=='ALMA':
        if selfcal_library['75thpct_uv'] > baselineThresholdALMA:
@@ -197,6 +189,10 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     if threshold != '0.0Jy':
        nsigma=0.0
 
+    if nsigma != 0.0:
+       if nsigma*nfrms_multiplier*0.66 > nsigma:
+          nsigma=nsigma*nfrms_multiplier*0.66
+
     if gridder=='mosaic' and startmodel!='':
        parallel=False
     if not savemodel_only:
@@ -250,7 +246,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
             if telescope == "ALMA" or telescope == "ACA":
                 selfcal_library["clean_threshold_"+store_threshold] = float(threshold[0:-2])
             elif "VLA" in telescope and tclean_return['iterdone'] > 0:
-                selfcal_library["clean_threshold_"+store_threshold] = initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
+                selfcal_library["clean_threshold_"+store_threshold] = tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
 
         if image_mosaic_fields_separately and selfcal_library['obstype'] == 'mosaic':
             for field_id in selfcal_library['sub-fields-phasecenters']:
