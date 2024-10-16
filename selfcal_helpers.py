@@ -52,11 +52,6 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
-    if nterms == 1:
-       reffreq = ''
-    else:
-       reffreq = selfcal_library['reffreq']
-
     baselineThresholdALMA = 400.0
 
     if mask == '':
@@ -67,6 +62,15 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
            usemask='auto-multithresh'
     else:
        usemask='user'
+    if threshold != '0.0Jy':
+       nsigma=0.0
+
+    if nsigma != 0.0:
+       if nsigma*nfrms_multiplier*0.66 > nsigma:
+          nsigma=nsigma*nfrms_multiplier*0.66
+       
+    
+
     if telescope=='ALMA':
        if selfcal_library['75thpct_uv'] > baselineThresholdALMA:
           fastnoise = True
@@ -151,6 +155,11 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
         vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
         spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
         nterms = 1
+
+    if nterms == 1:
+       reffreq = ''
+    else:
+       reffreq = selfcal_library['reffreq']
 
     if "theoretical" in threshold:
         dr_mod=1.0
@@ -254,8 +263,11 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                 if telescope=='ACA':
                    fov=108.0*100.0e9/selfcal_library['meanfreq']*1.5*0.5
 
-                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(selfcal_library['sub-fields-phasecenters'][field_id]['m0']['value'], \
-                        selfcal_library['sub-fields-phasecenters'][field_id]['m1']['value'], fov)
+                center = np.copy(selfcal_library['sub-fields-phasecenters'][field_id])
+                if phasecenter == 'TRACKFIELD':
+                    center += imhead(imagename+".image.tt0")['refval'][0:2]
+
+                region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(center[0], center[1], fov)
 
                 for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
                     target = sanitize_string(field)
@@ -339,7 +351,6 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                  nterms = nterms,
                  uvrange=selfcal_library['uvrange'],
                  reffreq = reffreq,
-                 uvrange=uvrange,
                  threshold=threshold,
                  parallel=False,
                  phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
@@ -615,7 +626,13 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
 
          mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target]).tolist()
          mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
-         mosaic_field[vis][target]['phasecenters'] = [msmd.phasecenter(fid) for fid in mosaic_field[vis][target]['field_ids']]
+
+         mosaic_field[vis][target]['phasecenters'] = []
+         for fid in mosaic_field[vis][target]['field_ids']:
+             tb.open(vis+'/FIELD')
+             mosaic_field[vis][target]['phasecenters'].append(tb.getcol("PHASE_DIR")[:,0,fid])
+             tb.close()
+
          if len(mosaic_field[vis][target]['field_ids']) > 1:
             mosaic_field[vis][target]['mosaic']=True
          scantimes=np.array([])
@@ -1270,41 +1287,33 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
       solint_snr_per_spw = {}
       solint_snr_per_bb = {}
       for solint in solints:
-         #code to work around some VLA data not having the same number of spws due to missing BlBPs
-         #selects spwlist from the visibilities with the greates number of spws
-         maxspws=0
-         maxspwvis=''
-         for vis in selfcal_library['vislist']:
-            if selfcal_library[vis]['n_spws'] >= maxspws:
-               maxspws=selfcal_library[vis]['n_spws']
-               maxspwvis=vis+''
          solint_snr[solint]=0.0
          solint_snr_per_spw[solint]={}       
          solint_snr_per_bb[solint]={}    
          if solint == 'inf_EB':
             SNR_self_EB=np.zeros(len(selfcal_library['vislist']))
-            #SNR_self_EB_spw=np.zeros([len(selfcal_library['vislist']),len(selfcal_library[maxspwvis]['spwsarray'])])
-            #SNR_self_EB_spw_mean=np.zeros([len(selfcal_library[maxspwvis]['spwsarray'])])
             SNR_self_EB_spw={}
             SNR_self_EB_bb={}
             for i in range(len(selfcal_library['vislist'])):
                SNR_self_EB[i]=SNR/((n_ant)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)
                SNR_self_EB_spw[selfcal_library['vislist'][i]]={}
                SNR_self_EB_bb[selfcal_library['vislist'][i]]={}
-               for spw in selfcal_library[selfcal_library['vislist'][i]]['spwsarray']:
-                  SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
-                  print(selfcal_library[vis]['baseband'])
+               for spw in selfcal_library['spw_map']:
+                 if selfcal_library['vislist'][i] in selfcal_library['spw_map'][spw]:
+                     SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][selfcal_library['spw_map'][spw][selfcal_library['vislist'][i]]]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
+                 print(selfcal_library[vis]['baseband'])
                print('SNR_self_EB_spw: ',SNR_self_EB_spw)
                for baseband in selfcal_library[vis]['baseband']:
                      SNR_self_EB_bb[selfcal_library['vislist'][i]][baseband]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
                print('SNR_self_EB_bb: ',SNR_self_EB_bb)
-            for spw in selfcal_library[maxspwvis]['spwsarray']:
+            for spw in selfcal_library['spw_map']:
                mean_SNR_spw=0.0
+               total_vis = 0
                for j in range(len(selfcal_library['vislist'])):
-                   if str(spw) in SNR_self_EB_spw[selfcal_library['vislist'][j]].keys():
+                  if selfcal_library['vislist'][j] in selfcal_library['spw_map'][spw]:
                      mean_SNR_spw+=SNR_self_EB_spw[selfcal_library['vislist'][j]][str(spw)]
-               mean_SNR_spw=mean_SNR_spw/len(selfcal_library['vislist']) 
-               print('mean_SNR_spw',mean_SNR_spw,spw)
+                     total_vis += 1
+               mean_SNR_spw=mean_SNR_spw/total_vis
                solint_snr_per_spw[solint][str(spw)]=mean_SNR_spw
             for baseband in selfcal_library[vis]['baseband']:
                mean_SNR_bb=0.0
@@ -1319,30 +1328,38 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
          elif solint =='scan_inf':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
-               for spw in selfcal_library[maxspwvis]['spwsarray']:
-                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+               for spw in selfcal_library['spw_map']:
+                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  true_spw = selfcal_library['spw_map'][spw][vis]
+                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
                for baseband in selfcal_library[vis]['baseband']:
-                  solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+                  solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
          elif solint =='inf' or solint == 'inf_ap':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
-               for spw in selfcal_library[maxspwvis]['spwsarray']:
-                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+               for spw in selfcal_library['spw_map']:
+                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  true_spw = selfcal_library['spw_map'][spw][vis]
+                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
                for baseband in selfcal_library[vis]['baseband']:
-                  solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+                  solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
-               for spw in selfcal_library[maxspwvis]['spwsarray']:
-                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+               for spw in selfcal_library['spw_map']:
+                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  true_spw = selfcal_library['spw_map'][spw][vis]
+                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
                for baseband in selfcal_library[vis]['baseband']:
-                     solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+                  solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
          else:
                solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
-               for spw in selfcal_library[maxspwvis]['spwsarray']:
-                     solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[maxspwvis]['per_spw_stats'][spw]['effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+               for spw in selfcal_library['spw_map']:
+                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  true_spw = selfcal_library['spw_map'][spw][vis]
+                  solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
                for baseband in selfcal_library[vis]['baseband']:
-                     solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[maxspwvis]['total_effective_bandwidth'])**0.5
+                  solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
       return solint_snr,solint_snr_per_spw,solint_snr_per_bb
 
 def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_next,integration_time,solint_snr):
@@ -1799,10 +1816,12 @@ def get_spw_map(selfcal_library, target, band, telescope):
         vislist = [maxspwvis] + vislist
 
     spw_map = {}
+    reverse_spw_map = {}
     virtual_index = 0
     # This code is meant to be generic in order to prepare for cases where multiple EBs might have unique SPWs in them (e.g. inhomogeneous data),
     # but the criterea for which SPWs match will need to be updated for this to truly generalize.
     for vis in vislist:
+        reverse_spw_map[vis] = {}
         for spw in selfcal_library[target][band][vis]['spwsarray']:
             found_match = False
             for s in spw_map:
@@ -1840,6 +1859,7 @@ def get_spw_map(selfcal_library, target, band, telescope):
 
                    if found_match:
                        spw_map[s][vis] = spw
+                       reverse_spw_map[vis][spw] = s
                        break
 
                 if found_match:
@@ -1848,11 +1868,14 @@ def get_spw_map(selfcal_library, target, band, telescope):
             if not found_match:
                 spw_map[virtual_index] = {}
                 spw_map[virtual_index][vis] = spw
+                reverse_spw_map[vis][spw] = virtual_index
                 virtual_index += 1
 
     print("spw_map:")
     print(spw_map)
-    return spw_map
+    print("reverse_spw_map:")
+    print(reverse_spw_map)
+    return spw_map, reverse_spw_map
 
 
 def largest_prime_factor(n):
@@ -1878,7 +1901,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    nterms=1
    if selfcal_library[target][band]['fracbw'] > 0.1:
       nterms=2
-   reffreq = get_reffreq(vislist,field_ids,selfcal_library[target][band]['spwsarray'], telescope)
+   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
 
    if 'VLA' in telescope:
       fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
@@ -2807,7 +2830,7 @@ def get_phasecenter(vis,field):
    return phasecenter_string
 
 
-def get_flagged_solns_per_spw(spwlist,gaintable):
+def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
      # Get the antenna names and offsets.
      msmd = casatools.msmetadata()
      tb = casatools.table()
@@ -2816,12 +2839,27 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
      #gaintable='"'+gaintable+'"'
      os.system('cp -r '+gaintable.replace(' ','\ ')+' tempgaintable.g')
      gaintable='tempgaintable.g'
-     nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
-             spwlist[i]+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
-             range(len(spwlist))]
-     nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
-             spwlist[i]+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
-             range(len(spwlist))]
+     if extendpol:
+         nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [any(FLAG)]]')['0'].sum() for i in \
+                 range(len(spwlist))]
+         nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [nfalse(any(FLAG))]]')['0'].sum() for i in \
+                 range(len(spwlist))]
+     else:
+         nflags = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [ntrue(FLAG)]]')['0'].sum() for i in \
+                 range(len(spwlist))]
+         nunflagged = [tb.calc('[select from '+gaintable+' where SPECTRAL_WINDOW_ID=='+\
+                 spwlist[i]+' giving  [nfalse(FLAG)]]')['0'].sum() for i in \
+                 range(len(spwlist))]
+
+     nflags = np.array(nflags)
+     nunflagged = np.array(nunflagged)
+
+     nodata = np.where(nflags + nunflagged == 0)
+     nflags[nodata] = (nflags + nunflagged).max()
+
      os.system('rm -rf tempgaintable.g')
      fracflagged=np.array(nflags)/(np.array(nflags)+np.array(nunflagged))
      # Calculate a score based on those two.
@@ -2829,11 +2867,8 @@ def get_flagged_solns_per_spw(spwlist,gaintable):
 
 
 
-def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction):
+def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed):
    selected_mode='combinespw'
-   polscale=2.0
-   if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype']=='T':
-     polscale=1.0
    spwlist=selfcal_library[vis]['spwlist'].copy()
    spwlist_str=selfcal_library[vis]['spws'].split(',')
    if telescope != 'ACA':
@@ -2866,6 +2901,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']={}
    selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']={}
    selfcal_plan[vis]['solint_settings'][solint]['non_zero_fraction']={}
+   selfcal_plan[vis]['solint_settings'][solint]['polscale']={}
    #for loop here to get fraction flagged, unflagged, and flag fraction per mode
    for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
       gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]+'.g'
@@ -2880,12 +2916,16 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
       # ntotal_non_apriori_flagged - total solutions with apriori_flagged solutions subtracted
       # fracflagged_non_apriori - fraction flagged without apriori flagged solutions
       # table evaulations will use flagging stats with apriori flags omitted
+      selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]=2.0
+      if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype']=='T':
+        selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]=1.0
 
-      if mode=='combinespw':
+      if 'combinespw' in mode:
          selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],[spwlist[0]])
 
       if mode=='per_spw':
          selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist)
+
          for s, spw in enumerate(spwlist):
             selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']=selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode][s]
             selfcal_library[vis]['per_spw_stats'][int(spw)]['nunflagged']=selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode][s]
@@ -2905,16 +2945,16 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
       if solint == 'inf_EB':
          n_solutions=1.0
       else:
-         n_antennas=selfcal_plan[vis]['solint_settings']['inf_EB']['ntotal_non_apriori']['combinespw'][0]/polscale
+         n_antennas=selfcal_plan[vis]['solint_settings']['inf_EB']['ntotal_non_apriori']['combinespw'][0]/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]
          n_solutions=(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['combinespw'][0]+selfcal_plan[vis]['solint_settings'][solint]['nunflagged']['combinespw'][0])/n_antennas
 
 
-      selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants'][mode]=np.min(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode])/polscale/baseband_scale/n_solutions
-      selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants'][mode]=np.max(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode])/polscale/baseband_scale/n_solutions
+      selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants'][mode]=np.min(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode])/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]/baseband_scale/n_solutions
+      selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants'][mode]=np.max(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode])/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]/baseband_scale/n_solutions
 
    #calculate delta_nflags, the difference between per_spw flagging and the minimum combinespw flagging to characterize the excess flagging in per_spw solutions
    if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
-      selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw']=np.array(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['per_spw'])/polscale/n_solutions-np.array(selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['combinespw'])/polscale/n_solutions
+      selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw']=np.array(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['per_spw'])/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]/n_solutions-np.array(selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']['combinespw'])/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]/n_solutions
 
    #choose between per_spw and per_bb if both exist
    preferred_mode='combinespw'  # default, in case somehow it doesn't get chose (shouldn't happen)
@@ -2951,6 +2991,11 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          preferred_mode='per_spw'
       else:
          preferred_mode='combinespw'
+
+   # Check whether any spws have estimated SNR < 3, in which case we should not (initially) allow 'per_spw'
+   if preferred_mode == 'per_spw' and np.any([solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
+           minsnr_to_proceed for spw in spwlist]):
+      preferred_mode = 'per_bb'
 
    print('intermediate report',preferred_mode)
    #if after checking flagging, per_spw or per_bb is selected, check to make sure the solutions are not consistent with noise 
@@ -3005,7 +3050,8 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and (preferred_mode=='combinespw' or preferred_mode=='per_bb') and (selfcal_plan[vis]['solint_settings'][solint]['solmode'] !='ap'):
        for i in range(len(spwlist)):
           # use >= to not always map if an spw has flagged solutions for a given antenna
-          if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap:
+          if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap or \
+                solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
              fallback='spwmap'
              spwmap[i]=1.0
              spwmap_widest_window_in_bb[i]=check_spw_widest_in_bb(selfcal_library,vis,spwlist[i])
@@ -3046,6 +3092,26 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
                 fallback=''
              if fallback=='spwmap':
                 preferred_mode='per_spw'
+
+   # If all of the spws map to the same spw, we might as well do a combinespw fallback.
+   if preferred_mode = 'per_spw':
+       if len(np.unique(applycal_spwmap)) == 1:
+           preferred_mode = 'combinespw'
+           applycal_spwmap = []
+
+   # If we end up with combinespw, check whether going to combinespw with gaintype='T' offers further improvement.
+   if preferred_mode == "combinespw":
+      spw_combine_test_gaintable = gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+\
+              selfcal_plan[vis]['solint_settings'][solint]['filename_append']['combinespw']+'.g'
+      spwpol_combine_test_gaintable = gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+\
+              selfcal_plan[vis]['solint_settings'][solint]['filename_append']['combinespwpol']+'.g'
+
+      nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable,extendpol=True)
+      nflags_spwpolcomb,nunflagged_spwpolcomb,fracflagged_spwpolcomb=get_flagged_solns_per_spw([spwlist[0]],spwpol_combine_test_gaintable)
+
+      if np.sqrt((nunflagged_spwcomb[0]*(nunflagged_spwcomb[0]-1)) / (nunflagged_spwpolcomb[0]*(nunflagged_spwpolcomb[0]-1))) < 0.95:
+          preferred_mode='combinespwpol'
+
    return preferred_mode,fallback,spwmap,applycal_spwmap
 
 
