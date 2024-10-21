@@ -1397,7 +1397,14 @@ def parse_contdotdat(contdotdat_file,target):
                continue
         if desiredTarget==True:
            if 'SpectralWindow' in line:
-              spw = int(line.split()[-1])
+              #code to adapt to new cont.dat format
+              splitline=line.split()
+              if len(splitline)==3:
+                 spw = int(splitline[-2])
+                 spwname=splitline[-1]
+              else:
+                 spw = int(splitline[-1])
+                 spwname=''
               contdotdat[spw] = []
            else:
               contdotdat[spw] += [line.split()[0].split("G")[0].split("~")]
