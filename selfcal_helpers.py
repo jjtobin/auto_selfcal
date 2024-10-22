@@ -1301,9 +1301,9 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                for spw in selfcal_library['spw_map']:
                  if selfcal_library['vislist'][i] in selfcal_library['spw_map'][spw]:
                      SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][selfcal_library['spw_map'][spw][selfcal_library['vislist'][i]]]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
-                 print(selfcal_library[vis]['baseband'])
+                 print(selfcal_library[vislist[i]]['baseband'])
                print('SNR_self_EB_spw: ',SNR_self_EB_spw)
-               for baseband in selfcal_library[vis]['baseband']:
+               for baseband in selfcal_library[vislist[i]]['baseband']:
                      SNR_self_EB_bb[selfcal_library['vislist'][i]][baseband]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
                print('SNR_self_EB_bb: ',SNR_self_EB_bb)
             for spw in selfcal_library['spw_map']:
@@ -1315,7 +1315,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                      total_vis += 1
                mean_SNR_spw=mean_SNR_spw/total_vis
                solint_snr_per_spw[solint][str(spw)]=mean_SNR_spw
-            for baseband in selfcal_library[vis]['baseband']:
+            for baseband in selfcal_library[vislist[i]]['baseband']:
                mean_SNR_bb=0.0
                for j in range(len(selfcal_library['vislist'])):
                   if baseband in SNR_self_EB_bb[selfcal_library['vislist'][j]].keys():
@@ -1376,7 +1376,7 @@ def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_ne
    #solint_snr[solint_next]=SNR_ratio*solint_snr[solint_next]
    solint_snr[solint_next]=SNR_ratio*solint_snr[solint_next]
 
-   for spw in selfcal_library[maxspwvis]['spwsarray']:
+   for spw in selfcal_library['spw_map']:
       selfcal_plan['solint_snr_per_spw'][solint_next][str(spw)]=selfcal_plan['solint_snr_per_spw'][solint_next][str(spw)]*SNR_ratio
 
    for baseband in selfcal_library[vis]['baseband']:
@@ -2867,7 +2867,7 @@ def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
 
 
 
-def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed):
+def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed,telescope):
    selected_mode='combinespw'
    spwlist=selfcal_library[vis]['spwlist'].copy()
    spwlist_str=selfcal_library[vis]['spws'].split(',')
@@ -3094,20 +3094,22 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
                 preferred_mode='per_spw'
 
    # If all of the spws map to the same spw, we might as well do a combinespw fallback.
-   if preferred_mode = 'per_spw':
+   if preferred_mode == 'per_spw':
        if len(np.unique(applycal_spwmap)) == 1:
            preferred_mode = 'combinespw'
            applycal_spwmap = []
 
    # If we end up with combinespw, check whether going to combinespw with gaintype='T' offers further improvement.
-   if preferred_mode == "combinespw":
+   if preferred_mode == "combinespw" and "combinespwpol" in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
       spw_combine_test_gaintable = gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+\
               selfcal_plan[vis]['solint_settings'][solint]['filename_append']['combinespw']+'.g'
       spwpol_combine_test_gaintable = gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+\
               selfcal_plan[vis]['solint_settings'][solint]['filename_append']['combinespwpol']+'.g'
 
-      nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable,extendpol=True)
-      nflags_spwpolcomb,nunflagged_spwpolcomb,fracflagged_spwpolcomb=get_flagged_solns_per_spw([spwlist[0]],spwpol_combine_test_gaintable)
+      print(spwlist)
+      print(spwlist_str)
+      nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist_str[0]],spw_combine_test_gaintable,extendpol=True)
+      nflags_spwpolcomb,nunflagged_spwpolcomb,fracflagged_spwpolcomb=get_flagged_solns_per_spw([spwlist_str[0]],spwpol_combine_test_gaintable)
 
       if np.sqrt((nunflagged_spwcomb[0]*(nunflagged_spwcomb[0]-1)) / (nunflagged_spwpolcomb[0]*(nunflagged_spwpolcomb[0]-1))) < 0.95:
           preferred_mode='combinespwpol'
