@@ -2988,11 +2988,6 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
       else:
          preferred_mode='combinespw'
 
-   # Check whether any spws have estimated SNR < 3, in which case we should not (initially) allow 'per_spw'
-   if preferred_mode == 'per_spw' and np.any([selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
-           minsnr_to_proceed for spw in spwlist]):
-      preferred_mode = 'per_bb'
-
    print('intermediate report',preferred_mode)
    #if after checking flagging, per_spw or per_bb is selected, check to make sure the solutions are not consistent with noise 
    #don't check for zero spectral phase on inf_EB, because it might be zero
@@ -3038,6 +3033,13 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          else:
              preferred_mode='combinespw'
 
+   # Check whether any spws have estimated SNR < 3, in which case we should not (initially) allow 'per_spw'
+   if preferred_mode == 'per_spw' and np.any([selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
+           minsnr_to_proceed for spw in spwlist]):
+      if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+          preferred_mode = 'per_bb'
+      else:
+          preferred_mode = 'combinespw'
          
    print('intermediate report',preferred_mode)
    # if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
