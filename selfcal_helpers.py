@@ -62,14 +62,6 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
            usemask='auto-multithresh'
     else:
        usemask='user'
-    if threshold != '0.0Jy':
-       nsigma=0.0
-
-    if nsigma != 0.0:
-       if nsigma*nfrms_multiplier*0.66 > nsigma:
-          nsigma=nsigma*nfrms_multiplier*0.66
-       
-    
 
     if telescope=='ALMA':
        if selfcal_library['75thpct_uv'] > baselineThresholdALMA:
@@ -197,6 +189,10 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     if threshold != '0.0Jy':
        nsigma=0.0
 
+    if nsigma != 0.0:
+       if nsigma*nfrms_multiplier*0.66 > nsigma:
+          nsigma=nsigma*nfrms_multiplier*0.66
+
     if gridder=='mosaic' and startmodel!='':
        parallel=False
     if not savemodel_only:
@@ -250,7 +246,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
             if telescope == "ALMA" or telescope == "ACA":
                 selfcal_library["clean_threshold_"+store_threshold] = float(threshold[0:-2])
             elif "VLA" in telescope and tclean_return['iterdone'] > 0:
-                selfcal_library["clean_threshold_"+store_threshold] = initial_tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
+                selfcal_library["clean_threshold_"+store_threshold] = tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
 
         if image_mosaic_fields_separately and selfcal_library['obstype'] == 'mosaic':
             for field_id in selfcal_library['sub-fields-phasecenters']:
@@ -2993,7 +2989,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          preferred_mode='combinespw'
 
    # Check whether any spws have estimated SNR < 3, in which case we should not (initially) allow 'per_spw'
-   if preferred_mode == 'per_spw' and np.any([solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
+   if preferred_mode == 'per_spw' and np.any([selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
            minsnr_to_proceed for spw in spwlist]):
       preferred_mode = 'per_bb'
 
@@ -3051,7 +3047,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
        for i in range(len(spwlist)):
           # use >= to not always map if an spw has flagged solutions for a given antenna
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap or \
-                solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
+                selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
              fallback='spwmap'
              spwmap[i]=1.0
              spwmap_widest_window_in_bb[i]=check_spw_widest_in_bb(selfcal_library,vis,spwlist[i])
