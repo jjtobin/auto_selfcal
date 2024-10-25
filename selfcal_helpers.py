@@ -21,20 +21,21 @@ msmd = msmdtool()
 ia = image()
 im = imager()
 
-def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
-                   nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
+def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
+                   nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
-                   lownoisethreshold=1.5,parallel=False,nterms=1,reffreq='',cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
-                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point', nfrms_multiplier=1.0, \
-                   savemodel_only=False, resume=False, image_mosaic_fields_separately=False, mosaic_field_phasecenters={}, mosaic_field_fid_map={},usermodel=''):
+                   lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
+                   savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True, \
+                   store_threshold=''):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
     """
-    msmd.open(vis[0])
+    msmd.open(selfcal_library['vislist'][0])
     fieldid=msmd.fieldsforname(field)
     msmd.done()
-    tb.open(vis[0]+'/FIELD')
+    tb.open(selfcal_library['vislist'][0]+'/FIELD')
     try:
        ephem_column=tb.getcol('EPHEMERIS_ID')
        tb.close()
@@ -44,33 +45,26 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        tb.close()
        phasecenter=''
 
-    if obstype=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(vis[0],field)
+    if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
 
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
 
-    if nterms == 1:
-       reffreq = ''
-
     baselineThresholdALMA = 400.0
 
     if mask == '':
-       usemask='auto-multithresh'
+       if selfcal_library['usermask'] != '':
+           mask = selfcal_library['usermask']
+           usemask = 'user'
+       else:
+           usemask='auto-multithresh'
     else:
        usemask='user'
-    if threshold != '0.0Jy':
-       nsigma=0.0
-
-    if nsigma != 0.0:
-       if nsigma*nfrms_multiplier*0.66 > nsigma:
-          nsigma=nsigma*nfrms_multiplier*0.66
-       
-    
 
     if telescope=='ALMA':
-       if band_properties[vis[0]][band]['75thpct_uv'] > baselineThresholdALMA:
+       if selfcal_library['75thpct_uv'] > baselineThresholdALMA:
           fastnoise = True
        else:
           fastnoise = False
@@ -85,17 +79,16 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        growiterations = 75
        minbeamfrac = 0.3
        #cyclefactor=1.0
-       print(band_properties)
-       if band_properties[vis[0]][band]['75thpct_uv'] > 2000.0:   # not in ALMA heuristics, but we've been using it
+       if selfcal_library['75thpct_uv'] > 2000.0:
           sidelobethreshold=2.0
 
-       if band_properties[vis[0]][band]['75thpct_uv'] < 300.0:
+       if selfcal_library['75thpct_uv'] < 300.0:
           sidelobethreshold=2.0
           smoothfactor=1.0
           noisethreshold=4.25*nfrms_multiplier
           lownoisethreshold=1.5*nfrms_multiplier
 
-       if band_properties[vis[0]][band]['75thpct_uv'] < baselineThresholdALMA:
+       if selfcal_library['75thpct_uv'] < baselineThresholdALMA:
           sidelobethreshold = 2.0
 
     if telescope=='ACA':
@@ -132,19 +125,73 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
        gridder='wproject'
        wplanes=384 # normalized to S-band A-config
        #scale by 75th percentile uv distance divided by A-config value
-       wplanes=wplanes * band_properties[vis[0]][band]['75thpct_uv']/20000.0
+       wplanes=wplanes * selfcal_library['75thpct_uv']/20000.0
        if band=='EVLA_L':
           wplanes=wplanes*2.0 # compensate for 1.5 GHz being 2x longer than 3 GHz
 
 
        wprojplanes=int(wplanes)
-    if (band=='EVLA_L' or band =='EVLA_S') and obstype=='mosaic':
+    if (band=='EVLA_L' or band =='EVLA_S') and selfcal_library['obstype']=='mosaic':
        print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
-    if obstype=='mosaic':
+    if selfcal_library['obstype']=='mosaic':
        gridder='mosaic'
     else:
        if gridder !='wproject':
           gridder='standard' 
+
+    if spw == 'all':
+        vlist = selfcal_library['vislist']
+        spws_per_vis = selfcal_library['spws_per_vis']
+        nterms = selfcal_library['nterms']
+    else:
+        vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
+        spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
+        nterms = 1
+
+    if nterms == 1:
+       reffreq = ''
+    else:
+       reffreq = selfcal_library['reffreq']
+
+    if "theoretical" in threshold:
+        dr_mod=1.0
+        if telescope =='ALMA' or telescope =='ACA':
+           sensitivity=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,
+                   imsize=selfcal_library['imsize'],cellsize=selfcal_library['cellsize'])
+           dr_mod=get_dr_correction(telescope,selfcal_library['SNR_dirty']*selfcal_library['RMS_dirty'],sensitivity,vlist)
+           sensitivity_nomod=sensitivity.copy()
+           print('DR modifier: ',dr_mod, 'SPW: ',spw)
+
+           sensitivity=sensitivity*dr_mod   # apply DR modifier
+           if (band =='Band_9' or band == 'Band_10') and spw != 'all':   # adjust for DSB noise increase
+               sensitivity=4.0*sensitivity   #*4.0  might be unnecessary with DR mods
+
+           selfcal_library['theoretical_sensitivity']=sensitivity_nomod
+           for fid in selfcal_library['sub-fields']:
+               selfcal_library[fid]['theoretical_sensitivity']=sensitivity_nomod
+        else:
+           sensitivity=0.0
+           selfcal_library['theoretical_sensitivity']=-99.0
+           for fid in selfcal_library['sub-fields']:
+               selfcal_library[fid]['theoretical_sensitivity']=-99.0
+
+        if threshold == "theoretical_with_drmod":
+            threshold = str(4.0*sensitivity)+'Jy'
+        else:
+            if spw == 'all':
+                sensitivity_scale_factor = 1.0
+            else:
+                sensitivity_agg=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,imsize=selfcal_library['imsize'],
+                        cellsize=selfcal_library['cellsize'])
+                sensitivity_scale_factor=selfcal_library['RMS_NF_curr']/sensitivity_agg
+            threshold = str(4.0*sensitivity_nomod*sensitivity_scale_factor)+'Jy'
+
+    if threshold != '0.0Jy':
+       nsigma=0.0
+
+    if nsigma != 0.0:
+       if nsigma*nfrms_multiplier*0.66 > nsigma:
+          nsigma=nsigma*nfrms_multiplier*0.66
 
     if gridder=='mosaic' and startmodel!='':
        parallel=False
@@ -152,7 +199,7 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
         if not resume:
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
-        tclean_return = tclean(vis= vis, 
+        tclean_return = tclean(vis=vlist, 
                imagename = imagename, 
                field=field,
                specmode = 'mfs', 
@@ -162,14 +209,14 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                weighting='briggs', 
                robust = robust,
                gain = gain,
-               imsize = imsize,
-               cell = cellsize, 
+               imsize = selfcal_library['imsize'],
+               cell = selfcal_library['cellsize'], 
                smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
                niter = niter, #we want to end on the threshold
                interactive = interactive,
                nsigma=nsigma,    
                cycleniter = cycleniter,
-               cyclefactor = cyclefactor, 
+               cyclefactor = selfcal_library['cyclefactor'], 
                uvtaper = uvtaper, 
                savemodel = 'none',
                mask=mask,
@@ -188,25 +235,31 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                pblimit=pblimit,
                nterms = nterms,
                reffreq = reffreq,
-               uvrange=uvrange,
+               uvrange=selfcal_library['uvrange'],
                threshold=threshold,
                parallel=parallel,
                phasecenter=phasecenter,
                startmodel=startmodel,
-               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True)
+               datacolumn=datacolumn,spw=spws_per_vis,wprojplanes=wprojplanes, verbose=True)
 
-        if image_mosaic_fields_separately:
-            for field_id in mosaic_field_phasecenters:
+        if store_threshold != '':
+            if telescope == "ALMA" or telescope == "ACA":
+                selfcal_library["clean_threshold_"+store_threshold] = float(threshold[0:-2])
+            elif "VLA" in telescope and tclean_return['iterdone'] > 0:
+                selfcal_library["clean_threshold_"+store_threshold] = tclean_return['summaryminor'][0][0][0]['peakRes'][-1]
+
+        if image_mosaic_fields_separately and selfcal_library['obstype'] == 'mosaic':
+            for field_id in selfcal_library['sub-fields-phasecenters']:
                 if 'VLA' in telescope:
-                   fov=45.0e9/band_properties[vis[0]][band]['meanfreq']*60.0*1.5*0.5
-                   if band_properties[vis[0]][band]['meanfreq'] < 12.0e9:
+                   fov=45.0e9/selfcal_library['meanfreq']*60.0*1.5*0.5
+                   if selfcal_library['meanfreq'] < 12.0e9:
                       fov=fov*2.0
                 if telescope=='ALMA':
-                   fov=63.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5*1.15
+                   fov=63.0*100.0e9/selfcal_library['meanfreq']*1.5*0.5*1.15
                 if telescope=='ACA':
-                   fov=108.0*100.0e9/band_properties[vis[0]][band]['meanfreq']*1.5*0.5
+                   fov=108.0*100.0e9/selfcal_library['meanfreq']*1.5*0.5
 
-                center = np.copy(mosaic_field_phasecenters[field_id])
+                center = np.copy(selfcal_library['sub-fields-phasecenters'][field_id])
                 if phasecenter == 'TRACKFIELD':
                     center += imhead(imagename+".image.tt0")['refval'][0:2]
 
@@ -229,33 +282,33 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                             os.system("rm -rf "+imagename.replace(target,target+"_field_"+str(field_id))+ext.replace("pb","mospb.tmp"))
 
                 # Make an image of the primary beam for each sub-field.
-                if type(vis) == list:
-                    for v in vis:
+                if type(selfcal_library['vislist']) == list:
+                    for v in selfcal_library['vislist']:
                         # Since not every field is in every v, we need to check them all so that we don't accidentally get a v without a given field_id
-                        if field_id in mosaic_field_fid_map[v]:
-                            fid = mosaic_field_fid_map[v][field_id]
+                        if field_id in selfcal_library['sub-fields-fid_map'][v]:
+                            fid = selfcal_library['sub-fields-fid_map'][v][field_id]
                             break
 
                     im.open(v)
                 else:
-                    fid = mosaic_field_fid_map[vis][field_id]
+                    fid = selfcal_library['sub-fields-fid_map'][selfcal_library['vislist']][field_id]
                     im.open(vis)
 
                 nx, ny, nfreq, npol = imhead(imagename=imagename.replace(target,target+"_field_"+str(field_id))+".image.tt0", mode="get", \
                         hdkey="shape")
 
-                im.selectvis(field=str(fid), spw=spw)
-                im.defineimage(nx=nx, ny=ny, cellx=cellsize, celly=cellsize, phasecenter=fid, mode="mfs", spw=spw)
+                im.selectvis(field=str(fid), spw=spws_per_vis)
+                im.defineimage(nx=nx, ny=ny, cellx=selfcal_library['cellsize'], celly=selfcal_library['cellsize'], phasecenter=fid, mode="mfs")
                 im.setvp(dovp=True)
                 im.makeimage(type="pb", image=imagename.replace(target,target+"_field_"+str(field_id)) + ".pb.tt0")
                 im.close()
 
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
-    if savemodel=='modelcolumn' and usermodel=='':
+    if savemodel=='modelcolumn' and selfcal_library['usermodel']=='':
           print("")
           print("Running tclean a second time to save the model...")
-          tclean(vis= vis, 
+          tclean(vis= vlist, 
                  imagename = imagename, 
                  field=field,
                  specmode = 'mfs', 
@@ -265,14 +318,14 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  weighting='briggs', 
                  robust = robust,
                  gain = gain,
-                 imsize = imsize,
-                 cell = cellsize, 
+                 imsize = selfcal_library['imsize'],
+                 cell = selfcal_library['cellsize'], 
                  smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
                  niter = 0, 
                  interactive = False,
                  nsigma=0.0, 
                  cycleniter = cycleniter,
-                 cyclefactor = cyclefactor, 
+                 cyclefactor = selfcal_library['cyclefactor'], 
                  uvtaper = uvtaper, 
                  usemask='user',
                  savemodel = savemodel,
@@ -292,38 +345,39 @@ def tclean_wrapper(vis, imagename, band_properties,band,telescope='undefined',sc
                  calcpsf = False,
                  restoration = False,
                  nterms = nterms,
+                 uvrange=selfcal_library['uvrange'],
                  reffreq = reffreq,
-                 uvrange=uvrange,
                  threshold=threshold,
                  parallel=False,
-                 phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
-    elif usermodel !='':
+                 phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
+    
+    elif savemodel=='modelcolumn' and selfcal_library['usermodel'] !='':
           print('Using user model already filled to model column, skipping model write.')
     
     if not savemodel_only:
         return tclean_return
 
-def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
-                   nsigma=5.0, imsize = None, cellsize = None, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
+def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
+                   nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
-                   lownoisethreshold=1.5,parallel=False,nterms=1,reffreq='',cyclefactor=3,uvrange='',threshold='0.0Jy',phasecenter='',\
-                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',obstype='single-point',\
-                   savemodel_only=False, resume=False, image_mosaic_fields_separately=False, mosaic_field_phasecenters={}, mosaic_field_fid_map={},usermodel=''):
-    
-    if type(usermodel)==list:
-       nterms=len(usermodel)
-       for i, image in enumerate(usermodel):
+                   lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
+                   startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
+                   savemodel_only=False, resume=False):
+    vlist = selfcal_library['vislist']
+    if type(selfcal_library['usermodel'])==list:
+       nterms=len(selfcal_library['usermodel'])
+       for i, image in enumerate(selfcal_library['usermodel']):
            if 'fits' in image:
                importfits(fitsimage=image,imagename=image.replace('.fits',''))
-               usermodel[i]=image.replace('.fits','')
-    elif type(usermodel)==str:
-       importfits(fitsimage=usermodel,imagename=usermmodel.replace('.fits',''))
+               selfcal_library['usermodel'][i]=image.replace('.fits','')
+    elif type(selfcal_library['usermodel'])==str:
+       importfits(fitsimage=selfcal_library['usermodel'],imagename=usermmodel.replace('.fits',''))
        nterms=1
    
-    msmd.open(vis[0])
+    msmd.open(vlist[0])
     fieldid=msmd.fieldsforname(field)
     msmd.done()
-    tb.open(vis[0]+'/FIELD')
+    tb.open(vlist[0]+'/FIELD')
     try:
        ephem_column=tb.getcol('EPHEMERIS_ID')
        tb.close()
@@ -333,30 +387,37 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
        tb.close()
        phasecenter=''
 
-    if obstype=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(vis[0],field)
+    if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
 
     if nterms == 1:
        reffreq = ''
+    else:
+       reffreq = selfcal_library['reffreq']
 
     if mask == '':
-       usemask='auto-multithresh'
+       if selfcal_library['usermask'] != '':
+           mask = selfcal_library['usermask']
+           usemask = 'user'
+       else:
+           usemask='auto-multithresh'
     else:
        usemask='user'
+
     wprojplanes=1
     if band=='EVLA_L' or band =='EVLA_S':
        gridder='wproject'
        wplanes=384 # normalized to S-band A-config
        #scale by 75th percentile uv distance divided by A-config value
-       wplanes=wplanes * band_properties[vis[0]][band]['75thpct_uv']/20000.0
+       wplanes=wplanes * selfcal_library['75thpct_uv']/20000.0
        if band=='EVLA_L':
           wplanes=wplanes*2.0 # compensate for 1.5 GHz being 2x longer than 3 GHz
 
 
        wprojplanes=int(wplanes)
-    if (band=='EVLA_L' or band =='EVLA_S') and obstype=='mosaic':
+    if (band=='EVLA_L' or band =='EVLA_S') and selfcal_library['obstype']=='mosaic':
        print('WARNING DETECTED VLA L- OR S-BAND MOSAIC; WILL USE gridder="mosaic" IGNORING W-TERM')
-    if obstype=='mosaic':
+    if selfcal_library['obstype']=='mosaic':
        gridder='mosaic'
     else:
        if gridder !='wproject':
@@ -367,7 +428,10 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
     for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
         os.system('rm -rf '+ imagename + ext)
     #regrid start model
-    tclean(vis= vis, 
+    if not resume:
+        for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
+           os.system('rm -rf '+ imagename+'_usermodel_prep' + ext)
+    tclean(vis= vlist, 
                imagename = imagename+'_usermodel_prep', 
                field=field,
                specmode = 'mfs', 
@@ -377,14 +441,14 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
                weighting='briggs', 
                robust = robust,
                gain = gain,
-               imsize = imsize,
-               cell = cellsize, 
+               imsize = selfcal_library['imsize'],
+               cell = selfcal_library['cellsize'], 
                smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
                niter = 0, #we want to end on the threshold
                interactive = interactive,
                nsigma=nsigma,    
                cycleniter = cycleniter,
-               cyclefactor = cyclefactor, 
+               cyclefactor = selfcal_library['cyclefactor'], 
                uvtaper = uvtaper, 
                mask=mask,
                usemask=usemask,
@@ -396,17 +460,17 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
                pblimit=pblimit,
                nterms = nterms,
                reffreq = reffreq,
-               uvrange=uvrange,
+               uvrange=selfcal_library['uvrange'],
                threshold=threshold,
                parallel=parallel,
                phasecenter=phasecenter,
-               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True,startmodel=usermodel,savemodel='modelcolumn')
+               datacolumn=datacolumn,spw=spw,wprojplanes=wprojplanes, verbose=True,startmodel=selfcal_library['usermodel'],savemodel='modelcolumn')
 
      #this step is a workaround a bug in tclean that doesn't always save the model during multiscale clean. See the "Known Issues" section for CASA 5.1.1 on NRAO's website
     if savemodel=='modelcolumn':
           print("")
           print("Running tclean a second time to save the model...")
-          tclean(vis= vis, 
+          tclean(vis= vlist, 
                  imagename = imagename+'_usermodel_prep', 
                  field=field,
                  specmode = 'mfs', 
@@ -416,14 +480,14 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
                  weighting='briggs', 
                  robust = robust,
                  gain = gain,
-                 imsize = imsize,
-                 cell = cellsize, 
+                 imsize = selfcal_library['imsize'],
+                 cell = selfcal_library['cellsize'], 
                  smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
                  niter = 0, 
                  interactive = False,
                  nsigma=0.0, 
                  cycleniter = cycleniter,
-                 cyclefactor = cyclefactor, 
+                 cyclefactor = selfcal_library['cyclefactor'], 
                  uvtaper = uvtaper, 
                  usemask='user',
                  savemodel = savemodel,
@@ -438,7 +502,7 @@ def usermodel_wrapper(vis, imagename, band_properties,band,telescope='undefined'
                  restoration = False,
                  nterms = nterms,
                  reffreq = reffreq,
-                 uvrange=uvrange,
+                 uvrange=selfcal_library['uvrange'],
                  threshold=threshold,
                  parallel=False,
                  phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
@@ -1150,28 +1214,62 @@ def rank_refants(vis, caltable=None):
      return ','.join(numpy.array(ids)[numpy.argsort(score)].astype(str))
 
 
-def get_SNR_self(all_targets,bands,vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype):
-   solint_snr={}
-   solint_snr_per_field={}
-   solint_snr_per_spw={}
-   solint_snr_per_field_per_spw={}
-   for target in all_targets:
-    solint_snr[target]={}
-    solint_snr_per_field[target]={}
-    solint_snr_per_spw[target]={}
-    solint_snr_per_field_per_spw[target]={}
+def get_SNR_self(selfcal_library,selfcal_plan,n_ant,inf_EB_gaincal_combine,inf_EB_gaintype):
+   minsolint_spw=100
+   for target in selfcal_library:
     for band in selfcal_library[target].keys():
-      if target in solints[band].keys():
-         solint_snr[target][band], solint_snr_per_spw[target][band] = get_SNR_self_individual(vislist, selfcal_library[target][band], n_ant, \
-              solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
+      selfcal_plan[target][band]['solint_snr'], selfcal_plan[target][band]['solint_snr_per_spw'] = get_SNR_self_individual(
+              selfcal_library[target][band]['vislist'], selfcal_library[target][band], n_ant, selfcal_plan[target][band]['solints'], 
+              selfcal_plan[target][band]['integration_time'], inf_EB_gaincal_combine, inf_EB_gaintype)
 
-         solint_snr_per_field[target][band] = {}
-         solint_snr_per_field_per_spw[target][band] = {}
-         for fid in selfcal_library[target][band]['sub-fields']:
-             solint_snr_per_field[target][band][fid], solint_snr_per_field_per_spw[target][band][fid] = get_SNR_self_individual(vislist, \
-                     selfcal_library[target][band][fid], n_ant, solints[band][target], integration_time, inf_EB_gaincal_combine, inf_EB_gaintype)
+      print('Estimated SNR per solint:')
+      print(target,band)
+      for solint in selfcal_plan[target][band]['solints']:
+        if solint == 'inf_EB':
+           print('{}: {:0.2f}'.format(solint,selfcal_plan[target][band]['solint_snr'][solint]))
+           '''
+           for spw in solint_snr_per_spw[target][band][solint].keys():
+              print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+              if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
+                 minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
+           if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
+              print('Switching Gaintype to T for: '+target)
+              inf_EB_gaintype_dict[target][band]='T'
+           elif minsolint_spw < 2.5 and inf_EB_override==False:
+              print('Switching Gaincal combine to spw,scan for: '+target)
+              inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
+           '''
+        else:
+           print('{}: {:0.2f}'.format(solint,selfcal_plan[target][band]['solint_snr'][solint]))
 
-   return solint_snr, solint_snr_per_spw, solint_snr_per_field, solint_snr_per_field_per_spw
+      for fid in selfcal_library[target][band]['sub-fields']:
+          selfcal_plan[target][band][fid] = {}
+          selfcal_plan[target][band][fid]['solint_snr_per_field'], selfcal_plan[target][band][fid]['solint_snr_per_field_per_spw'] = \
+                  get_SNR_self_individual(selfcal_library[target][band]['vislist'], selfcal_library[target][band][fid], n_ant, 
+                  selfcal_plan[target][band]['solints'], selfcal_plan[target][band]['integration_time'], inf_EB_gaincal_combine, 
+                  inf_EB_gaintype)
+
+          print('Estimated SNR per solint:')
+          print(target,band,"field "+str(fid))
+          for solint in selfcal_plan[target][band]['solints']:
+            if solint == 'inf_EB':
+               print('{}: {:0.2f}'.format(solint,selfcal_plan[target][band][fid]['solint_snr_per_field'][solint]))
+               '''
+               for spw in solint_snr_per_spw[target][band][solint].keys():
+                  print('{}: spw: {}: {:0.2f}, BW: {} GHz'.format(solint,spw,solint_snr_per_spw[target][band][solint][spw],selfcal_library[target][band]['per_spw_stats'][str(spw)]['effective_bandwidth']))
+                  if solint_snr_per_spw[target][band][solint][spw] < minsolint_spw:
+                     minsolint_spw=solint_snr_per_spw[target][band][solint][spw]
+               if minsolint_spw < 3.5 and minsolint_spw > 2.5 and inf_EB_override==False:  # if below 3.5 but above 2.5 switch to gaintype T, but leave combine=scan
+                  print('Switching Gaintype to T for: '+target)
+                  inf_EB_gaintype_dict[target][band]='T'
+               elif minsolint_spw < 2.5 and inf_EB_override==False:
+                  print('Switching Gaincal combine to spw,scan for: '+target)
+                  inf_EB_gaincal_combine_dict[target][band]='scan,spw' # if below 2.5 switch to combine=spw to avoid losing spws
+               '''
+            else:
+               print('{}: {:0.2f}'.format(solint,selfcal_plan[target][band][fid]['solint_snr_per_field'][solint]))
+
+   #return solint_snr, solint_snr_per_spw, solint_snr_per_field, solint_snr_per_field_per_spw
 
 def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_time,inf_EB_gaincal_combine,inf_EB_gaintype):
       if inf_EB_gaintype=='G':
@@ -1235,22 +1333,21 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
       return solint_snr,solint_snr_per_spw
 
-def get_SNR_self_update(all_targets,band,vislist,selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
-   for target in all_targets:
+def get_SNR_self_update(selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
 
-      SNR = max(selfcal_library[selfcal_library['vislist'][0]][solint_curr]['SNR_post'],selfcal_library[selfcal_library['vislist'][0]][solint_curr]['intflux_post']/selfcal_library[selfcal_library['vislist'][0]][solint_curr]['e_intflux_post'])
+    SNR = max(selfcal_library[selfcal_library['vislist'][0]][solint_curr]['SNR_post'],selfcal_library[selfcal_library['vislist'][0]][solint_curr]['intflux_post']/selfcal_library[selfcal_library['vislist'][0]][solint_curr]['e_intflux_post'])
 
-      if solint_next == 'inf' or solint_next == 'inf_ap':
-         selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
-         solint_snr[solint_next]=selfcal_library['per_scan_SNR']
-      elif solint_next == 'scan_inf':
-         selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
-         solint_snr[solint_next]=selfcal_library['per_scan_SNR']
-      elif solint_next == 'int':
-         solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
-      else:
-         solint_float=float(solint_next.replace('s','').replace('_ap',''))
-         solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
+    if solint_next == 'inf' or solint_next == 'inf_ap':
+       selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
+       solint_snr[solint_next]=selfcal_library['per_scan_SNR']
+    elif solint_next == 'scan_inf':
+       selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
+       solint_snr[solint_next]=selfcal_library['per_scan_SNR']
+    elif solint_next == 'int':
+       solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
+    else:
+       solint_float=float(solint_next.replace('s','').replace('_ap',''))
+       solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
 
 
 def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,specmode='mfs',uvtaper=''):
@@ -1743,29 +1840,29 @@ def largest_prime_factor(n):
     return n
 
 
-def get_image_parameters(vislist,telescope,target,field_ids,band,band_properties,scale_fov=1.0,mosaic=False):
+def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
-      im.selectvis(vis=vislist[i],spw=band_properties[vislist[i]][band]['spwarray'])
+      im.selectvis(vis=vislist[i],spw=selfcal_library[target][band][vislist[i]]['spwsarray'])
       adviseparams= im.advise() 
       cells[i]=adviseparams[2]['value']/2.0
       im.close()
    cell=np.min(cells)
    cellsize='{:0.3f}arcsec'.format(cell)
    nterms=1
-   if band_properties[vislist[0]][band]['fracbw'] > 0.1:
+   if selfcal_library[target][band]['fracbw'] > 0.1:
       nterms=2
-   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[band_properties[vis][band]['spwarray'] for vis in vislist])), telescope)
+   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
 
    if 'VLA' in telescope:
-      fov=45.0e9/band_properties[vislist[0]][band]['meanfreq']*60.0*1.5
-      if band_properties[vislist[0]][band]['meanfreq'] < 12.0e9:
+      fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
+      if selfcal_library[target][band]['meanfreq'] < 12.0e9:
          fov=fov*2.0
    if telescope=='ALMA':
-      fov=63.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
+      fov=63.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
    if telescope=='ACA':
-      fov=108.0*100.0e9/band_properties[vislist[0]][band]['meanfreq']*1.5
+      fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
    fov=fov*scale_fov
    if mosaic:
        msmd.open(vislist[0])
@@ -2387,7 +2484,7 @@ def gaussian_norm(x, mean, sigma):
    norm_gauss_dist=gauss_dist/np.max(gauss_dist)
    return norm_gauss_dist
 
-def generate_weblog(sclib,solints,bands,directory='weblog'):
+def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    from datetime import datetime
    os.system('rm -rf '+directory)
    os.system('mkdir '+directory)
@@ -2406,13 +2503,14 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
    for target in targets:
       htmlOut.writelines('<a href="#'+target+'">'+target+'</a><br>\n')
    htmlOut.writelines('<h2>Bands:</h2>\n')
+   bands = np.unique(np.concatenate([list(sclib[target].keys()) for target in sclib])).tolist()
    bands_string=', '.join([str(elem) for elem in bands])
    htmlOut.writelines(''+bands_string+'\n')
    htmlOut.writelines('<h2>Solints to Attempt:</h2>\n')
-   for band in bands:
-      for target in solints[band].keys():     
-         solints_string=', '.join([str(elem) for elem in solints[band][target]])
-         htmlOut.writelines('<br>'+band+': '+solints_string)
+   for target in selfcal_plan:
+       for band in selfcal_plan[target]:
+          solints_string=', '.join([str(elem) for elem in selfcal_plan[target][band]['solints']])
+          htmlOut.writelines('<br>'+band+': '+solints_string)
 
    for target in targets:
       htmlOut.writelines('<a name="'+target+'"></a>\n')
@@ -2461,7 +2559,7 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png"><img src="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png" ALT="Noise Characteristics" WIDTH=300 HEIGHT=300></a><br>\n')
          
          # Solint summary table
-         render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints)
+         render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan)
 
          # PER SPW STATS TABLE
          if 'per_spw_stats' in sclib[target][band].keys():
@@ -2473,7 +2571,7 @@ def generate_weblog(sclib,solints,bands,directory='weblog'):
    htmlOut.close()
    
    # Pages for each solint
-   render_per_solint_QA_pages(sclib,solints,bands,directory=directory)
+   render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory=directory)
  
 
 def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
@@ -2569,10 +2667,10 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
          htmlOut.writelines('	</tr>\n')
          htmlOut.writelines('</table>\n')
 
-def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,solints):
+def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
          #  SELFCAL SUMMARY TABLE   
          vislist=sclib[target][band]['vislist']
-         solint_list=solints[band][target]
+         solint_list=selfcal_plan[target][band]['solints']
          htmlOut.writelines('<br>Per solint stats: <br>\n')
          htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
          htmlOut.writelines('	<tr>\n')
@@ -2754,7 +2852,7 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
              if sclib[target][band]['per_spw_stats'][spw]['delta_beamarea'] > 0.05:
                 htmlOut.writelines('WARNING SPW '+str(spw)+' HAS A >0.05 CHANGE IN BEAM AREA POST SELFCAL<br>\n')
 
-def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
+def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
   ## Per Solint pages
    targets=list(sclib.keys())
    for target in targets:
@@ -2763,21 +2861,21 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
          if sclib[target][band]['final_solint'] == 'None':
             final_solint_index=0
          else:
-            final_solint_index=solints[band][target].index(sclib[target][band]['final_solint']) 
+            final_solint_index=selfcal_plan[target][band]['solints'].index(sclib[target][band]['final_solint']) 
 
          vislist=sclib[target][band]['vislist']
          index_addition=1
-         if sclib[target][band]['final_solint'] != solints[band][target][-1] and sclib[target][band]['final_solint'] != 'None':
+         if sclib[target][band]['final_solint'] != selfcal_plan[target][band]['solints'][-1] and sclib[target][band]['final_solint'] != 'None':
             index_addition=2
          # if it's a dataset where inf_EB == inf, make sure to take out the assumption that there would be an 'inf' solution
-         if 'inf' not in solints[band][target]:
+         if 'inf' not in selfcal_plan[target][band]['solints']:
             index_addition=index_addition-1
          #add an additional check to make sure the final index will be in the array
-         if final_solint_index+index_addition-1 > (len(solints[band][target])-1):
-            index_addition=(final_solint_index+index_addition-1) - (len(solints[band][target])-1)
+         if final_solint_index+index_addition-1 > (len(selfcal_plan[target][band]['solints'])-1):
+            index_addition=(final_solint_index+index_addition-1) - (len(selfcal_plan[target][band]['solints'])-1)
          
 
-         final_solint_to_plot=solints[band][target][final_solint_index+index_addition-1]
+         final_solint_to_plot=selfcal_plan[target][band]['solints'][final_solint_index+index_addition-1]
          keylist=sclib[target][band][vislist[0]].keys()
          if index_addition == 2 and final_solint_to_plot not in keylist:
            index_addition=index_addition-1
@@ -2785,11 +2883,11 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
 
          
          #for i in range(final_solint_index+index_addition):
-         for i in range(len(solints[band][target])):
+         for i in range(len(selfcal_plan[target][band]['solints'])):
 
-            if solints[band][target][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]['Pass'] == 'None':
+            if selfcal_plan[target][band]['solints'][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]['Pass'] == 'None':
                continue
-            htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+solints[band][target][i]+'.html','w')
+            htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'.html','w')
             htmlOutSolint.writelines('<html>\n')
             htmlOutSolint.writelines('<title>SelfCal Weblog</title>\n')
             htmlOutSolint.writelines('<head>\n')
@@ -2802,19 +2900,19 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
             keylist=sclib[target][band][vislist[0]].keys()
             solints_string=''
             for j in range(final_solint_index+index_addition):
-               if solints[band][target][j] not in keylist:
+               if selfcal_plan[target][band]['solints'][j] not in keylist:
                   continue
-               solints_string+='<a href="'+target+'_'+band+'_'+solints[band][target][j]+'.html">'+solints[band][target][j]+'  </a><br>\n'
+               solints_string+='<a href="'+target+'_'+band+'_'+selfcal_plan[target][band]['solints'][j]+'.html">'+selfcal_plan[target][band]['solints'][j]+'  </a><br>\n'
             htmlOutSolint.writelines('<br>Solints: '+solints_string)
 
-            htmlOutSolint.writelines('<h3>Solint: '+solints[band][target][i]+'</h3>\n')       
+            htmlOutSolint.writelines('<h3>Solint: '+selfcal_plan[target][band]['solints'][i]+'</h3>\n')       
             keylist_top=sclib[target][band].keys()
             htmlOutSolint.writelines('<a href="index.html#'+target+'_'+band+'">Back to Main Target/Band</a><br>\n')
 
 
             #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
-            if "Pass" in sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]:
-                passed=sclib[target][band][vislist[len(vislist)-1]][solints[band][target][i]]['Pass']
+            if "Pass" in sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]:
+                passed=sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]['Pass']
             else:
                 passed = 'None'
 
@@ -2835,41 +2933,42 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
 
             htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png', \
+            plot_image(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0',\
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png', \
                       zoom=2 if directory=="weblog" else 1) 
-            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0')
-            plot_image(sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
+            image_stats=imstat(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0')
+            plot_image(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0',\
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
                       zoom=2 if directory=="weblog" else 1) 
 
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+solints[band][target][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['SNR_pre'])+'<br><br>\n')
-            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['RMS_pre'])+' Jy/beam<br>\n')
-            htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_major_post'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_PA_post'])+'<br>\n')
-            htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][solints[band][target][i]]['Beam_PA_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_pre'])+' Jy/beam<br>\n')
+            htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_post'])+'<br>\n')
+            htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_pre'])+'<br><br>\n')
 
 
-            if 'inf_EB' in solints[band][target][i]:
+            if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
                htmlOutSolint.writelines('<h3>Phase vs. Frequency Plots:</h3>\n')
             else:
                htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
             for vis in vislist:
                htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
-               if 'gaintable' not in sclib[target][band][vis][solints[band][target][i]]:
+               if 'gaintable' not in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
                     htmlOutSolint.writelines('No gaintable available <br><br>')
                     continue
                ant_list=get_ant_list(vis)
-               gaintable=sclib[target][band][vis][solints[band][target][i]]['gaintable'][len(sclib[target][band][vis][solints[band][target][i]]['gaintable'])-1]
+               gaintable=sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['gaintable'][len(sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['gaintable'])-1]
                print('******************'+gaintable+'***************')
                nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                frac_flagged_sols=nflagged_sols/nsols
                plot_ants_flagging_colored(directory+'/images/plot_ants_'+gaintable+'.png',vis,gaintable)
                htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a>')
-               if 'unflagged_lbs' in sclib[target][band][vis][solints[band][target][i]]:
-                   unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), sclib[target][band][vis][solints[band][target][i]]['gaincal_return'], flagged_fraction=0.25, \
-                           spwmap=sclib[target][band][vis][solints[band][target][i]]['unflag_spwmap'], \
+               if 'unflagged_lbs' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
+                   unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), 
+                           sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['gaincal_return'], \
+                           flagged_fraction=0.25, spwmap=sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['unflag_spwmap'], \
                            plot=True, plot_directory=directory+'/images/')
                    htmlOutSolint.writelines('\n<a href="images/'+gaintable.replace('.g.','.pre-pass.pass')+'.png"><img src="images/'+gaintable.replace('.g','.pre-pass.pass')+'.png" ALT="Long baseline unflagging thresholds" HEIGHT=400></a><br>\n')
                else:
@@ -2877,27 +2976,27 @@ def render_per_solint_QA_pages(sclib,solints,bands,directory='weblog'):
                htmlOutSolint.writelines('N Gain solutions: {:0.0f}<br>'.format(nsols))
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols))
-               if 'inf_EB' in solints[band][target][i]:
-                  if 'fallback' in sclib[target][band][vis][solints[band][target][i]].keys():
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == '':
+               if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
+                  if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys():
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == '':
                         fallback_mode='None'
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'combinespw':
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'combinespw':
                         fallback_mode='Combine SPW'
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'spwmap':
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'spwmap':
                         fallback_mode='SPWMAP'
-                     if sclib[target][band][vis][solints[band][target][i]]['fallback'] == 'combinespwpol':
+                     if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'combinespwpol':
                         fallback_mode='Combine SPW & Pol'
                      htmlOutSolint.writelines('<h4>Fallback Mode: <font color="red">'+fallback_mode+'</font></h4>\n')
-               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][solints[band][target][i]]['spwmap']))+']</h4>\n')
+               htmlOutSolint.writelines('<h4>Spwmapping: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
 
 
                for ant in ant_list:
                   sani_target=sanitize_string(target)
-                  if 'inf_EB' in solints[band][target][i]:
+                  if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
                      xaxis='frequency'
                   else:
                      xaxis='time'
-                  if 'ap' in solints[band][target][i]:
+                  if 'ap' in selfcal_plan[target][band]['solints'][i]:
                      yaxis='amp'
                      plotrange=[0,0,0,2.0]
                   else:
@@ -3069,7 +3168,7 @@ def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
 
 
 def check_mosaic(vislist,target):
-   msmd.open(vis[0])
+   msmd.open(vislist[0])
    fieldid=msmd.fieldsforname(field)
    msmd.done()
    if len(fieldid) > 1:
@@ -3151,10 +3250,10 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    nflags_spwcomb,nunflagged_spwcomb,fracflagged_spwcomb=get_flagged_solns_per_spw([spwlist[0]],spw_combine_test_gaintable)
    eff_bws=np.zeros(len(spwlist))
    total_bws=np.zeros(len(spwlist))
-   keylist=list(selfcal_library[target][band][vis]['per_spw_stats'].keys())
+   keylist=list(selfcal_library[vis]['per_spw_stats'].keys())
    for i in range(len(spwlist)):
-      eff_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
-      total_bws[i]=selfcal_library[target][band][vis]['per_spw_stats'][keylist[i]]['bandwidth']
+      eff_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['effective_bandwidth']
+      total_bws[i]=selfcal_library[vis]['per_spw_stats'][keylist[i]]['bandwidth']
    minimum_flagged_ants_per_spw=np.min(nflags)/2.0
    minimum_flagged_ants_spwcomb=np.min(nflags_spwcomb)/2.0 # account for the fact that some antennas might be completely flagged and give 
                                                            # the impression of a lot of flagging
@@ -3170,7 +3269,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    for i in range(len(spwlist)):
       if np.min(delta_nflags[i]) > max_flagged_ants_spwmap or \
-            solint_snr_per_spw[target][band]['inf_EB'][str(selfcal_library[target][band]['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
+            solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
          fallback='spwmap'
          spwmap[i]=True
          if total_bws[i] > min_spwmap_bw:
@@ -3195,7 +3294,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
       #   map_index=max_bw_min_flags_index[0]
       
       #make spwmap list that first maps everything to itself, need max spw to make that list
-      maxspw=np.max(selfcal_library[target][band][vis]['spwsarray']+1)
+      maxspw=np.max(selfcal_library[vis]['spwsarray']+1)
       applycal_spwmap_int_list=list(np.arange(maxspw))
       for i in range(len(applycal_spwmap_int_list)):
          applycal_spwmap.append(applycal_spwmap_int_list[i])
