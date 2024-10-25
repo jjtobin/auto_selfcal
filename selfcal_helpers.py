@@ -2419,7 +2419,7 @@ def get_flagged_solns_per_ant_from_dict(gc_dict_list,spwlist,vis):
 def plot_ants_flagging_colored_from_dict(filename,selfcal_library,selfcal_plan,solint,final_mode,vis):
    spwlist=selfcal_library['spwlist'].copy()
    spwlist_pass=[]
-   if final_mode=='combinespw':
+   if final_mode=='combinespw' or final_mode=='combinespwpol':
        spwlist_pass=[spwlist[0]]
    elif final_mode=='per_spw':
        spwlist_pass=spwlist.copy()
