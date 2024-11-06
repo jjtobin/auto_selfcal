@@ -337,7 +337,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate.copy()
             selfcal_library[fid][vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
         selfcal_plan[vis]['solint_settings'][solint]['accepted_gaintable']=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g'
-        if preferred_mode != 'combinespw':   # preapply all non spwcombine gain tables
+        if 'combinespw' not in preferred_mode or solint == 'inf_EB':   # preapply all non spwcombine gain tables
            selfcal_plan[vis]['solint_settings'][solint]['preapply_this_gaintable']=True
 
 
@@ -458,7 +458,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             selfcal_library[fid][vis][solint]['applycal_interpolate']=applycal_interpolate.copy()
             selfcal_library[fid][vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
-        if preferred_mode != 'combinespw':   # preapply all non spwcombine gain tables
+        if 'combinespw' not in preferred_mode or solint == 'inf_EB':   # preapply all non spwcombine gain tables
            selfcal_plan[vis]['solint_settings'][solint]['preapply_this_gaintable']=True
         selfcal_plan[vis]['solint_settings'][solint]['accepted_gaintable']=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+preferred_mode+'.g'
 
