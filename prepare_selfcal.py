@@ -568,6 +568,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')
                 if solint == 'inf_EB':
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespwpol')
+                    selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
                 if 'spw' not in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']:
                     if min_SNR_spw > 2.0: 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
