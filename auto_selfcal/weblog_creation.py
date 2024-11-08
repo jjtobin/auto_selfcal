@@ -555,7 +555,7 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                htmlOutSolint.writelines('<a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=400 HEIGHT=400></a>')
                if 'unflagged_lbs' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
                    unflag_failed_antennas(vis, gaintable.replace('.g','.pre-pass.g'), \
-                           selfcal_plan[target][band][vis]['solint_settings'][selfcal_plan[target][band]['solints'][i]]['gaincal_return_dict'][selfcal_library[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode']][0], \
+                           selfcal_plan[target][band][vis]['solint_settings'][selfcal_plan[target][band]['solints'][i]]['gaincal_return_dict'][sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode']], \
                            flagged_fraction=0.25, \
                            spwmap=sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['unflag_spwmap'], \
                            plot=True, plot_directory=directory+'/images/')
@@ -579,6 +579,8 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                   gc_combine_mode='Per SPW'
                if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys() and sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback']=='spwmap':
                   gc_combine_mode='Per SPW + SPW Mapping'
+               if 'fallback' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]].keys() and sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['fallback'] == 'combinespwpol':
+                  gc_combine_mode='Combine SPW & Pol'
                htmlOutSolint.writelines('<h4>Gaincal Combine Mode: <font color="red">'+gc_combine_mode+'</font></h4>\n')
                htmlOutSolint.writelines('<h4>Applycal SPW Map: ['+' '.join(map(str,sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['spwmap']))+']</h4>\n')
 
