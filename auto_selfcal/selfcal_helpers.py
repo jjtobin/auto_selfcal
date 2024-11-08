@@ -266,7 +266,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                 region = 'circle[[{0:f}rad, {1:f}rad], {2:f}arcsec]'.format(center[0], center[1], fov)
 
                 for ext in [".image.tt0", ".mask", ".residual.tt0", ".psf.tt0",".pb.tt0"]:
-refactor_code_spwcombine_merge_downstream                    target = sanitize_string(field)
+                    target = sanitize_string(field)
                     os.system('rm -rf '+ imagename.replace(target,target+"_field_"+str(field_id)) + ext.replace("pb","mospb"))
 
                     if ext == ".psf.tt0":
