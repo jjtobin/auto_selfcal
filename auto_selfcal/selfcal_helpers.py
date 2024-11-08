@@ -4146,3 +4146,10 @@ def remove_modes(selfcal_plan,vis,start_index):  # remove the per_spw and/or per
           if 'per_bb' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
              selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt'].remove('per_bb')
 
+
+def is_iterable(obj):
+    try:
+        iter(obj)
+        return True
+    except TypeError:
+        return False

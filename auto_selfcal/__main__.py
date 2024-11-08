@@ -17,6 +17,8 @@ parser = argparse.ArgumentParser(
                     prog='auto_selfcal',
                     description='Run automated self-calibration on a collection of MS files.')
 
+parser.add_argument('--vislist', default='', type=str)
+
 parser.add_argument('--action', default='run')
 
 parser.add_argument('--spectral_average', default=True, type=bool)
@@ -59,21 +61,10 @@ args = parser.parse_args()
 if args.exit:
     pass
 elif args.action == "run":
-    ##
-    ## Get list of MS files in directory
-    ##
-    vislist=glob.glob('*_target.ms')
-    if len(vislist) == 0:
-       vislist=glob.glob('*_targets.ms')   # adaptation for PL2022 output
-       if len(vislist)==0:
-          vislist=glob.glob('*_cont.ms')   # adaptation for PL2022 output
-          if len(vislist)==0:
-             if len(glob.glob("calibrated_final.ms")) > 0:
-                 split_calibrated_final()
-             else:
-                 sys.exit('No Measurement sets found in current working directory, exiting')
+    auto_selfcal(vislist=vislist.split(','), parallel=parallel, **vars(args))
 
-    auto_selfcal(vislist, parallel=parallel, **vars(args))
+elif args.action == "prepare_data":
+    split_calibrated_final(vislist=vislist.split(','), overwrite=True)
 
 elif args.action == "regenerate_weblog":
     regenerate_weblog()

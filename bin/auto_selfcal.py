@@ -11,16 +11,7 @@ except:
    parallel=False
 
 
-vislist=glob.glob('*_target.ms')
-if len(vislist) == 0:
-   vislist=glob.glob('*_targets.ms')   # adaptation for PL2022 output
-   if len(vislist)==0:
-      vislist=glob.glob('*_cont.ms')   # adaptation for PL2022 output
-      if len(vislist)==0:
-         if len(glob.glob("calibrated_final.ms")) > 0:
-             split_calibrated_final()
-         else:
-             sys.exit('No Measurement sets found in current working directory, exiting')
+vislist = [] # Edit manually, or leave and let auto_selfcal automatically detect.
 
 auto_selfcal(vislist, parallel=parallel)
 

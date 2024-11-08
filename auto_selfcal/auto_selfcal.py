@@ -19,7 +19,8 @@ from casatools import msmetadata as msmdtool
 
 msmd = msmdtool()
 
-def auto_selfcal(vislist, 
+def auto_selfcal(
+        vislist=[], 
         spectral_average=True,
         do_amp_selfcal=True,
         
@@ -71,6 +72,27 @@ def auto_selfcal(vislist,
         debug=False, 
         parallel=False,
         **kwargs):
+
+    # Check that the vislist keyword is supplied correctly.
+
+    if not is_iterable(vislist):
+        print("Argument vislist must be a string or list-like. Exiting...")
+    elif type(vislist) == str:
+        vislist = [vislist]
+    elif len(vislist) == 0:
+        ##
+        ## Get list of MS files in directory
+        ##
+        vislist=glob.glob('*_target.ms')
+        if len(vislist) == 0:
+           vislist=glob.glob('*_targets.ms')   # adaptation for PL2022 output
+           if len(vislist)==0:
+              vislist=glob.glob('*_cont.ms')   # adaptation for PL2022 output
+              if len(vislist)==0:
+                 if len(glob.glob("calibrated_final.ms")) > 0:
+                     split_calibrated_final(vis=['calibrated_final.ms'])
+                 else:
+                     sys.exit('No Measurement sets found in current working directory, exiting')
 
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
