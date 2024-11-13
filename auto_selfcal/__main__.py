@@ -8,6 +8,7 @@ except:
 from .auto_selfcal import auto_selfcal
 from .regenerate_weblog import regenerate_weblog
 from .split_calibrated_final import split_calibrated_final
+from .original_ms_helpers import applycal_to_orig_MSes, uvcontsub_orig_MSes
 import argparse
 import glob
 import ast
@@ -50,6 +51,7 @@ parser.add_argument('--rel_thresh_scaling', default='log10', type=str)  #can set
 parser.add_argument('--dividing_factor', default=-99.0, type=float)  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
 parser.add_argument('--check_all_spws', action='store_true')   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 parser.add_argument('--apply_to_target_ms', action='store_true') # apply final selfcal solutions back to the input _target.ms files
+parser.add_argument('--uvcontsub_target_ms', action='store_true') # apply final selfcal solutions back to the input _target.ms files
 parser.add_argument('--sort_targets_and_EBs', action='store_true')
 parser.add_argument('--run_findcont', action='store_true')
 parser.add_argument('--debug', action='store_true')
@@ -62,11 +64,13 @@ if args.exit:
     pass
 elif args.action == "run":
     auto_selfcal(vislist=vislist.split(','), parallel=parallel, **vars(args))
-
 elif args.action == "prepare_data":
     split_calibrated_final(vislist=vislist.split(','), overwrite=True)
-
 elif args.action == "regenerate_weblog":
     regenerate_weblog()
+elif args.action == "apply":
+    applycal_to_orig_MSes(write_only=False)
+elif args.action == "contsub":
+    uvcontsub_orig_MSes(write_only=False)
 
 sys.exit()

@@ -13,6 +13,7 @@ from .run_selfcal import run_selfcal
 from .image_analysis_helpers import *
 from .weblog_creation import *
 from .prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_per_solint
+from .original_ms_helpers import applycal_to_orig_MSes, uvcontsub_orig_MSes
 
 import casatasks
 from casatools import msmetadata as msmdtool
@@ -67,6 +68,7 @@ def auto_selfcal(
                                # default is 40 for <8ghz and 15.0 for all other frequencies
         check_all_spws=False,   # generate per-spw images to check phase transfer did not go poorly for narrow windows
         apply_to_target_ms=False, # apply final selfcal solutions back to the input _target.ms files
+        uvcontsub_target_ms=False, # continuum subtract the input _target.ms files
         sort_targets_and_EBs=False,
         run_findcont=False,
         debug=False, 
@@ -566,78 +568,14 @@ def auto_selfcal(
            print('Final RMS: ',selfcal_library[target][band][fid]['RMS_final'])
 
 
-    applyCalOut=open('applycal_to_orig_MSes.py','w')
-    #apply selfcal solutions back to original ms files
-    if apply_to_target_ms:
-       for vis in vislist_orig:
-          clearcal(vis=vis)
-    for target in selfcal_library:
-       for band in selfcal_library[target].keys():
-          if selfcal_library[target][band]['SC_success']:
-             for vis in selfcal_library[target][band]['vislist']: 
-                solint=selfcal_library[target][band]['final_solint']
-                iteration=selfcal_library[target][band][vis][solint]['iteration']    
-                line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+selfcal_library[target][band][vis]['spws_orig']+'")\n'
-                applyCalOut.writelines(line)
-                if apply_to_target_ms:
-                   if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
-                      flagmanager(vis=vis.replace('.selfcal',''), mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
-                   else:
-                      flagmanager(vis=vis.replace('.selfcal',''),mode='save',versionname='before_final_applycal')
-                   applycal(vis=vis.replace('.selfcal',''),\
-                        gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
-                        interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
-                        applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=selfcal_library[target][band][vis]['spws_orig'])
+    # Either apply the calibrations to the original MS files, or write a file with the relevant
+    # commands to do so.
 
-    applyCalOut.close()
+    applycal_to_orig_MSes(selfcal_library, write_only=(not apply_to_target_ms))
 
-    casaversion=casatasks.version()
-    if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[1]==5 and casaversion[2]>=2))):   # new uvcontsub format only works in CASA >=6.5.2
-       if os.path.exists("cont.dat"):
-          contsub_dict={}
-          for vis in selfcal_library[target][band]['vislist']:  
-             contsub_dict[vis]={}  
-          for target in selfcal_library:
-             sani_target=sanitize_string(target)
-             for band in selfcal_library[target].keys():
-                contdotdat = parse_contdotdat('cont.dat',target)
-                if len(contdotdat) == 0:
-                    selfcal_library[target][band]['Found_contdotdat'] = False
-                spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
-                for vis in selfcal_library[target][band]['vislist']:
-                   msmd.open(vis)
-                   field_num_array=msmd.fieldsforname(target)
-                   msmd.close()
-                   for fieldnum in field_num_array:
-                      contsub_dict[vis][str(fieldnum)]=get_fitspw_dict(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat)
-                      print(contsub_dict[vis][str(fieldnum)])
-          print(contsub_dict)
-          uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
-          for vis in selfcal_library[target][band]['vislist']:  
-             line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
-             uvcontsubOut.writelines(line)
-          uvcontsubOut.close()
+    # Do continuum subtraction of the original MS files.
 
-    else:   # old uvcontsub formatting, requires splitting out per target, new one is much better
-       if os.path.exists("cont.dat"):
-          uvcontsubOut=open('uvcontsub_orig_MSes_old.py','w')
-          line='import os\n'
-          uvcontsubOut.writelines(line)
-          for target in selfcal_library:
-             sani_target=sanitize_string(target)
-             for band in selfcal_library[target].keys():
-                contdotdat = parse_contdotdat('cont.dat',target)
-                if len(contdotdat) == 0:
-                    selfcal_library[target][band]['Found_contdotdat'] = False
-                spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
-                for vis in selfcal_library[target][band]['vislist']:      
-                   contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat,return_contfit_range=True)
-                   line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
-                   uvcontsubOut.writelines(line)
-          uvcontsubOut.close()
-
-
-
+    uvcontsub_orig_MSes(selfcal_library, write_only=(not uvcontsub_target_ms))
 
     #
     # Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration

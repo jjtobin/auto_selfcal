@@ -13,8 +13,6 @@ TempLattice*
 
 .*.swp
 
-applycal_to_orig_MSes.py
-
 oussid*
 pipeline*
 flux.csv

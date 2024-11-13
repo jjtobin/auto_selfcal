@@ -191,6 +191,7 @@ def prepare_selfcal(vislist,
        selfcal_library[target][band]['spws']=[]
        selfcal_library[target][band]['spws_per_vis']=[]
        selfcal_library[target][band]['vislist']=vislist.copy()
+       selfcal_library[target][band]['vislist_orig']=vislist_orig.copy()
        allscantimes=np.array([])
        allscannfields=np.array([])
        for vis in vislist:
