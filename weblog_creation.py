@@ -361,8 +361,10 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
 
                      if quantity =='SPW_Combine_Mode':
                         solint_index=selfcal_plan[target][band]['solints'].index(solint)
-                        if 'combinespw' in sclib[target][band][vis][solint]['final_mode']:
+                        if sclib[target][band][vis][solint]['final_mode'] == 'combinespw':
                            gc_combine_mode='Combine SPW'
+                        if sclib[target][band][vis][solint]['final_mode'] == 'combinespwpol':
+                           gc_combine_mode='Combine SPW & Pol'
                         if sclib[target][band][vis][solint]['final_mode'] == 'per_bb':
                            gc_combine_mode='Per Baseband'
                         if sclib[target][band][vis][solint]['final_mode'] == 'per_spw':
@@ -571,8 +573,10 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                htmlOutSolint.writelines('Flagged solutions: {:0.0f}<br>'.format(nflagged_sols_total))
                htmlOutSolint.writelines('Fraction Flagged Solutions: {:0.3f} <br><br>'.format(frac_flagged_sols_total))
                print(sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'])
-               if 'combinespw' in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode']:
+               if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'combinespw':
                   gc_combine_mode='Combine SPW'
+               if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'combinespwpol':
+                  gc_combine_mode='Combine SPW & Pol'
                if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'per_bb':
                   gc_combine_mode='Per Baseband'
                if sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]['final_mode'] == 'per_spw':
