@@ -19,6 +19,10 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
     ##
 
     os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'*.g')
+
+    ## Reset the gaincal return dictionaries, in case this is a repeat of the current solution interval.
+    for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+        selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode] = []
     ##
     ## Set gaincal parameters depending on which iteration and whether to use combine=spw for inf_EB or not
     ## Defaults should assume combine='scan' and gaintpe='G' will fallback to combine='scan,spw' if too much flagging
