@@ -1367,7 +1367,9 @@ def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_ne
          maxspwvis=vis+''
    SNR = max(selfcal_library[selfcal_library['vislist'][0]][solint_curr]['SNR_post'],selfcal_library[selfcal_library['vislist'][0]][solint_curr]['intflux_post']/selfcal_library[selfcal_library['vislist'][0]][solint_curr]['e_intflux_post'])
 
-   SNR_ratio=selfcal_library[vis][solint_curr]['SNR_post']/selfcal_library['SNR_orig']
+   SNR_orig = max(selfcal_library['SNR_orig'],selfcal_library['intflux_orig']/selfcal_library['e_intflux_orig'])
+
+   SNR_ratio = SNR / SNR_orig
 
    #solint_snr[solint_next]=SNR_ratio*solint_snr[solint_next]
    solint_snr[solint_next]=SNR_ratio*solint_snr[solint_next]
