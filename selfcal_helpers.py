@@ -3262,7 +3262,8 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
    #if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    for i in range(len(spwlist)):
       if np.min(delta_nflags[i]) > max_flagged_ants_spwmap or \
-            solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
+            solint_snr_per_spw['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed or \
+            fracflagged[i] == 1.0:
          fallback='spwmap'
          spwmap[i]=True
          if total_bws[i] > min_spwmap_bw:
