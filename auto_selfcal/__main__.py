@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(
                     prog='auto_selfcal',
                     description='Run automated self-calibration on a collection of MS files.')
 
-parser.add_argument('--vislist', default='', type=str)
+parser.add_argument('--vislist', nargs='*', default=[])
 
 parser.add_argument('--action', default='run')
 
@@ -63,9 +63,9 @@ args = parser.parse_args()
 if args.exit:
     pass
 elif args.action == "run":
-    auto_selfcal(vislist=vislist.split(','), parallel=parallel, **vars(args))
+    auto_selfcal(parallel=parallel, **vars(args))
 elif args.action == "prepare_data":
-    split_calibrated_final(vislist=vislist.split(','), overwrite=True)
+    split_calibrated_final(vislist=args.vislist, overwrite=True)
 elif args.action == "regenerate_weblog":
     regenerate_weblog()
 elif args.action == "apply":
