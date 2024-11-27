@@ -1,7 +1,11 @@
 from casatasks import applycal, flagmanager, clearcal, uvcontsub
+from .selfcal_helpers import sanitize_string, parse_contdotdat, get_spwnum_refvis,flagchannels_from_contdotdat,get_fitspw_dict
+from casatools import msmetadata as msmdtool
 import casatasks
 import pickle
 import os
+
+msmd = msmdtool()
 
 def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=True):
     """
@@ -112,8 +116,10 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
         # new uvcontsub format only works in CASA >=6.5.2
         if os.path.exists("cont.dat"):
             contsub_dict = {}
-            for vis in selfcal_library[target][band]["vislist"]:
-                contsub_dict[vis] = {}
+            for target in list(selfcal_library.keys())[0:1]:
+                for band in list(selfcal_library[target].keys())[0:1]:
+                    for vis in selfcal_library[target][band]["vislist"]:
+                        contsub_dict[vis] = {}
 
             for target in selfcal_library:
                 sani_target = sanitize_string(target)
