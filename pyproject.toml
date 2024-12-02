@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mpi = ["casampi","mpi4py<4.0.0"]
+test = ["pytest","pytest-xdist","submitit"]
 
 [project.urls]
 Homepage = "https://github.com/jjtobin/auto_selfcal"
@@ -37,3 +38,9 @@ Issues = "https://github.com/jjtobin/auto_selfcal/issues"
 
 [project.scripts]
 auto_selfcal = "auto_selfcal:__main__"
+
+[tool.pytest.ini_options]
+markers = [
+    "ghtest: fast tests to run on GitHub Actions.",
+    "benchmark: the auto_selfcal benchmark tests."
+]
