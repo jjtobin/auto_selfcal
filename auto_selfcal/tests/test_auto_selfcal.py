@@ -5,7 +5,7 @@ except:
     pass
 
 import pytest
-from auto_selfcal import auto_selfcal
+from .. import auto_selfcal
 import numpy as np
 import pickle
 import os
