@@ -30,7 +30,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
     ##
     current_solint_index=selfcal_plan['solints'].index(solint)
     if selfcal_plan['solmode'][iteration] == 'p':
-        selfcal_plan[vis]['solint_settings'][solint]['computed_gaintable']=[sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g']
+        selfcal_plan[vis]['solint_settings'][solint]['computed_gaintable'] = {}
         if mode == "cocal":
             if 'inf_EB' in selfcal_library[vis]:
                 #gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0_p.g']
@@ -284,6 +284,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                                   append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'))
                              selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode].append(gcdict.copy())
      
+                   selfcal_plan[vis]['solint_settings'][solint]['computed_gaintable'][mode] = gaintable_name
 
                    # restricted gaincal table comparisons to only inf_EB prior to changes
                    # commenting because we want to do comparisons for other solints as well
@@ -595,6 +596,12 @@ def generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, tar
     sani_target=sanitize_string(target)
     current_solint_index=selfcal_plan['solints'].index(solint)
     preferred_mode='combinespw'
+
+    selfcal_plan[vis]['solint_settings'][solint]['final_mode'] = preferred_mode+''
+    selfcal_plan[vis]['solint_settings'][solint]['preapply_this_gaintable'] = True if solint == 'inf_EB' else False
+    selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap'] = selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
+    selfcal_plan[vis]['solint_settings'][solint]['accepted_gaintable'] = selfcal_plan[vis]['solint_settings'][solint]['computed_gaintable'][preferred_mode]
+
     gaincal_spwmap=[]
     gaincal_preapply_gaintable=[]
     gaincal_interpolate=[]
