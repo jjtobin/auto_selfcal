@@ -4,10 +4,10 @@ try:
 except:
     pass
 
+import pytest
 from auto_selfcal import auto_selfcal
 import numpy as np
 import pickle
-import pytest
 import os
 
 @pytest.mark.benchmark
