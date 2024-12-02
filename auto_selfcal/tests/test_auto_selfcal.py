@@ -68,7 +68,14 @@ def test_2018_1_01284_S_HOPS_384(tmp_path):
 
     auto_selfcal(weblog=False)
 
-    assert True
+    with open('selfcal_library_reference.pickle', 'rb') as handle:
+        selfcal_library1 = pickle.load(handle)
+    with open('selfcal_library.pickle', 'rb') as handle:
+        selfcal_library2 = pickle.load(handle)
+
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.1)
+
+    assert difference_count == 0
 
 # Utility functions for comparing results.
 
