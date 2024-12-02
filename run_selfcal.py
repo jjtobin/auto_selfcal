@@ -135,15 +135,28 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          else:
              resume = False
 
-         nfsnr_modifier = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
+         # Calculate the NF RMS multiplier
+
+         nfrms_multiplier = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
+
+         # Record solint details.
+         for vis in vislist:
+            selfcal_library[vis][solint]={}
+            selfcal_library[vis][solint]['clean_threshold'] = selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
+            selfcal_library[vis][solint]['nfrms_multiplier'] = nfrms_multiplier
+            for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                selfcal_library[fid][vis][solint]={}
+                selfcal_library[fid][vis][solint]['clean_threshold'] = selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
+                selfcal_library[fid][vis][solint]['nfrms_multiplier'] = nfrms_multiplier
+
          #remove mask if exists from previous selfcal _post image user is specifying a mask
          if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and selfcal_library['usermask'] != '':
             os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
          tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
-                     threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
+                     threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                      savemodel='none',parallel=parallel,
-                     field=target, nfrms_multiplier=nfsnr_modifier, resume=resume)
+                     field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], resume=resume)
 
          # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
          # code will break.
@@ -172,15 +185,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              if applymode == "calflag":
                  tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                              band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
-                             threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
+                             threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                              savemodel='modelcolumn',parallel=parallel,
-                             field=target, nfrms_multiplier=nfsnr_modifier, savemodel_only=True)
-
-             for vis in vislist:
-                # Record gaincal details.
-                selfcal_library[vis][solint]={}
-                for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
-                    selfcal_library[fid][vis][solint]={}
+                             field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], savemodel_only=True)
 
              # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
              if selfcal_library['obstype'] == 'mosaic':
@@ -227,9 +234,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
              tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                       band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
-                      threshold=str(selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'])+'Jy',
+                      threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                       savemodel='none',parallel=parallel,
-                      field=target, nfrms_multiplier=nfsnr_modifier)
+                      field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'])
 
              ##
              ## Do the assessment of the post- (and pre-) selfcal images.
@@ -272,11 +279,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              ## record self cal results/details for this solint
              ##
              for vis in vislist:
-                selfcal_library[vis][solint]['clean_threshold']=selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
-
-                for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
-                    selfcal_library[fid][vis][solint]['clean_threshold']=selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
-
                 ## Update RMS value if necessary
                 if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr'] and \
                         "inf_EB_fb" not in solint and vis == vislist[-1]:
@@ -347,7 +349,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                           band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                           threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                           savemodel='none',parallel=parallel,
-                          field=target, nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=False)
+                          field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], image_mosaic_fields_separately=False)
 
                  ##
                  ## Do the assessment of the post- (and pre-) selfcal images.
