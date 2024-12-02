@@ -1,3 +1,4 @@
+![build and test](https://github.com/psheehan/auto_selfcal/actions/workflows/run_E2E_test.yml/badge.svg)
 [![codecov](https://codecov.io/github/psheehan/auto_selfcal/graph/badge.svg?token=6PLBR79LWF)](https://codecov.io/github/psheehan/auto_selfcal)
 
 # auto_selfcal
