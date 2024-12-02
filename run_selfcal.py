@@ -92,16 +92,29 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
          else:
              resume = False
 
-         nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
+         # Calculate the NF RMS multiplier
+
+         nfrms_multiplier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
+
+         # Record solint details.
+         for vis in vislist:
+            selfcal_library[target][band][vis][solint]={}
+            selfcal_library[target][band][vis][solint]['clean_threshold'] = selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
+            selfcal_library[target][band][vis][solint]['nfrms_multiplier'] = nfrms_multiplier
+            for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                selfcal_library[target][band][fid][vis][solint]={}
+                selfcal_library[target][band][fid][vis][solint]['clean_threshold'] = selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
+                selfcal_library[target][band][fid][vis][solint]['nfrms_multiplier'] = nfrms_multiplier
+
          #remove mask if exists from previous selfcal _post image user is specifying a mask
          if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and mask != '':
             os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
          tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                      band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                     threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
+                     threshold=str(selfcal_library[target][band][vislist[0]][solint]['clean_threshold'])+'Jy',
                      savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                      nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
-                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
+                     field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=selfcal_library[target][band][vis][solint]['nfrms_multiplier'], resume=resume, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
          # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
          # code will break.
@@ -135,16 +148,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              if applymode == "calflag":
                  tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                              band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                             threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
+                             threshold=str(selfcal_library[target][band][vis][solint]['clean_threshold'])+'Jy',
                              savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                              nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
-                             field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, savemodel_only=True, cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
-
-             for vis in vislist:
-                # Record gaincal details.
-                selfcal_library[target][band][vis][solint]={}
-                for fid in np.intersect1d(selfcal_library[target][band]['sub-fields-to-selfcal'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                    selfcal_library[target][band][fid][vis][solint]={}
+                             field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=selfcal_library[target][band][vis][solint]['nfrms_multiplier'], savemodel_only=True, cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
              # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
              if selfcal_library[target][band]['obstype'] == 'mosaic':
@@ -729,10 +736,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
              os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
              tclean_wrapper(vislist,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                       band_properties,band,telescope=telescope,nsigma=selfcal_library[target][band]['nsigma'][iteration], scales=[0],
-                      threshold=str(selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr'])+'Jy',
+                      threshold=str(selfcal_library[target][band][vis][solint]['clean_threshold'])+'Jy',
                       savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                       nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
-                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
+                      field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=selfcal_library[target][band][vis][solint]['nfrms_multiplier'], image_mosaic_fields_separately=selfcal_library[target][band]['obstype'] == 'mosaic', mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
              ##
              ## Do the assessment of the post- (and pre-) selfcal images.
@@ -818,7 +825,6 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 #selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                 #selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                 #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
-                selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                 if checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask'):
                     selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
                 elif checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask'):
@@ -867,7 +873,6 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][fid][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                     #selfcal_library[target][band][fid][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                     #selfcal_library[target][band][fid][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
-                    selfcal_library[target][band][fid][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                     if checkmask(imagename=imagename+'_post.mask'):
                         selfcal_library[target][band][fid][vis][solint]['intflux_pre'],selfcal_library[target][band][fid][vis][solint]['e_intflux_pre']=get_intflux(imagename+'.image.tt0',mosaic_RMS[fid], maskname=imagename+'_post.mask', mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
                     elif checkmask(imagename=imagename+'.mask'):
@@ -988,7 +993,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                           threshold=str(selfcal_library[target][band][vislist[0]][solint]['clean_threshold'])+'Jy',
                           savemodel='none',parallel=parallel,cellsize=cellsize[band],imsize=imsize[band],
                           nterms=selfcal_library[target][band]['nterms'],reffreq=selfcal_library[target][band]['reffreq'],
-                          field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=nfsnr_modifier, image_mosaic_fields_separately=False, mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
+                          field=target,spw=selfcal_library[target][band]['spws_per_vis'],uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], nfrms_multiplier=selfcal_library[target][band][vis][solint]['nfrms_multiplier'], image_mosaic_fields_separately=False, mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], cyclefactor=selfcal_library[target][band]['cyclefactor'],mask=mask,usermodel=usermodel)
 
                  ##
                  ## Do the assessment of the post- (and pre-) selfcal images.
