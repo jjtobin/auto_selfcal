@@ -39,7 +39,7 @@ jobs:
     - name: Test with pytest
       run: |
         mkdir -p ~/.casa/data
-        pytest -s -m ghtest --cov --cov-report=xml
+        pytest -s -m ghtest --cov=auto_selfcal --cov-report=xml
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
