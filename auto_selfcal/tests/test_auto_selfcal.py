@@ -59,12 +59,19 @@ def test_benchmark(tmp_path, dataset):
     assert difference_count == 0
 
 @pytest.mark.ghtest
-def test_2018_1_01284_S_HOPS_384(tmp_path):
-    d = tmp_path / "2018.1.01284.S_HOPS-384"
-    d.mkdir()
+@pytest.mark.parametrize(
+    "zip_file,link",
+    [
+        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/ESCyveu27lBBnVHU00RBKuoBAsUZkXXBAZqJyqieCmeFqQ?e=Y23i5d&download=1', id="Band8-7m-2"),
+        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EfDf0Td3mgNOhUODvV_zWhIBJOh-heKDAa6kf2bGaiNY7Q?e=vwfgKW&download=1', id="Band8-7m-2"),
+    ]
+)
+def test_2018_1_01284_S_HOPS_384(tmp_path, zip_file, link):
+    d = tmp_path
     os.chdir(d)
-    os.system('wget "https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/ESCyveu27lBBnVHU00RBKuoBAsUZkXXBAZqJyqieCmeFqQ?e=Y23i5d&download=1" -O 2018.1.01284.S_HOPS-384.tar.gz')
-    os.system('tar xf 2018.1.01284.S_HOPS-384.tar.gz')
+    os.system(f'wget "{link}" -O {zip_file}')
+    os.system(f'tar xf {zip_file}')
+    os.system(f'rm -rf {zip_file}')
 
     auto_selfcal(weblog=False)
 
