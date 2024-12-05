@@ -1541,7 +1541,14 @@ def parse_contdotdat(contdotdat_file,target):
                continue
         if desiredTarget==True:
            if 'SpectralWindow' in line:
-              spw = int(line.split()[-1])
+              #code to adapt to new cont.dat format
+              splitline=line.split()
+              if len(splitline)==3:
+                 spw = int(splitline[-2])
+                 spwname=splitline[-1]
+              else:
+                 spw = int(splitline[-1])
+                 spwname=''
               contdotdat[spw] = []
            else:
               contdotdat[spw] += [line.split()[0].split("G")[0].split("~")]
@@ -3049,7 +3056,8 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
        for i in range(len(spwlist)):
           # use >= to not always map if an spw has flagged solutions for a given antenna
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap or \
-                selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed:
+                selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed or \
+                selfcal_plan[vis]['solint_settings'][solint]['fracflagged']['per_spw'][i] == 1.0:
              fallback='spwmap'
              spwmap[i]=1.0
              spwmap_widest_window_in_bb[i]=check_spw_widest_in_bb(selfcal_library,vis,spwlist[i])
@@ -3093,7 +3101,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
 
    # If all of the spws map to the same spw, we might as well do a combinespw fallback.
    if preferred_mode == 'per_spw':
-       if len(np.unique(applycal_spwmap)) == 1:
+       if len(np.unique(np.array(applycal_spwmap)[np.array(spwlist).astype(int)])) == 1:
            preferred_mode = 'combinespw'
            applycal_spwmap = []
 
