@@ -73,7 +73,7 @@ def test_2018_1_01284_S_HOPS_384(tmp_path, zip_file, link):
     os.system(f'tar xf {zip_file}')
     os.system(f'rm -rf {zip_file}')
 
-    auto_selfcal(weblog=False)
+    auto_selfcal(sort_targets_and_EBs=True, weblog=False)
 
     with open('selfcal_library_reference.pickle', 'rb') as handle:
         selfcal_library1 = pickle.load(handle)
