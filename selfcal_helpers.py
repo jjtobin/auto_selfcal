@@ -3103,7 +3103,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
 
    # If all of the spws map to the same spw, we might as well do a combinespw fallback.
    if preferred_mode == 'per_spw':
-       if len(np.unique(np.array(applycal_spwmap)[np.array(spwlist).astype(int)])) == 1:
+       if fallback == 'spwmap' and len(np.unique(np.array(applycal_spwmap)[np.array(spwlist).astype(int)])) == 1:
            preferred_mode = 'combinespw'
            applycal_spwmap = []
 
