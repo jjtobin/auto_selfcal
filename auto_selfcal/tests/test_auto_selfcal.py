@@ -62,18 +62,24 @@ def test_benchmark(tmp_path, dataset):
 @pytest.mark.parametrize(
     "zip_file,link",
     [
-        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/ESCyveu27lBBnVHU00RBKuoBAsUZkXXBAZqJyqieCmeFqQ?e=Y23i5d&download=1', id="Band8-7m-2"),
-        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EfDf0Td3mgNOhUODvV_zWhIBJOh-heKDAa6kf2bGaiNY7Q?e=vwfgKW&download=1', id="Band8-7m-2"),
+        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EavswWlRdDhGrvwJcTPFkrYBTsMmxeazVoy2pwGuHbh8pQ?e=Ncl3hn&download=1', id="Band8-7m-2"),
+        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EWld0Re8WDRItLQyctX0kO4B-oYOG4V2k-h4nlhNXJGmcg?e=nSd5id&download=1', id="Band8-7m-2"),
+        pytest.param("M82-C-conf-C-band.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EUQQq3ERRoxPuEVsjz3oHg0Bu_5y2bqEfC7bhyEiDuO1CQ?e=2DNN5V&download=1', id="M82-C-conf-C-band"),
     ]
 )
 def test_2018_1_01284_S_HOPS_384(tmp_path, zip_file, link):
     d = tmp_path
     os.chdir(d)
-    os.system(f'wget "{link}" -O {zip_file}')
+    if 'https' in link:
+        os.system(f'wget "{link}" -O {zip_file}')
+    else:
+        os.system(f'cp {link}/{zip_file} .')
     os.system(f'tar xf {zip_file}')
     os.system(f'rm -rf {zip_file}')
 
     auto_selfcal(sort_targets_and_EBs=True, weblog=False)
+
+    os.system('rm -rf *.ms*') # Delete MS files as space is limited on GitHub.
 
     with open('selfcal_library_reference.pickle', 'rb') as handle:
         selfcal_library1 = pickle.load(handle)
