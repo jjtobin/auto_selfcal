@@ -67,7 +67,7 @@ def test_benchmark(tmp_path, dataset):
         #pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EQIHXDI32clBmIT3K4YwIw8BHMEV4FAewqDDr-y4xG5wGw?e=SMVlHy&download=1', id="M82-C-conf-C-band_small"),
     ]
 )
-def test_on_github(tmp_path, zip_file, link):
+def test_on_github(tmp_path, request, zip_file, link):
     d = tmp_path
     os.chdir(d)
     if 'https' in link:
