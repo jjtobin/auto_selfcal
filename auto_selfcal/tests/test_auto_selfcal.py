@@ -99,7 +99,7 @@ def compare_values(list1, list2, tol=1e-3):
         elif len(list1) == 0:
             return True
         else:
-            return np.all([compare_values(list1[i], list2[i]) for i in range(len(list1))])
+            return np.all([compare_values(list1[i], list2[i], tol=tol) for i in range(len(list1))])
     elif type(list1) == str or type(list1) == np.str_ or type(list1) == bool:
         return list1 == list2
     else:
