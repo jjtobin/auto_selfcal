@@ -88,7 +88,9 @@ def test_on_github(tmp_path, zip_file, link):
 
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.1)
 
-    print(os.getcwd())
+    os.system(f"cp selfcal_library.pickle {request.node.name}_selfcal_library.pickle")
+    os.system(f"tar czf {request.node.name}_weblog.tar.gz weblog")
+    os.system("ls")
     
     assert difference_count == 0
 
