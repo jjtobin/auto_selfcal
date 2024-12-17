@@ -43,10 +43,10 @@ jobs:
     - name: Upload testing artifacts
       uses: actions/upload-artifact@v4
       with:
-          name: auto_selfcal products
+          name: auto_selfcal_products
           path: |
-              /tmp/pytest-of-runner/pytest-*/test_on_github_*/*_selfcal_library.pickle
-              /tmp/pytest-of-runner/pytest-*/test_on_github_*/*_weblog.tar.gz
+              /tmp/pytest-of-runner/pytest-*/test_on_github_*/selfcal_library.pickle
+              /tmp/pytest-of-runner/pytest-*/test_on_github_*/weblog.tar.gz
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
