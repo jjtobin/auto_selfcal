@@ -88,8 +88,6 @@ def test_on_github(tmp_path, request, zip_file, link):
 
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.1)
 
-    os.system(f"tar czf weblog.tar.gz weblog")
-    
     assert difference_count == 0
 
 # Utility functions for comparing results.
