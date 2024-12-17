@@ -62,12 +62,12 @@ def test_benchmark(tmp_path, dataset):
 @pytest.mark.parametrize(
     "zip_file,link",
     [
-        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EavswWlRdDhGrvwJcTPFkrYBTsMmxeazVoy2pwGuHbh8pQ?e=Ncl3hn&download=1', id="Band8-7m-2"),
+        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EavswWlRdDhGrvwJcTPFkrYBTsMmxeazVoy2pwGuHbh8pQ?e=Ncl3hn&download=1', id="2018.1.01284.S_HOPS-384"),
         pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EWld0Re8WDRItLQyctX0kO4B-oYOG4V2k-h4nlhNXJGmcg?e=nSd5id&download=1', id="Band8-7m-2"),
-        pytest.param("M82-C-conf-C-band.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EUQQq3ERRoxPuEVsjz3oHg0Bu_5y2bqEfC7bhyEiDuO1CQ?e=2DNN5V&download=1', id="M82-C-conf-C-band"),
+        pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EQIHXDI32clBmIT3K4YwIw8BHMEV4FAewqDDr-y4xG5wGw?e=SMVlHy&download=1', id="M82-C-conf-C-band_small"),
     ]
 )
-def test_2018_1_01284_S_HOPS_384(tmp_path, zip_file, link):
+def test_on_github(tmp_path, zip_file, link):
     d = tmp_path
     os.chdir(d)
     if 'https' in link:
