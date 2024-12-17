@@ -131,7 +131,7 @@ def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tole
             key = int(key)
 
         if type(dictionary1[key]) == dict:
-            difference_count += compare_two_dictionaries(dictionary1[key], dictionary2[key], path.copy()+[key], exclude=exclude)
+            difference_count += compare_two_dictionaries(dictionary1[key], dictionary2[key], path.copy()+[key], exclude=exclude, tolerance=tolerance)
         else:
             value1 = np.array(dictionary1[key])[np.argsort(dictionary1['vislist'])] if key in ['spws_per_vis','vislist'] else dictionary1[key]
             value2 = np.array(dictionary2[key])[np.argsort(dictionary2['vislist'])] if key in ['spws_per_vis','vislist'] else dictionary2[key]
