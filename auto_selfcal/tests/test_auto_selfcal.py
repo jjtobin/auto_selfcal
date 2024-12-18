@@ -62,9 +62,9 @@ def test_benchmark(tmp_path, dataset):
 @pytest.mark.parametrize(
     "zip_file,link",
     [
-        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EavswWlRdDhGrvwJcTPFkrYBTsMmxeazVoy2pwGuHbh8pQ?e=Ncl3hn&download=1', id="2018.1.01284.S_HOPS-384"),
-        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EWld0Re8WDRItLQyctX0kO4B-oYOG4V2k-h4nlhNXJGmcg?e=nSd5id&download=1', id="Band8-7m-2"),
-        pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EQIHXDI32clBmIT3K4YwIw8BHMEV4FAewqDDr-y4xG5wGw?e=SMVlHy&download=1', id="M82-C-conf-C-band_small"),
+        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/Ed3Othh9jxVCuAJn0s22JogBWDVSeAES_EYPF1zT5PjurQ?e=DwyfQu&download=1', id="2018.1.01284.S_HOPS-384"),
+        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EWQKPqJVsINCk2Wqe9vJsfMBniVjx938iR4gMwtrmyn_7w?e=1RzYWy&download=1', id="Band8-7m-2"),
+        pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EYEgzz8O7aFKtMEpY6A0QpUBHsDxmto1sH_jJfveZc_8SA?e=AtPb4r&download=1', id="M82-C-conf-C-band_small"),
     ]
 )
 def test_on_github(tmp_path, request, zip_file, link):
@@ -86,7 +86,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.1)
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001)
 
     assert difference_count == 0
 
