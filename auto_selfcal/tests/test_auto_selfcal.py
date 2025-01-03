@@ -40,11 +40,11 @@ def test_benchmark(tmp_path, dataset):
     os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/cont.dat .")
     os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/selfcal_library_reference.pickle .")
 
-    ex = submitit.SlurmExecutor(folder=".", python=f"mpirun -n 5 {sys.executable}")
+    ex = submitit.SlurmExecutor(folder=".", python=f"xvfb-run -d mpirun -n 5 {sys.executable}")
     ex.update_parameters(partition="batch2", nodes=1, ntasks_per_node=5, cpus_per_task=1, use_srun=False, time=7200, \
-            job_name=dataset)
+            mem="128gb", job_name=dataset)
 
-    job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=False)
+    job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=True)
     job.wait()
 
     assert job.state in ['DONE','COMPLETED']
