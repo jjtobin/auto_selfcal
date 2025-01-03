@@ -65,6 +65,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
    counter = 0
    repeat_solint=False
    do_fallback_combinespw=False
+   do_fallback_calonly=False
    print('Starting selfcal procedure on: '+target+' '+band)
    while iteration  < len(selfcal_plan['solints']):
 
@@ -184,7 +185,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
          if not do_fallback_combinespw:
             # We need to redo saving the model now that we have potentially unflagged some data.
-            if selfcal_plan['applycal_mode'][iteration] == "calflag":
+            if not do_fallback_calonly:
                 tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                             band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                             threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
@@ -214,7 +215,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
                        allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction,
-                       guess_scan_combine=guess_scan_combine)
+                       guess_scan_combine=guess_scan_combine, do_fallback_calonly=do_fallback_calonly)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.
@@ -416,6 +417,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw' 
                     remove_modes(selfcal_plan,vis,iteration)
             do_fallback_combinespw=False   # Turn off this switch if successful               
+            do_fallback_calonly=False
 
             if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library["SC_success"]:
                 for vis in vislist:
@@ -487,7 +489,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          ## Alternatively, if mode != 'combinespw', try with combine="spw"
          ##
 
-         elif (delta_beamarea > delta_beam_thresh and selfcal_plan['applycal_mode'][iteration] == "calflag") or \
+         elif (delta_beamarea > delta_beam_thresh and not do_fallback_calonly) or \
                  ('combinespw' not in selfcal_library[vis][solint]['final_mode'] and not do_fallback_combinespw):
 
              print('****************************Selfcal failed**************************')
@@ -519,15 +521,16 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              if 'combinespw' not in selfcal_library[vis][solint]['final_mode']:
                  print('****************Attempting combine="spw" fallback*************')
                  do_fallback_combinespw=True
+                 do_fallback_calonly=False
                  for vis in vislist:
                    generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration)
                  continue
              elif delta_beamarea > delta_beam_thresh:
                  do_fallback_combinespw=False  # turn the switch off since this is another repeat
+                 do_fallback_calonly=True
                  print('****************Attempting applymode="calonly" fallback*************')
                  # Loop through up to two times. On the first attempt, try applymode = 'calflag' (assuming this is requested by the user). On the
-                 # second attempt, use applymode = 'calonly'.
-                 selfcal_plan['applycal_mode'][iteration] = 'calonly'
+                 # second attempt, unflag long baseline antennas that get flagged above a certain threshold.
                  continue
          else:
             for vis in vislist:
@@ -539,6 +542,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
             repeat_solint = False
             do_fallback_combinespw = False
+            do_fallback_calonly=False
             counter = 0
 
 
