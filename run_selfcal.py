@@ -368,7 +368,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     ##
                     ## record self cal results/details for this solint
                     ##
-                    selfcal_library[vis][solint]['clean_threshold']=selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
                     selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
                     ## Update RMS value if necessary
                     if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr']:
