@@ -1040,7 +1040,6 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                     #selfcal_library[target][band][vis][solint]['applycal_mode']=applycal_mode[band][target][iteration]+''
                     #selfcal_library[target][band][vis][solint]['applycal_interpolate']=applycal_interpolate[vis]
                     #selfcal_library[target][band][vis][solint]['gaincal_combine']=gaincal_combine[band][target][iteration]+''
-                    selfcal_library[target][band][vis][solint]['clean_threshold']=selfcal_library[target][band]['nsigma'][iteration]*selfcal_library[target][band]['RMS_NF_curr']
                     if checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask'):
                         selfcal_library[target][band][vis][solint]['intflux_pre'],selfcal_library[target][band][vis][solint]['e_intflux_pre']=get_intflux(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0',RMS,maskname=sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post.mask')
                     elif checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask'):
