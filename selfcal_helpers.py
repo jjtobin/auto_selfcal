@@ -5,6 +5,7 @@ import scipy.signal
 import math
 import os
 
+
 import casatools
 from casaplotms import plotms
 from casatasks import *
@@ -12,7 +13,6 @@ from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
 from casatools import ms as mstool
-from casaviewer import imview
 from PIL import Image
 
 ms = mstool()
@@ -2468,45 +2468,51 @@ def plot_ants_flagging_colored_from_dict(filename,selfcal_library,selfcal_plan,s
    plt.close()
 
 
-def plot_image(filename,outname,min=None,max=None,zoom=2):
+def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
+   import matplotlib
+   matplotlib.use('Agg')
+   import matplotlib.pyplot as plt
    header=imhead(filename)
+   tb.open(filename)
+   image_data=np.rot90(tb.getcol('map').squeeze())   # rotate the image 90 degrees and get rid of degenerate axes
+   tb.close()
    size=np.max(header['shape'])
-   if os.path.exists(filename.replace('image.tt0','mask')): #if mask exists draw it as a contour, else don't use contours
-      if min == None:
-         imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
-               contour={'file': filename.replace('image.tt0','mask'), 'levels': [1] },\
-             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
-                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
-             out={'file': outname, 'orient': 'landscape'})
-      else:
-         imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
-               contour={'file': filename.replace('image.tt0','mask'), 'levels': [1] },\
-             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
-                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
-             out={'file': outname, 'orient': 'landscape'})
+   cell=header['incr'][1]*3600.0*180.0/3.14159        #get pixel size from header declination direction
+   halfsize_arcsec=size/zoom/2.0*cell
+   fig=plt.figure(figsize=(8.5,8))
+   ax=fig.add_subplot(1,1,1)
+
+   ll=int(size/zoom-size/(zoom*2))
+   ul=int(size/zoom+size/(zoom*2))
+
+   mask_exists=os.path.exists(filename.replace('image.tt0','mask'))
+   if mask_exists: #if mask exists draw it as a contour, else don't use contours
+      tb.open(filename.replace('image.tt0','mask'))
+      mask_data=np.flipud(np.rot90(tb.getcol('map').squeeze()))   # rotate the image 90 degrees and get rid of degenerate axes
+                                                                  #extra flip is needed for the mask data for some reason to match the casaviewer view
+      tb.close()
+
+   if min_val == None:
+      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+      if mask_exists:
+         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
    else:
-      if min == None:
-         imview(raster={'file': filename, 'scaling': -1, 'colorwedge': True},\
-             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
-                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
-             out={'file': outname, 'orient': 'landscape'})
-      else:
-         imview(raster={'file': filename, 'scaling': -1, 'range': [min,max], 'colorwedge': True},\
-             zoom={'blc': [int(size/2-size/(zoom*2)),int(size/2-size/(zoom*2))],\
-                   'trc': [int(size/2+size/(zoom*2)),int(size/2+size/(zoom*2))]},\
-             out={'file': outname, 'orient': 'landscape'})
-   #make image square since imview makes it a strange dimension
-   im = Image.open(outname)
-   width, height = im.size
-   if height > width:
-      remainder=height-width
-      trim_amount=int(remainder/2.0)
-      im1=im.crop((0,trim_amount,width-1,height-trim_amount-1))
+      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec],vmin=min_val,vmax=max_val)
+      if mask_exists:
+         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+
+   ax.set_xlabel('Offset (arcsec)',fontsize=18)
+   ax.set_ylabel('Offset (arcsec)',fontsize=18)
+   ax.tick_params(axis='both', which='major', labelsize=16)
+   cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+   cbar=plt.colorbar(img,cax=cax)
+   cbar.ax.tick_params(labelsize=16)
+   if 'final_initial_div' in filename:
+      cbar.set_label('Dimensionless Ratio')
    else:
-      remainder=width-height
-      trim_amount=int(remainder/2.0)
-      im1=im.crop((trim_amount,0,width-trim_amount-1,height-1))
-   im1.save(outname)
+      cbar.set_label('Intensity (Jy/beam)')
+   plt.savefig(outname,dpi=300.0)
+   plt.close()
 
 def get_flagged_solns_per_ant(gaintable,vis):
      # Get the antenna names and offsets.
@@ -3660,6 +3666,8 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
     # Make a plot of all of this info
 
     if plot:
+        import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         #from matplotlib import rc
         from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, HPacker, VPacker
@@ -4092,6 +4100,8 @@ def make_distance_time_phaseerr_plots(vislist):
 
 def plotcals(source):
     import glob
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
     vislist = glob.glob("*.selfcal.ms")

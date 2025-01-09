@@ -121,7 +121,7 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
          image_stats=imstat(sanitize_string(target)+'_'+band+'_final.image.tt0')
          
          plot_image(sanitize_string(target)+'_'+band+'_initial.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], zoom=2 if directory=="weblog" else 1) 
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png',min_val=image_stats['min'][0],max_val=image_stats['max'][0], zoom=2 if directory=="weblog" else 1) 
          os.system('rm -rf '+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0 '+sanitize_string(target)+'_'+band+'_final_initial_div_final.temp.image.tt0')
 
          ### Hacky way to suppress stuff outside mask in ratio images.
@@ -131,7 +131,7 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
                 mode='evalexpr',expr='iif(IM0==0.0,-99.0,IM0)',outfile=sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0')
          plot_image(sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0',\
                       directory+'/images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png',\
-                       min=-1.0,max=1.0, zoom=2 if directory=="weblog" else 1) 
+                       min_val=-1.0,max_val=1.0, zoom=2 if directory=="weblog" else 1) 
          '''
          htmlOut.writelines('Initial, Final, and  Images with scales set by Final Image<br>\n')
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n') 
@@ -520,7 +520,7 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                       zoom=2 if directory=="weblog" else 1) 
             image_stats=imstat(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0')
             plot_image(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0',\
-                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png',min=image_stats['min'][0],max=image_stats['max'][0], \
+                      directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png',min_val=image_stats['min'][0],max_val=image_stats['max'][0], \
                       zoom=2 if directory=="weblog" else 1) 
 
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
