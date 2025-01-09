@@ -4,7 +4,7 @@ import scipy.stats
 import scipy.signal
 import math
 import os
-import matplotlib.pyplot as plt
+
 
 import casatools
 from casaplotms import plotms
@@ -2297,6 +2297,9 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
    plt.close()
 
 def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
+   import matplotlib
+   matplotlib.use('Agg')
+   import matplotlib.pyplot as plt
    header=imhead(filename)
    tb.open(filename)
    image_data=np.rot90(tb.getcol('map').squeeze())   # rotate the image 90 degrees and get rid of degenerate axes
@@ -3459,6 +3462,8 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
     # Make a plot of all of this info
 
     if plot:
+        import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         #from matplotlib import rc
         from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, HPacker, VPacker
@@ -3891,6 +3896,8 @@ def make_distance_time_phaseerr_plots(vislist):
 
 def plotcals(source):
     import glob
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
     vislist = glob.glob("*.selfcal.ms")
