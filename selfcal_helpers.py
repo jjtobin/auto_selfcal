@@ -13,7 +13,6 @@ from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
 from casatools import ms as mstool
-from casaviewer import imview
 from PIL import Image
 
 ms = mstool()
