@@ -1,7 +1,9 @@
 import numpy as np
+import sys
+sys.path.append("./")
 from scipy import stats
 import glob
-execfile('selfcal_helpers.py',globals())
+from selfcal_helpers import *
 import pickle
 with open('selfcal_library.pickle', 'rb') as handle:
     selfcal_library=pickle.load(handle)
