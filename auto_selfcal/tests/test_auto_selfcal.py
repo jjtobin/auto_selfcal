@@ -77,7 +77,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     os.system(f'tar xf {zip_file}')
     os.system(f'rm -rf {zip_file}')
 
-    auto_selfcal(sort_targets_and_EBs=True, weblog=False)
+    auto_selfcal(sort_targets_and_EBs=True, weblog=True)
 
     os.system('rm -rf *.ms*') # Delete MS files as space is limited on GitHub.
 
