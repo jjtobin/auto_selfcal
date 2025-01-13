@@ -93,6 +93,7 @@ check_all_spws=False   # generate per-spw images to check phase transfer did not
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
 run_findcont=False
+align_EBs = False
 debug=False
 
 if run_findcont and os.path.exists("cont.dat"):
@@ -142,130 +143,75 @@ with open('selfcal_plan.pickle', 'wb') as handle:
 ############################# Start Actual important stuff for selfcal ############################
 ###################################################################################################
 
-for target in all_targets:
- sani_target=sanitize_string(target)
- for band in selfcal_library[target].keys():
-    for vis in selfcal_library[target][band]['vislist']:
-       #make images using the appropriate tclean heuristics for each telescope
-       # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
-       # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
-       # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
-       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_dirty',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
-                threshold='0.0Jy',niter=1, gain=0.00001,savemodel='none',parallel=parallel,cellsize=cellsize[target][band],
-                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
-                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
-                image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
-                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
-                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'])
+if align_EBs:
+    for target in all_targets:
+     sani_target=sanitize_string(target)
+     for band in selfcal_library[target].keys():
+        for vis in selfcal_library[target][band]['vislist']:
+           #make images using the appropriate tclean heuristics for each telescope
+           # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+           # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+           # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+           tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_dirty',
+                          band,telescope=telescope,nsigma=4.0, scales=[0],
+                          threshold='0.0Jy',niter=1, gain=0.00001,
+                          savemodel='none',parallel=parallel,
+                          field=target, vis_to_image=[vis])
 
-       dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+vis+'_dirty.image.tt0')
-       if telescope!='ACA' or aca_use_nfmask:
-          dirty_NF_SNR,dirty_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+vis+'_dirty.image.tt0', 
-                  las=selfcal_library[target][band]['LAS'])
-       else:
-          dirty_NF_SNR,dirty_NF_RMS=dirty_SNR,dirty_RMS
+           dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_dirty.image.tt0', sani_target+'_'+band+'_'+vis+'_dirty.mask',
+                    '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
 
-       selfcal_library[target][band]['cyclefactor'] = 1.0
+           tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_initial',
+                          band,telescope=telescope,nsigma=4.0, scales=[0],
+                          threshold='theoretical_with_drmod',
+                          savemodel='none',parallel=parallel,
+                          field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS, vis_to_image=[vis])
 
-       dr_mod=1.0
-       if telescope =='ALMA' or telescope =='ACA':
-          sensitivity=get_sensitivity([vis],selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],
-                  cellsize=cellsize[target][band])
-          dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,[vis])
-          sensitivity_nomod=sensitivity.copy()
-          print('DR modifier: ',dr_mod)
-       if telescope=='ALMA' or telescope =='ACA':
-          sensitivity=sensitivity*dr_mod   # apply DR modifier
-          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-             sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
-       else:
-          sensitivity=0.0
-       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_initial',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
-                threshold=str(sensitivity*4.0)+'Jy',savemodel='modelcolumn',parallel=parallel,cellsize=cellsize[target][band],
-                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
-                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
-                nfrms_multiplier=dirty_NF_RMS/dirty_RMS, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
-                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
-                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], 
-                cyclefactor=selfcal_library[target][band]['cyclefactor'])
+           initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_initial.image.tt0', 
+                   sani_target+'_'+band+'_'+vis+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
 
-       initial_SNR,initial_RMS=estimate_SNR(sani_target+'_'+band+'_'+vis+'_initial.image.tt0')
-       if telescope!='ACA' or aca_use_nfmask:
-          initial_NF_SNR,initial_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+vis+'_initial.image.tt0', las=selfcal_library[target][band]['LAS'])
-       else:
-          initial_NF_SNR,initial_NF_RMS=initial_SNR,initial_RMS
+    ##
+    ## Align the EBs prior to running selfcal on them.
+    ##
 
-       goodMask=checkmask(imagename=sani_target+'_'+band+'_'+vis+'_initial.image.tt0')
-       if goodMask:
-          selfcal_library[target][band][vis]['intflux_orig'],selfcal_library[target][band][vis]['e_intflux_orig']=get_intflux(sani_target+'_'+band+'_'+vis+'_initial.image.tt0',initial_RMS)
-       else:
-          selfcal_library[target][band][vis]['intflux_orig'],selfcal_library[target][band][vis]['e_intflux_orig']=-99.0,-99.0
+    offsets = {}
+    for target in all_targets:
+        offsets[target] = {}
+        for band in bands:
+            offsets[target][band] = align_measurement_sets(vislist[0], vislist, target,
+                    aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
+                    spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
+                    suffix='')
 
+    for target in all_targets:
+     sani_target=sanitize_string(target)
+     for band in selfcal_library[target].keys():
+        for vis in selfcal_library[target][band]['vislist']:
+           #make images using the appropriate tclean heuristics for each telescope
+           # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+           # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+           # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+           tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_dirty_after',
+                          band,telescope=telescope,nsigma=4.0, scales=[0],
+                          threshold='0.0Jy',niter=1, gain=0.00001,
+                          savemodel='none',parallel=parallel,
+                          field=target, vis_to_image=[vis])
 
-##
-## Align the EBs prior to running selfcal on them.
-##
+           dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_dirty_after.image.tt0', 
+                    sani_target+'_'+band+'_'+vis+'_dirty_after.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
 
-offsets = {}
-for target in all_targets:
-    offsets[target] = {}
-    for band in bands:
-        offsets[target][band] = align_measurement_sets(vislist[0], vislist, target,
-                aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
-                spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
-                suffix='')
+           tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_initial_after',
+                          band,telescope=telescope,nsigma=4.0, scales=[0],
+                          threshold='theoretical_with_drmod',
+                          savemodel='none',parallel=parallel,
+                          field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS, vis_to_image=[vis])
+
+           initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_initial_after.image.tt0', 
+                   sani_target+'_'+band+'_'+vis+'_initial_after.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
 
 
-
-for target in all_targets:
- sani_target=sanitize_string(target)
- for band in selfcal_library[target].keys():
-    for vis in selfcal_library[target][band]['vislist']:
-       #make images using the appropriate tclean heuristics for each telescope
-       # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
-       # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
-       # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
-       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_dirty_after',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
-                threshold='0.0Jy',niter=1, gain=0.00001,savemodel='none',parallel=parallel,cellsize=cellsize[target][band],
-                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
-                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
-                image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
-                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
-                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'])
-
-       dirty_SNR,dirty_RMS=estimate_SNR(sani_target+'_'+band+'_'+vis+'_dirty_after.image.tt0')
-       if telescope!='ACA' or aca_use_nfmask:
-          dirty_NF_SNR,dirty_NF_RMS=estimate_near_field_SNR(sani_target+'_'+band+'_'+vis+'_dirty_after.image.tt0', 
-                  las=selfcal_library[target][band]['LAS'])
-       else:
-          dirty_NF_SNR,dirty_NF_RMS=dirty_SNR,dirty_RMS
-
-       selfcal_library[target][band]['cyclefactor'] = 1.0
-
-       dr_mod=1.0
-       if telescope =='ALMA' or telescope =='ACA':
-          sensitivity=get_sensitivity([vis],selfcal_library[target][band],target,virtual_spw='all',imsize=imsize[target][band],
-                  cellsize=cellsize[target][band])
-          dr_mod=get_dr_correction(telescope,dirty_SNR*dirty_RMS,sensitivity,[vis])
-          sensitivity_nomod=sensitivity.copy()
-          print('DR modifier: ',dr_mod)
-       if telescope=='ALMA' or telescope =='ACA':
-          sensitivity=sensitivity*dr_mod   # apply DR modifier
-          if band =='Band_9' or band == 'Band_10':   # adjust for DSB noise increase
-             sensitivity=sensitivity   #*4.0  might be unnecessary with DR mods
-       else:
-          sensitivity=0.0
-       tclean_wrapper([vis],sani_target+'_'+band+'_'+vis+'_initial_after',band_properties,band,telescope=telescope,nsigma=4.0, scales=[0],
-                threshold=str(sensitivity*4.0)+'Jy',savemodel='none',parallel=parallel,cellsize=cellsize[target][band],
-                imsize=imsize[target][band],nterms=nterms[target][band],field=target,spw=selfcal_library[target][band][vis]['spws'],
-                uvrange=selfcal_library[target][band]['uvrange'],obstype=selfcal_library[target][band]['obstype'], 
-                nfrms_multiplier=dirty_NF_RMS/dirty_RMS, image_mosaic_fields_separately=selfcal_library[target][band]['obstype']=='mosaic', 
-                mosaic_field_phasecenters=selfcal_library[target][band]['sub-fields-phasecenters'], 
-                mosaic_field_fid_map=selfcal_library[target][band]['sub-fields-fid_map'], 
-                cyclefactor=selfcal_library[target][band]['cyclefactor'])
-
-if debug:
-    print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+    if debug:
+        print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
 ##
 ## create initial images for each target to evaluate SNR and beam
@@ -686,14 +632,19 @@ for target in selfcal_library:
 
 
 
-# Use the already calculated offsets to shift the original MS files into new, shifted MSes
-for target in all_targets:
-    for band in bands:
-        selfcal_library[target][band]['offsets'] = offsets[target][band]
-        align_measurement_sets(vislist[0].replace('.selfcal',''), [vis.replace('.selfcal','') for vis in vislist], target, \
-                align_offsets=[offsets[target][band][vis] for vis in vislist], npix=imsize[target][band], 
-                cell_size=float(cellsize[target][band][0:-6]), plot_uv_grid=False, plot_file_template=None, 
-                suffix='.shift')
+if align_EBs:
+    # Use the already calculated offsets to shift the original MS files into new, shifted MSes
+    suffix = '.shift'
+
+    for target in all_targets:
+        for band in bands:
+            selfcal_library[target][band]['offsets'] = offsets[target][band]
+            align_measurement_sets(vislist[0].replace('.selfcal',''), [vis.replace('.selfcal','') for vis in vislist], target, \
+                    align_offsets=[offsets[target][band][vis] for vis in vislist], npix=imsize[target][band], 
+                    cell_size=float(cellsize[target][band][0:-6]), plot_uv_grid=False, plot_file_template=None, 
+                    suffix='.shift')
+else:
+    suffix = ''
 
 
 applyCalOut=open('applycal_to_orig_MSes.py','w')
@@ -707,14 +658,14 @@ for target in selfcal_library:
          for vis in selfcal_library[target][band]['vislist']: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            line='applycal(vis="'+vis.replace('.selfcal','.shift')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+selfcal_library[target][band][vis]['spws_orig']+'")\n'
+            line='applycal(vis="'+vis.replace('.selfcal',suffix)+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+selfcal_library[target][band][vis]['spws_orig']+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
-               if os.path.exists(vis.replace('.selfcal','.shift')+".flagversions/flags.starting_flags"):
-                  flagmanager(vis=vis.replace('.selfcal','.shift'), mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+               if os.path.exists(vis.replace('.selfcal',suffix)+".flagversions/flags.starting_flags"):
+                  flagmanager(vis=vis.replace('.selfcal',suffix), mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
                else:
-                  flagmanager(vis=vis.replace('.selfcal','.shift'),mode='save',versionname='before_final_applycal')
-               applycal(vis=vis.replace('.selfcal','.shift'),\
+                  flagmanager(vis=vis.replace('.selfcal',suffix),mode='save',versionname='before_final_applycal')
+               applycal(vis=vis.replace('.selfcal',suffix),\
                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
                     applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=selfcal_library[target][band][vis]['spws_orig'])
@@ -744,7 +695,7 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
       print(contsub_dict)
       uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
       for vis in selfcal_library[target][band]['vislist']:  
-         line='uvcontsub(vis="'+vis.replace('.selfcal','.shift')+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
+         line='uvcontsub(vis="'+vis.replace('.selfcal',suffix)+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
          uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
@@ -762,7 +713,7 @@ else:   # old uvcontsub formatting, requires splitting out per target, new one i
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:      
                contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat,return_contfit_range=True)
-               line='uvcontsub(vis="'+vis.replace('.selfcal','.shift')+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
+               line='uvcontsub(vis="'+vis.replace('.selfcal',suffix)+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
                uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
