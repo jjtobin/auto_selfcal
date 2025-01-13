@@ -27,15 +27,18 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
                    savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True, \
-                   store_threshold=''):
+                   store_threshold='', vis_to_image=None):
     """
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
     """
-    msmd.open(selfcal_library['vislist'][0])
+    if vis_to_image is None:
+        vis_to_image = selfcal_library['vislist']
+
+    msmd.open(vis_to_image[0])
     fieldid=msmd.fieldsforname(field)
     msmd.done()
-    tb.open(selfcal_library['vislist'][0]+'/FIELD')
+    tb.open(vis_to_image[0]+'/FIELD')
     try:
        ephem_column=tb.getcol('EPHEMERIS_ID')
        tb.close()
@@ -46,7 +49,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
+       phasecenter=get_phasecenter(vis_to_image[0],field)
 
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
@@ -140,11 +143,11 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
           gridder='standard' 
 
     if spw == 'all':
-        vlist = selfcal_library['vislist']
-        spws_per_vis = selfcal_library['spws_per_vis']
+        vlist = vis_to_image
+        spws_per_vis = [selfcal_library[vis]['spws'] for vis in vlist]
         nterms = selfcal_library['nterms']
     else:
-        vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
+        vlist = [vis for vis in vis_to_image if vis in selfcal_library['spw_map'][spw]]
         spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
         nterms = 1
 
@@ -282,8 +285,8 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                             os.system("rm -rf "+imagename.replace(target,target+"_field_"+str(field_id))+ext.replace("pb","mospb.tmp"))
 
                 # Make an image of the primary beam for each sub-field.
-                if type(selfcal_library['vislist']) == list:
-                    for v in selfcal_library['vislist']:
+                if type(vis_to_image) == list:
+                    for v in vis_to_image:
                         # Since not every field is in every v, we need to check them all so that we don't accidentally get a v without a given field_id
                         if field_id in selfcal_library['sub-fields-fid_map'][v]:
                             fid = selfcal_library['sub-fields-fid_map'][v][field_id]
@@ -291,7 +294,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
 
                     im.open(v)
                 else:
-                    fid = selfcal_library['sub-fields-fid_map'][selfcal_library['vislist']][field_id]
+                    fid = selfcal_library['sub-fields-fid_map'][vis_to_image][field_id]
                     im.open(vis)
 
                 nx, ny, nfreq, npol = imhead(imagename=imagename.replace(target,target+"_field_"+str(field_id))+".image.tt0", mode="get", \

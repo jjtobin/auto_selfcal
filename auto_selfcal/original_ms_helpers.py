@@ -7,7 +7,7 @@ import os
 
 msmd = msmdtool()
 
-def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=True):
+def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=True, suffix=''):
     """
     Apply self-calibration solutions derived from auto_selfcal back to the original, unaveraged, MSes.
 
@@ -16,6 +16,7 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
             or the selfcal_library dictionary itself. Default: 'selfcal_library.pickle'
         write_only (bool): Only write a file that can be executed to apply the calibrations, but
             do not apply. Defaut: True
+        suffix (str): Suffix of the file to be applied to. Default: ''
     """
 
     # First we need to load in the relevant results files.
@@ -50,7 +51,7 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
 
                 # Write the line to the command log
 
-                line='applycal(vis="'+vis.replace('.selfcal','')+\
+                line='applycal(vis="'+vis.replace('.selfcal',suffix)+\
                         '",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+\
                         ',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+\
                         ', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+\
@@ -62,15 +63,15 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
                 if not write_only:
                    # First we need to restore the flags to the state they were in prior to self-calibration.
 
-                   if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
-                      flagmanager(vis=vis.replace('.selfcal',''), mode = 'restore', versionname = 'starting_flags', 
+                   if os.path.exists(vis.replace('.selfcal',suffix)+".flagversions/flags.starting_flags"):
+                      flagmanager(vis=vis.replace('.selfcal',suffix), mode = 'restore', versionname = 'starting_flags', 
                             comment = 'Flag states at start of reduction')
                    else:
-                      flagmanager(vis=vis.replace('.selfcal',''),mode='save',versionname='before_final_applycal')
+                      flagmanager(vis=vis.replace('.selfcal',suffix),mode='save',versionname='before_final_applycal')
 
                    # Now apply
 
-                   applycal(vis=vis.replace('.selfcal',''),\
+                   applycal(vis=vis.replace('.selfcal',suffix),\
                         gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                         interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], 
                         calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
@@ -81,7 +82,7 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
 
 
 
-def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=True):
+def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=True, suffix=''):
     """
     Do continuum subtraction of the original MS files.
 
@@ -90,6 +91,7 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
             or the selfcal_library dictionary itself. Default: 'selfcal_library.pickle'
         write_only (bool): Only write a file that can be executed to apply the calibrations, but
             do not apply. Defaut: True
+        suffix (str): Suffix of the file to be applied to. Default: ''
     """
 
     # First we need to load in the relevant results files.
@@ -147,7 +149,7 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
 
             uvcontsubOut = open("uvcontsub_orig_MSes.py", "w")
             for vis in selfcal_library[target][band]["vislist"]:
-                line = 'uvcontsub(vis="'+vis.replace(".selfcal", "")+\
+                line = 'uvcontsub(vis="'+vis.replace(".selfcal", suffix)+\
                     '", spw="'+selfcal_library[target][band][vis]["spws"]+\
                     '",fitspec='+str(contsub_dict[vis])+\
                     ', outputvis="'+vis.replace(".selfcal", "").replace(".ms", ".contsub.ms")+\
@@ -184,7 +186,7 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
                             target, selfcal_library[target][band][vis]["spwsarray"], selfcal_library[target][band]["vislist"],
                             spwvisref, contdotdat, return_contfit_range=True)
 
-                        line = 'uvcontsub(vis="' + vis.replace(".selfcal", "") + \
+                        line = 'uvcontsub(vis="' + vis.replace(".selfcal", suffix) + \
                             '", outputvis="'+sani_target+"_"+vis.replace(".selfcal", "".replace(".ms", ".contsub.ms")) + \
                             '",field="' + target + \
                             '", spw="' + selfcal_library[target][band][vis]["spws"] + \
