@@ -1,0 +1,12 @@
+# environment.yaml
+
+name: casa-6.6.5
+channels:
+  - conda-forge
+dependencies:
+  - python==3.10
+  - ncurses==6.2
+  - mpi4py==3.1.5
+  - pip
+  - pip:
+    - -r requirements.txt
