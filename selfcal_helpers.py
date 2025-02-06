@@ -1484,6 +1484,8 @@ def parse_contdotdat(contdotdat_file,target):
     for i, line in enumerate(lines):
         if 'ALL' in line:
            continue
+        if 'Flags:' in line:
+           continue
         if 'Field' in line:
             field=line.split()[-1]
             if field == target:
