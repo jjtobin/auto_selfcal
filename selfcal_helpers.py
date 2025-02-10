@@ -2798,7 +2798,10 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                      if quantity =='Flagged_Sols':
                         line+='<td>'+str(nflagged_sols)+'</td>\n'
                      if quantity =='Frac_Flagged':
-                        line+='<td>'+'{:0.3f}'.format(nflagged_sols/nsols)+'</td>\n'
+                        if nsols > 0:
+                           line+='<td>'+'{:0.3f}'.format(nflagged_sols/nsols)+'</td>\n'
+                        else:
+                           line+='<td>...</td>\n'
                   else:
                      line+='<td>-</td>\n'
                line+='</tr>\n    '
