@@ -8,6 +8,7 @@ import numpy as np
 from scipy import stats
 import glob
 import sys
+import pickle
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
@@ -15,8 +16,13 @@ from run_selfcal import run_selfcal
 from image_analysis_helpers import *
 from weblog_creation import *
 from prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_per_solint
-from casampi.MPIEnvironment import MPIEnvironment 
-parallel=MPIEnvironment.is_mpi_enabled
+
+# Mac builds of CASA lack MPI and error without this try/except
+try:
+   from casampi.MPIEnvironment import MPIEnvironment   
+   parallel=MPIEnvironment.is_mpi_enabled
+except:
+   parallel=False
 
 def end_program():
     print('This version of auto_selfcal requires CASA 6.5.3 or higher to run. Please update your CASA version and try again.')
@@ -58,6 +64,23 @@ if len(vislist) == 0:
 spectral_average=True
 do_amp_selfcal=True
 
+             # input as dictionary for target name to allow support of multiple targets           
+usermask={}  # require that it is a CRTF region (CASA region format)
+             # usermask={'IRAS32':{'Band_6':'IRAS32.rgn'}, 'IRS5N':{'Band_6': 'IRS5N.rgn'}}
+             # If multiple sources and only want to use a mask for one, just specify that source.
+             # The keys for remaining sources will be filled with empty strings
+             # NOTE THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
+
+usermodel={} 
+             # input as dictionary for target name to allow support of multiple targets
+             # if includes .fits, assume a fits image, otherwise assume a CASA image
+             # for spectral image, input as list i.e., usermodel=['usermodel.tt0','usermodel.tt1']
+             # usermodel={'IRAS32':{'Band_6':['IRAS32-model.tt0','IRAS32-model.tt1']}, 'IRS5N':{'Band_6'['IRS5N-model.tt0','IRS5N-model.tt1']}}
+             # If multiple sources and only want to use a model for one, just specify that source.
+             # The keys for remaining sources will be filled with empty strings
+             # NOTE THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
+
+
 inf_EB_gaincal_combine='scan'  # should we get rid of this option?
 inf_EB_gaintype='G'
 inf_EB_override=False
@@ -88,18 +111,50 @@ dividing_factor=-99.0  # number that the peak SNR is divided by to determine fir
 check_all_spws=False   # generate per-spw images to check phase transfer did not go poorly for narrow windows
 apply_to_target_ms=False # apply final selfcal solutions back to the input _target.ms files
 sort_targets_and_EBs=False
+run_findcont=False
 debug=False
 
+if run_findcont and os.path.exists("cont.dat"):
+    if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
+        if not os.path.exists("cont.dat.original"):
+            print("Found existing cont.dat, but it is missing targets. Backing that up to cont.dat.original")
+            os.system("mv cont.dat cont.dat.original")
+        else:
+            print("Found existing cont.dat, but it is missing targets. A backup of the original (cont.dat.original) already exists, so not backing up again.")
+    elif run_findcont:
+        print("cont.dat already exists and includes all targets, so running findcont is not needed. Continuing...")
+        run_findcont=False
+
+if run_findcont:
+    try:
+        if 'pipeline' not in sys.modules:
+            print("Pipeline found but not imported. Importing...")
+            import pipeline
+            pipeline.initcli()
+
+        print("Running findcont")
+        h_init()
+        hifa_importdata(vis=vislist, dbservice=False)
+        hif_checkproductsize(maxcubesize=60.0, maxcubelimit=70.0, maxproductsize=4000.0)
+        hif_makeimlist(specmode="mfs")
+        hif_findcont()
+    except:
+        print("\nWARNING: Cannot run findcont as the pipeline was not found. Please retry with a CASA version that includes the pipeline or start CASA with the --pipeline flag.\n")
+        sys.exit(0)
 
 ##
 ## Get all of the relevant data from the MS files
 ##
 selfcal_library, selfcal_plan, gaincalibrator_dict = prepare_selfcal(vislist, spectral_average=spectral_average, 
         sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
-        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal,debug=debug)
+        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
+        usermask=usermask, usermodel=usermodel,debug=debug)
 
 
-
+with open('selfcal_library.pickle', 'wb') as handle:
+    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open('selfcal_plan.pickle', 'wb') as handle:
+    pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 ###################################################################################################
@@ -118,15 +173,14 @@ for target in selfcal_library:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target]:
    #make images using the appropriate tclean heuristics for each telescope
-   if not os.path.exists(sani_target+'_'+band+'_dirty.image.tt0'):
-      # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
-      # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
-      # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
-      tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_dirty',
-                     band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold='0.0Jy',niter=1, gain=0.00001,
-                     savemodel='none',parallel=parallel,
-                     field=target)
+   # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+   # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+   # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+   tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_dirty',
+                  band,telescope=telescope,nsigma=4.0, scales=[0],
+                  threshold='0.0Jy',niter=1, gain=0.00001,
+                  savemodel='none',parallel=parallel,
+                  field=target)
 
    dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_dirty.image.tt0', sani_target+'_'+band+'_dirty.mask',
             '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
@@ -142,12 +196,11 @@ for target in selfcal_library:
                imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty',
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
-   if not os.path.exists(sani_target+'_'+band+'_initial.image.tt0'):
-      tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_initial',
-                     band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold='theoretical_with_drmod',
-                     savemodel='none',parallel=parallel,
-                     field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS)
+   tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_initial',
+                  band,telescope=telescope,nsigma=4.0, scales=[0],
+                  threshold='theoretical_with_drmod',
+                  savemodel='none',parallel=parallel,
+                  field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS,store_threshold='orig')
 
    initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_initial.image.tt0', 
            sani_target+'_'+band+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
@@ -163,6 +216,8 @@ for target in selfcal_library:
                imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig',
                mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
+   if "VLA" in telescope and "clean_threshold_orig" not in selfcal_library[target][band]:
+             selfcal_library[target][band]['clean_threshold_orig']=4.0*initial_RMS
 
    if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw
       selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
@@ -177,8 +232,12 @@ for target in selfcal_library:
        selfcal_library[target][band][fid]['RMS_curr']=mosaic_initial_RMS[fid]
        selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid] if mosaic_initial_NF_RMS[fid] > 0 else mosaic_initial_RMS[fid]
 
+ #update selfcal library after each
+ with open('selfcal_library.pickle', 'wb') as handle:
+    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 import json
+
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
@@ -188,8 +247,10 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
 if debug:
     print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
+
 ####MAKE DIRTY PER SPW IMAGES TO PROPERLY ASSESS DR MODIFIERS
 ##
 ## Make a initial image per spw images to assess overall improvement
@@ -204,23 +265,21 @@ if check_all_spws:
             keylist=selfcal_library[target][band]['per_spw_stats'].keys()
             if spw not in keylist:
                selfcal_library[target][band]['per_spw_stats'][spw]={}
-            if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_dirty.image.tt0'):
-               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
-                     band,telescope=telescope,nsigma=4.0, scales=[0],
-                     threshold='0.0Jy',niter=1,gain=0.00001,
-                     savemodel='none',parallel=parallel,
-                     field=target,spw=spw)
+            tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
+                  band,telescope=telescope,nsigma=4.0, scales=[0],
+                  threshold='0.0Jy',niter=1,gain=0.00001,
+                  savemodel='none',parallel=parallel,
+                  field=target,spw=spw)
 
             dirty_SNR, dirty_RMS, dirty_per_spw_NF_SNR, dirty_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
                     '_dirty.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_dirty.mask','', selfcal_library[target][band], 
                     (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty', spw=spw)
 
-            if not os.path.exists(sani_target+'_'+band+'_'+str(spw)+'_initial.image.tt0'):
-               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_initial',\
-                          band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
-                          savemodel='none',parallel=parallel,\
-                          field=target,datacolumn='corrected',\
-                          spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
+            tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_initial',\
+                       band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
+                       savemodel='none',parallel=parallel,\
+                       field=target,datacolumn='corrected',\
+                       spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
 
             per_spw_SNR, per_spw_RMS, initial_per_spw_NF_SNR, initial_per_spw_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+str(spw)+
                     '_initial.image.tt0', sani_target+'_'+band+'_'+str(spw)+'_initial.mask', '', selfcal_library[target][band], 
@@ -252,7 +311,7 @@ plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=optim
 ##
 ## Save self-cal library
 ##
-import pickle
+
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -394,6 +453,7 @@ if allow_cocal:
                second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
                mode="cocal", calibrators=calibrators, calculate_inf_EB_fb_anyways=calculate_inf_EB_fb_anyways, \
                preapply_targets_own_inf_EB=preapply_targets_own_inf_EB, gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=True)
+    
     if debug:
         print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
@@ -409,12 +469,14 @@ for target in selfcal_library:
  sani_target=sanitize_string(target)
  for band in selfcal_library[target].keys():
    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
+   clean_threshold = min(selfcal_library[target][band]['clean_threshold_orig'], selfcal_library[target][band]['RMS_NF_curr']*3.0)
+   if selfcal_library[target][band]['clean_threshold_orig'] < selfcal_library[target][band]['RMS_NF_curr']*3.0:
+       print("WARNING: The clean threshold used for the initial image was less than 3*RMS_NF_curr, using that for the final image threshold instead.")
    tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_final',\
-               band,telescope=telescope,nsigma=3.0, threshold=str(selfcal_library[target][band]['RMS_NF_curr']*3.0)+'Jy',scales=[0],\
+               band,telescope=telescope,nsigma=3.0, threshold=str(clean_threshold)+'Jy',scales=[0],\
                savemodel='none',parallel=parallel,
                field=target,datacolumn='corrected',\
                nfrms_multiplier=nfsnr_modifier)
-               
 
    final_SNR, final_RMS, final_NF_SNR, final_NF_RMS = get_image_stats(sani_target+'_'+band+'_final.image.tt0', sani_target+'_'+band+'_final.mask',
            '', selfcal_library[target][band], (telescope !='ACA' or aca_use_nfmask), 'final', 'final')
@@ -626,7 +688,7 @@ if check_all_spws:
 ##
 ## Save final library results
 ##
-import pickle
+
 with open('selfcal_library.pickle', 'wb') as handle:
     pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
