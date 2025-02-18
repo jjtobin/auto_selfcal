@@ -3285,7 +3285,11 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
     neff = (nants)**(-1./(1+4))
     kernal2 = scipy.stats.gaussian_kde(offsets, bw_method=neff)
 
-    flagged_offsets = offsets[np.any(flags, axis=(0,1))]
+    flagged_offsets = np.array([])
+    for i, ant in enumerate(unique_antennas):
+        flagged_offsets = np.concatenate((flagged_offsets, np.repeat(unique_offsets[i], np.array([[gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['data_unflagged'] - 
+                gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['above_minsnr'] for spw in good_spw_ids] for gcdict in gaincal_return]).sum())))
+
     if len(np.unique(flagged_offsets)) == 1:
         flagged_offsets = np.concatenate((flagged_offsets, flagged_offsets*1.05))
     elif len(flagged_offsets) == 0:
