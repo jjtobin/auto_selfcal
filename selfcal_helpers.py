@@ -3374,11 +3374,6 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
             if second_derivative[m] < 0:
                 continue
 
-            # Estimated change ine the size of the beam.
-            beam_change = np.percentile(offsets, 80) / np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
-                    offsets > test_r[m])], 80)
-
-            #if beam_change < 1.05:
             if test_r[m] == offset_limit:
                 ax1.axvline(test_r[m], linestyle="--")
                 ax1.axhline(fraction_flagged_antennas[m], linestyle="--")
