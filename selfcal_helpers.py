@@ -3398,16 +3398,19 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
             mean_longitude)**2 + (offsets[i]["latitude offset"]['value'] - mean_latitude)**2) for i in range(len(antennas))])
     unique_offsets = np.array([np.sqrt((unique_offsets[i]["longitude offset"]['value'] - \
             mean_longitude)**2 + (unique_offsets[i]["latitude offset"]['value'] - mean_latitude)**2) for i in range(len(unique_antennas))])
- 
+
+    flagged_offsets = np.array([])
+    offsets = np.array([])
+    for i, ant in enumerate(unique_antennas):
+        offsets = np.concatenate((offsets, np.repeat(unique_offsets[i], np.array([[gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['data_unflagged'] 
+                for spw in good_spw_ids] for gcdict in gaincal_return]).sum())))
+        flagged_offsets = np.concatenate((flagged_offsets, np.repeat(unique_offsets[i], np.array([[gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['data_unflagged'] - 
+                gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['above_minsnr'] for spw in good_spw_ids] for gcdict in gaincal_return]).sum())))
+          
     # Get a smoothed number of antennas flagged as a function of offset.
     test_r = np.linspace(0., offsets.max(), 1000)
     neff = (nants)**(-1./(1+4))
     kernal2 = scipy.stats.gaussian_kde(offsets, bw_method=neff)
-
-    flagged_offsets = np.array([])
-    for i, ant in enumerate(unique_antennas):
-        flagged_offsets = np.concatenate((flagged_offsets, np.repeat(unique_offsets[i], np.array([[gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['data_unflagged'] - 
-                gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['above_minsnr'] for spw in good_spw_ids] for gcdict in gaincal_return]).sum())))
 
     if len(np.unique(flagged_offsets)) == 1:
         flagged_offsets = np.concatenate((flagged_offsets, flagged_offsets*1.05))
