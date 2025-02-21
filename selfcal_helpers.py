@@ -2624,7 +2624,8 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png"><img src="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png" ALT="Noise Characteristics" WIDTH=300 HEIGHT=300></a><br>\n')
          
          # Solint summary table
-         render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan)
+         if 'Empty model' not in sclib[target][band]['Stop_Reason']:
+            render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan)
 
          # PER SPW STATS TABLE
          if 'per_spw_stats' in sclib[target][band].keys():
@@ -2636,7 +2637,8 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    htmlOut.close()
    
    # Pages for each solint
-   render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory=directory)
+   if 'Empty model' not in sclib[target][band]['Stop_Reason']:
+      render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory=directory)
  
 
 def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
@@ -2999,7 +3001,12 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                htmlOutSolint.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
             else:
                htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
-
+            if 'Empty model' in sclib[target][band]['Stop_Reason']:
+               htmlOutSolint.writelines('Empty model image, no gains solved<br>\n')
+               htmlOutSolint.writelines('</body>\n')
+               htmlOutSolint.writelines('</html>\n')
+               htmlOutSolint.close()
+               continue
             htmlOutSolint.writelines('Pre and Post Selfcal images with scales set to Post image<br>\n')
             plot_image(sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0',\
                       directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png', \
