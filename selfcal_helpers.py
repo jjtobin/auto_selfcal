@@ -922,7 +922,7 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
       #print(delta_ints_per_solint[min_index])
    return delta_ints_per_solint[min_index]
    
-def fetch_targets(vis):
+def fetch_targets_old(vis):
       fields=[]
       msmd.open(vis)
       fieldnames=msmd.fieldnames()
@@ -933,6 +933,63 @@ def fetch_targets(vis):
       msmd.close()
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
+      
+def fetch_targets(vislist):
+   targets_vis={}
+   vis_for_targets={}
+   nfields=0
+   maxfieldsvis=''
+   fields_superset=[]
+   vis_missing_fields=[]
+   vis_overflagged_fields=[]
+   for vis in vislist:
+      targets_vis[vis]={}
+      fields=[]
+      msmd.open(vis)
+      fieldnames=msmd.fieldnames()
+      for fieldname in fieldnames:
+         scans=msmd.scansforfield(fieldname)
+         if len(scans) > 0:
+            fields.append(fieldname)
+      msmd.close()
+      fields=list(set(fields)) # convert to set to only get unique items
+      targets_vis[vis]['fields']=list(set(fields))
+      targets_vis[vis]['fields'].sort
+      if len(targets_vis[vis]['fields']) > nfields:
+         nfields=len(targets_vis[vis]['fields'])
+         maxfieldvis=vis+''
+         fields_superset=targets_vis[vis]['fields'].copy()
+
+   for target in fields_superset:
+      vis_for_targets[target]={}
+      vis_for_targets[target]['vislist']=[]
+      for vis in vislist:
+         if target in targets_vis[vis]['fields']:
+            vis_for_targets[target][vis]={}
+            vis_for_targets[target]['vislist']+=[vis]
+      vis_for_targets[target]['vislist_orig']=vis_for_targets[target]['vislist'].copy()
+   for vis in vislist:
+      print(vis,targets_vis[vis]['fields'], fields_superset,targets_vis[vis]['fields'] != fields_superset)
+      if targets_vis[vis]['fields'] != fields_superset:
+         vis_missing_fields+=[vis]
+      flagdict=flagdata(vis=vis,mode='summary')   
+      targets_vis[vis]['flagging']=flagdict['field'].copy()
+      print(targets_vis)
+      median_flagged_frac=flagdict['flagged']/flagdict['total']
+      for target in targets_vis[vis]['fields']:
+         targets_vis[vis]['flagging'][target]['frac']=targets_vis[vis]['flagging'][target]['flagged']/targets_vis[vis]['flagging'][target]['total']
+         vis_for_targets[target][vis]['flagging']={}
+         vis_for_targets[target][vis]['flagging']['frac']=targets_vis[vis]['flagging'][target]['frac']+0.0
+         vis_for_targets[target][vis]['flagging']['flagged']=targets_vis[vis]['flagging'][target]['flagged']+0
+         vis_for_targets[target][vis]['flagging']['total']=targets_vis[vis]['flagging'][target]['total']+0
+         flagging_limit=median_flagged_frac+0.25
+         if flagging_limit > 1.0:
+            flagging_limit=1.0
+         if targets_vis[vis]['flagging'][target]['frac'] >= flagging_limit or targets_vis[vis]['flagging'][target]['frac'] == 1.0:
+            vis_overflagged_fields+=[vis]
+            vis_for_targets[target]['vislist'].remove(vis)
+            
+   return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields
 
 def checkmask(imagename):
    maskImage=imagename.replace('image','mask').replace('.tt0','')
@@ -3781,6 +3838,19 @@ def triage_calibrators(vis, target, potential_calibrators, max_distance=10.0, ma
     return ",".join(np.unique(fields[good])), ",".join(scans[good].astype(str))
 
 
+def zero_out_gc_return_dict(gaincal_return):
+   gaincal_return['solvestats']['data_unflagged']=np.zeros(gaincal_return['solvestats']['data_unflagged'].size)
+   gaincal_return['solvestats']['above_minsnr']=np.zeros(gaincal_return['solvestats']['above_minsnr'].size)
+   for key1 in gaincal_return['solvestats'].keys():
+      if 'spw' in key1:
+         gaincal_return['solvestats'][key1]['data_unflagged']=np.zeros(gaincal_return['solvestats'][key1]['data_unflagged'].size)
+         gaincal_return['solvestats'][key1]['above_minsnr']=np.zeros(gaincal_return['solvestats'][key1]['above_minsnr'].size)
+         for key2 in gaincal_return['solvestats'][key1].keys():
+            if 'ant' in key2 and key2 != 'above_minblperant':
+               gaincal_return['solvestats'][key1][key2]['data_unflagged']=np.zeros(gaincal_return['solvestats'][key1][key2]['data_unflagged'].size)
+               gaincal_return['solvestats'][key1][key2]['above_minsnr']=np.zeros(gaincal_return['solvestats'][key1][key2]['above_minsnr'].size)
+          
+   return gaincal_return
 
 def make_distance_time_phaseerr_plots(vislist):
 
