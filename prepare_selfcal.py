@@ -32,12 +32,8 @@ def prepare_selfcal(vislist,
     ## 
     ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
     ##
-    #all_targets=fetch_targets(vislist[0])
-    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist)
-    vis_to_remove=list(set(vis_missing_fields+vis_overflagged))
-    for vis in vis_to_remove:
-      print('Removing '+vis+ ' due to missing fields or an overflagged field')
-      vislist.remove(vis)
+    all_targets=fetch_targets(vislist[0])
+
     ##
     ## Global environment variables for control of selfcal
     ##
