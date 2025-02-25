@@ -5,7 +5,7 @@ import sys
 sys.path.append("./")
 from selfcal_helpers import *
 
-def prepare_selfcal(vislist, 
+def prepare_selfcal(all_targets, vislist, 
         spectral_average=True, 
         sort_targets_and_EBs=False,
         scale_fov=1.0,
@@ -19,31 +19,6 @@ def prepare_selfcal(vislist,
 
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
-
-    ##
-    ## save starting flags or restore to the starting flags
-    ##
-    for vis in vislist:
-       if os.path.exists(vis+".flagversions/flags.starting_flags"):
-          flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
-       else:
-          flagmanager(vis=vis,mode='save',versionname='starting_flags')
-
-    ## 
-    ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
-    ##
-    #all_targets=fetch_targets(vislist[0])
-    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist)
-    vis_to_remove=list(set(vis_missing_fields+vis_overflagged))
-    for vis in vis_to_remove:
-      print('Removing '+vis+ ' due to missing fields or an overflagged field')
-      vislist.remove(vis)
-    ##
-    ## Global environment variables for control of selfcal
-    ##
-    if sort_targets_and_EBs:
-        all_targets.sort()
-        vislist.sort()
 
     ##
     ## Import inital MS files to get relevant meta data
@@ -61,7 +36,7 @@ def prepare_selfcal(vislist,
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
     ##
-    split_to_selfcal_ms(vislist,band_properties,bands,spectral_average)
+    split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average)
 
     ##
     ## put flagging back at original state for originally input ms for when they are used next time
@@ -80,7 +55,8 @@ def prepare_selfcal(vislist,
     spwstring_dict_orig=spwstring_dict.copy()
     spwsarray_dict_orig =spwsarray_dict.copy()
 
-    vislist=[vis.replace(".ms",".selfcal.ms") for vis in vislist]
+    vislist=[sanitize_string('_'.join(all_targets))+'_'+vis.replace(".ms",".selfcal.ms") for vis in vislist]
+    original_vislist_map = dict(zip(vislist, vislist_orig))
 
     listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
     integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
@@ -199,6 +175,7 @@ def prepare_selfcal(vislist,
        selfcal_library[target][band]['spws']=[]
        selfcal_library[target][band]['spws_per_vis']=[]
        selfcal_library[target][band]['vislist']=vislist.copy()
+       selfcal_library[target][band]['original_vislist_map']=original_vislist_map
        allscantimes=np.array([])
        allscannfields=np.array([])
        for vis in vislist:
@@ -215,9 +192,9 @@ def prepare_selfcal(vislist,
           selfcal_library[target][band][vis]['spws']=band_properties[vis][band]['spwstring']
           selfcal_library[target][band][vis]['spwsarray']=band_properties[vis][band]['spwarray']
           selfcal_library[target][band][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
-          selfcal_library[target][band][vis]['spws_orig']=band_properties_orig[vis.replace('.selfcal','')][band]['spwstring']
-          selfcal_library[target][band][vis]['spwsarray_orig']=band_properties_orig[vis.replace('.selfcal','')][band]['spwarray']
-          selfcal_library[target][band][vis]['spwlist_orig']=band_properties_orig[vis.replace('.selfcal','')][band]['spwarray'].tolist()
+          selfcal_library[target][band][vis]['spws_orig']=band_properties_orig[original_vislist_map[vis]][band]['spwstring']
+          selfcal_library[target][band][vis]['spwsarray_orig']=band_properties_orig[original_vislist_map[vis]][band]['spwarray']
+          selfcal_library[target][band][vis]['spwlist_orig']=band_properties_orig[original_vislist_map[vis]][band]['spwarray'].tolist()
           selfcal_library[target][band][vis]['n_spws']=len(selfcal_library[target][band][vis]['spwsarray'])
           selfcal_library[target][band][vis]['minspw']=int(np.min(selfcal_library[target][band][vis]['spwsarray']))
 
@@ -275,9 +252,9 @@ def prepare_selfcal(vislist,
               selfcal_library[target][band][fid][vis]['spws']=band_properties[vis][band]['spwstring']
               selfcal_library[target][band][fid][vis]['spwsarray']=band_properties[vis][band]['spwarray']
               selfcal_library[target][band][fid][vis]['spwlist']=band_properties[vis][band]['spwarray'].tolist()
-              selfcal_library[target][band][fid][vis]['spws_orig']=band_properties_orig[vis.replace('.selfcal','')][band]['spwstring']
-              selfcal_library[target][band][fid][vis]['spwsarray_orig']=band_properties_orig[vis.replace('.selfcal','')][band]['spwarray']
-              selfcal_library[target][band][fid][vis]['spwlist_orig']=band_properties_orig[vis.replace('.selfcal','')][band]['spwarray'].tolist()
+              selfcal_library[target][band][fid][vis]['spws_orig']=band_properties_orig[original_vislist_map[vis]][band]['spwstring']
+              selfcal_library[target][band][fid][vis]['spwsarray_orig']=band_properties_orig[original_vislist_map[vis]][band]['spwarray']
+              selfcal_library[target][band][fid][vis]['spwlist_orig']=band_properties_orig[original_vislist_map[vis]][band]['spwarray'].tolist()
               selfcal_library[target][band][fid][vis]['n_spws']=len(selfcal_library[target][band][fid][vis]['spwsarray'])
               selfcal_library[target][band][fid][vis]['minspw']=int(np.min(selfcal_library[target][band][fid][vis]['spwsarray']))
 

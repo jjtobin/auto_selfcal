@@ -5,8 +5,11 @@ import sys
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
-from casampi.MPIEnvironment import MPIEnvironment 
-parallel=MPIEnvironment.is_mpi_enabled
+try:
+    from casampi.MPIEnvironment import MPIEnvironment 
+    parallel=MPIEnvironment.is_mpi_enabled
+except:
+    parallel=False
 
 def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, \

@@ -934,8 +934,9 @@ def fetch_targets_old(vis):
       fields=list(set(fields)) # convert to set to only get unique items
       return fields
       
-def fetch_targets(vislist):
+def fetch_targets(vislist,telescope):
    targets_vis={}
+   targets_band_vis={}
    vis_for_targets={}
    nfields=0
    maxfieldsvis=''
@@ -962,33 +963,36 @@ def fetch_targets(vislist):
 
    for target in fields_superset:
       vis_for_targets[target]={}
-      vis_for_targets[target]['vislist']=[]
       for vis in vislist:
          if target in targets_vis[vis]['fields']:
-            vis_for_targets[target][vis]={}
-            vis_for_targets[target]['vislist']+=[vis]
-      vis_for_targets[target]['vislist_orig']=vis_for_targets[target]['vislist'].copy()
+            bands,band_properties=get_bands([vis],[target],telescope)  
+            if 'Bands' not in vis_for_targets[target].keys():
+               vis_for_targets[target]['Bands']=bands.copy()
+            for band in bands:
+               if band not in vis_for_targets[target].keys():
+                  vis_for_targets[target][band]={}
+               if 'vislist' not in vis_for_targets[target][band].keys():
+                  vis_for_targets[target][band]['vislist']=[]
+               vis_for_targets[target][band]['vislist']+=[vis]
+               vis_for_targets[target][band][vis]={}
+               vis_for_targets[target][band][vis]['spwarray']=band_properties[vis][band]['spwarray'].copy()
+               vis_for_targets[target][band][vis]['spwstring']=band_properties[vis][band]['spwstring']+''      
+   flagging_dict={}
    for vis in vislist:
-      print(vis,targets_vis[vis]['fields'], fields_superset,targets_vis[vis]['fields'] != fields_superset)
-      if targets_vis[vis]['fields'] != fields_superset:
-         vis_missing_fields+=[vis]
-      flagdict=flagdata(vis=vis,mode='summary')   
-      targets_vis[vis]['flagging']=flagdict['field'].copy()
-      print(targets_vis)
-      median_flagged_frac=flagdict['flagged']/flagdict['total']
-      for target in targets_vis[vis]['fields']:
-         targets_vis[vis]['flagging'][target]['frac']=targets_vis[vis]['flagging'][target]['flagged']/targets_vis[vis]['flagging'][target]['total']
-         vis_for_targets[target][vis]['flagging']={}
-         vis_for_targets[target][vis]['flagging']['frac']=targets_vis[vis]['flagging'][target]['frac']+0.0
-         vis_for_targets[target][vis]['flagging']['flagged']=targets_vis[vis]['flagging'][target]['flagged']+0
-         vis_for_targets[target][vis]['flagging']['total']=targets_vis[vis]['flagging'][target]['total']+0
-         flagging_limit=median_flagged_frac+0.25
-         if flagging_limit > 1.0:
-            flagging_limit=1.0
-         if targets_vis[vis]['flagging'][target]['frac'] >= flagging_limit or targets_vis[vis]['flagging'][target]['frac'] == 1.0:
-            vis_overflagged_fields+=[vis]
-            vis_for_targets[target]['vislist'].remove(vis)
-            
+      flagging_dict[vis]=flagdata(vis=vis,mode='summary') 
+
+   for target in vis_for_targets.keys():
+      for band in vis_for_targets[target]['Bands']:
+         for vis in vis_for_targets[target][band]['vislist']:
+            vis_for_targets[target][band][vis]['flagging']=flagging_dict[vis]['field'][target].copy()
+            vis_for_targets[target][band][vis]['flagging']['frac']=flagging_dict[vis]['field'][target]['flagged']/flagging_dict[vis]['field'][target]['total']
+            vis_for_targets[target][band][vis]['flagging']['flagged']=flagging_dict[vis]['field'][target]['flagged']+0
+            vis_for_targets[target][band][vis]['flagging']['total']=flagging_dict[vis]['field'][target]['total']+0
+
+            if vis_for_targets[target][band][vis]['flagging']['frac'] >= 0.99:
+               vis_overflagged_fields+=[vis]
+               vis_for_targets[target][band]['vislist'].remove(vis)
+                  
    return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields
 
 def checkmask(imagename):
@@ -1976,7 +1980,17 @@ def check_image_nterms(fracbw, SNR):
       nterms=1
    return nterms
 
-def get_mean_freq(vislist,spwsarray):
+def get_mean_freq(vis,spwsarray):
+   tb.open(vis[0]+'/SPECTRAL_WINDOW')
+   freqarray=tb.getcol('REF_FREQUENCY')
+   tb.close()
+   meanfreq=np.mean(freqarray[spwsarray])
+   minfreq=np.min(freqarray[spwsarray])
+   maxfreq=np.max(freqarray[spwsarray])
+   fracbw=np.abs(maxfreq-minfreq)/meanfreq
+   return meanfreq, maxfreq,minfreq,fracbw
+   
+def get_mean_freq_old(vislist,spwsarray):
    tb.open(vislist[0]+'/SPECTRAL_WINDOW')
    freqarray=tb.getcol('REF_FREQUENCY')
    tb.close()
@@ -1984,7 +1998,7 @@ def get_mean_freq(vislist,spwsarray):
    minfreq=np.min(freqarray[spwsarray[vislist[0]]])
    maxfreq=np.max(freqarray[spwsarray[vislist[0]]])
    fracbw=np.abs(maxfreq-minfreq)/meanfreq
-   return meanfreq, maxfreq,minfreq,fracbw
+   return meanfreq, maxfreq,minfreq,fracbw   
 
 def get_reffreq(vislist,field_ids,spwsarray,telescope):
     meanfreqs = []
@@ -2100,6 +2114,7 @@ def get_ALMA_bands(vislist,spwstring,spwarray):
    return bands,observed_bands
 
 
+
 def get_VLA_bands(vislist,fields):
    observed_bands={}
    for vis in vislist:
@@ -2175,6 +2190,131 @@ def get_VLA_bands(vislist,fields):
    get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
    return observed_bands[vislist[0]]['bands'].copy(),observed_bands
 
+
+
+def get_bands(vislist,fields,telescope):
+   observed_bands={}
+   for vis in vislist:
+      observed_bands[vis]={}
+      msmd.open(vis)
+      spws_for_field=np.array([])
+      for field in fields:
+         spws_temp=msmd.spwsforfield(field)
+         spws_for_field=np.concatenate((spws_for_field,np.array(spws_temp)))
+      msmd.close()
+      spws_for_field=np.unique(spws_for_field)
+      spws_for_field.sort()
+      spws_for_field=spws_for_field.astype('int')
+      #visheader=vishead(vis,mode='list',listitems=[])
+      tb.open(vis+'/SPECTRAL_WINDOW') 
+      spw_names=tb.getcol('NAME')
+      tb.close()
+      #spw_names=visheader['spw_name'][0]
+      spw_names_band=['']*len(spws_for_field)
+      spw_names_band=['']*len(spws_for_field)
+      spw_names_bb=['']*len(spws_for_field)
+      spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
+
+      if telescope == 'VLA':
+         for i in range(len(spws_for_field)):
+            spw_names_band[i]=spw_names[spws_for_field[i]].split('#')[0]
+            spw_names_bb[i]=spw_names[spws_for_field[i]].split('#')[1]
+            spw_names_spw[i]=spws_for_field[i]     
+         all_bands=np.unique(spw_names_band)
+         observed_bands[vis]['n_bands']=len(all_bands)
+         observed_bands[vis]['bands']=all_bands.tolist()
+         for band in all_bands:
+            index=np.where(np.array(spw_names_band)==band)
+            observed_bands[vis][band]={}
+            # logic below removes the VLA standard pointing setups at X and C-bands
+            # the code is mostly immune to this issue since we get the spws for only
+            # the science targets above; however, should not ignore the possibility
+            # that someone might also do pointing on what is the science target
+            if (band == 'EVLA_X') and (len(index[0]) >= 2): # ignore pointing band
+               observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
+               indices_to_remove=np.array([])
+               for i in range(len(observed_bands[vis][band]['spwarray'])):
+                   meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
+                   if (meanfreq==8.332e9) or (meanfreq==8.460e9):
+                      indices_to_remove=np.append(indices_to_remove,[i])
+               observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
+            elif (band == 'EVLA_C') and (len(index[0]) >= 2): # ignore pointing band
+
+               observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
+               indices_to_remove=np.array([])
+               for i in range(len(observed_bands[vis][band]['spwarray'])):
+                   meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
+                   if (meanfreq==4.832e9) or (meanfreq==4.960e9):
+                      indices_to_remove=np.append(indices_to_remove,[i])
+               observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
+            else:
+               observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
+            spwslist=observed_bands[vis][band]['spwarray'].tolist()
+            spwstring=','.join(str(spw) for spw in spwslist)
+            observed_bands[vis][band]['spwstring']=spwstring+''
+            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: [observed_bands[vis][band]['spwarray']]})
+
+            msmd.open(vis)
+            observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(observed_bands[vis][band]['spwarray'][0]))
+            msmd.close()
+         bands_match=True
+      
+         for i in range(len(vislist)):
+            for j in range(i+1,len(vislist)):
+               bandlist_match=(observed_bands[vislist[i]]['bands'] ==observed_bands[vislist[i+1]]['bands'])
+               if not bandlist_match:
+                  bands_match=False
+         if not bands_match:
+           print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
+         get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
+      if telescope == 'ALMA' or telescope == 'ACA':
+         meanfreq, maxfreq,minfreq,fracbw=get_mean_freq(vislist,spws_for_field)
+         observed_bands={}
+         band=get_ALMA_band_string(meanfreq)
+         bands=[band]
+         for vis in vislist:
+            observed_bands[vis]={}
+            observed_bands[vis]['bands']=[band]
+            for band in bands:
+               observed_bands[vis][band]={}
+               observed_bands[vis][band]['spwarray']=np.array(spws_for_field)
+               observed_bands[vis][band]['spwstring']=','.join(str(spw) for spw in spws_for_field)
+               observed_bands[vis][band]['meanfreq']=meanfreq
+               observed_bands[vis][band]['maxfreq']=maxfreq
+               observed_bands[vis][band]['minfreq']=minfreq
+               observed_bands[vis][band]['fracbw']=fracbw
+
+               msmd.open(vis)
+               observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(spws_for_field[0]))
+               msmd.close()
+         get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'ALMA')   
+      
+   
+
+   return observed_bands[vislist[0]]['bands'].copy(),observed_bands
+
+def get_ALMA_band_string(meanfreq):
+   if (meanfreq < 950.0e9) and (meanfreq >=787.0e9):
+      band='Band_10'
+   elif (meanfreq < 720.0e9) and (meanfreq >=602.0e9):
+      band='Band_9'
+   elif (meanfreq < 500.0e9) and (meanfreq >=385.0e9):
+      band='Band_8'
+   elif (meanfreq < 373.0e9) and (meanfreq >=275.0e9):
+      band='Band_7'
+   elif (meanfreq < 275.0e9) and (meanfreq >=211.0e9):
+      band='Band_6'
+   elif (meanfreq < 211.0e9) and (meanfreq >=163.0e9):
+      band='Band_5'
+   elif (meanfreq < 163.0e9) and (meanfreq >=125.0e9):
+      band='Band_4'
+   elif (meanfreq < 116.0e9) and (meanfreq >=84.0e9):
+      band='Band_3'
+   elif (meanfreq < 84.0e9) and (meanfreq >=67.0e9):
+      band='Band_2'
+   elif (meanfreq < 50.0e9) and (meanfreq >=30.0e9):
+      band='Band_1'
+   return band
 
 def get_telescope(vis):
    visheader=vishead(vis,mode='list',listitems=[])
@@ -3218,7 +3358,7 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
 
-def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
+def split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average):
    for vis in vislist:
        os.system('rm -rf '+vis.replace('.ms','.selfcal.ms')+'*')
        spwstring=''
@@ -3236,10 +3376,10 @@ def split_to_selfcal_ms(vislist,band_properties,bands,spectral_average):
                 spwstring=band_properties[vis][band]['spwstring']+''
              else:
                 spwstring=spwstring+','+band_properties[vis][band]['spwstring']
-          mstransform(vis=vis,chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=','.join(all_targets),chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=sanitize_string('_'.join(all_targets))+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
           initweights(vis=vis,wtmode='delwtsp') # remove channelized weights
        else:
-          mstransform(vis=vis,outputvis=vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=','.join(all_targets),outputvis=sanitize_string('_'.join(all_targets))+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
 
 
 def check_mosaic(vislist,target):
