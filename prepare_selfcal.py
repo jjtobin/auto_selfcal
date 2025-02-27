@@ -5,7 +5,7 @@ import sys
 sys.path.append("./")
 from selfcal_helpers import *
 
-def prepare_selfcal(all_targets, vislist, 
+def prepare_selfcal(all_targets, bands, vislist, 
         spectral_average=True, 
         sort_targets_and_EBs=False,
         scale_fov=1.0,
@@ -23,15 +23,15 @@ def prepare_selfcal(all_targets, vislist,
     ##
     ## Import inital MS files to get relevant meta data
     ##
-    listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-    integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
+
+    _, band_properties = get_bands(vislist, all_targets, telescope)
 
     ##
     ## flag spectral lines in MS(es) if there is a cont.dat file present
     ##
     if os.path.exists("cont.dat"):
+       spwsarray_dict = dict(zip(vislist,[np.concatenate([band_properties[vis][band]['spwarray'] for band in bands]) for vis in vislist]))
        flag_spectral_lines(vislist,all_targets,spwsarray_dict)
-
 
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
@@ -50,13 +50,11 @@ def prepare_selfcal(all_targets, vislist,
     ## Reimport MS(es) to self calibrate since frequency averaging and splitting may have changed it
     ##
     band_properties_orig = band_properties.copy()
-    spwslist_dict_orig=spwslist_dict.copy()
     vislist_orig=vislist.copy()
-    spwstring_dict_orig=spwstring_dict.copy()
-    spwsarray_dict_orig =spwsarray_dict.copy()
 
-    vislist=[sanitize_string('_'.join(all_targets))+'_'+vis.replace(".ms",".selfcal.ms") for vis in vislist]
+    vislist=[sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace(".ms",".selfcal.ms") for vis in vislist]
     original_vislist_map = dict(zip(vislist, vislist_orig))
+    print(vislist)
 
     listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
     integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)

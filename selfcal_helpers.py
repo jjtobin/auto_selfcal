@@ -3245,13 +3245,12 @@ def importdata(vislist,all_targets,telescope):
       nspws_sets=spws_set[vislist[0]].shape[0]
    else:
       nspws_sets=1
-   if 'VLA' in telescope:
-      bands,band_properties=get_VLA_bands(vislist,all_targets)
-  
+
    if telescope=='ALMA' or telescope =='ACA':
-      bands,band_properties=get_ALMA_bands(vislist,spwstring_dict,spwsarray_dict)
       if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
          spectral_scan=True
+
+   bands, band_properties = get_bands(vislist,all_targets,telescope)
 
    scantimesdict={}
    scanfieldsdict={}
@@ -3376,10 +3375,10 @@ def split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_avera
                 spwstring=band_properties[vis][band]['spwstring']+''
              else:
                 spwstring=spwstring+','+band_properties[vis][band]['spwstring']
-          mstransform(vis=vis,field=','.join(all_targets),chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=sanitize_string('_'.join(all_targets))+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=','.join(all_targets),chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
           initweights(vis=vis,wtmode='delwtsp') # remove channelized weights
        else:
-          mstransform(vis=vis,field=','.join(all_targets),outputvis=sanitize_string('_'.join(all_targets))+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=','.join(all_targets),outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
 
 
 def check_mosaic(vislist,target):

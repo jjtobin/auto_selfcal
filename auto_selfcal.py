@@ -102,18 +102,20 @@ for vis in vislist:
    else:
       flagmanager(vis=vis,mode='save',versionname='starting_flags')
 
+if sort_targets_and_EBs:
+    vislist.sort()
+
 ## 
 ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
 ##
 #all_targets=fetch_targets(vislist[0])
-all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist)
+all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist, telescope)
 
 ##
 ## Global environment variables for control of selfcal
 ##
 if sort_targets_and_EBs:
     all_targets.sort()
-    vislist.sort()
 
 ##
 ## If the user asks to run findcont, do that now
@@ -151,14 +153,17 @@ if run_findcont:
 ##
 selfcal_library, selfcal_plan, gaincalibrator_dict = {}, {}, {}
 for target in all_targets:
-    target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], vis_for_targets[target]['vislist'], spectral_average=spectral_average, 
-            sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
-            inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-            usermask=usermask, usermodel=usermodel,debug=debug)
+    selfcal_library[target], selfcal_plan[target] = {}, {}
+    for band in vis_for_targets[target]['Bands']:
+        target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], vis_for_targets[target][band]['vislist'], 
+                spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
+                inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
+                usermask=usermask, usermodel=usermodel,debug=debug)
 
-    selfcal_library.update(target_selfcal_library)
-    selfcal_plan.update(target_selfcal_plan)
-    gaincalibrator_dict.update(target_gaincalibrator_dict)
+        selfcal_library[target][band] = target_selfcal_library[target][band]
+        selfcal_plan[target][band] = target_selfcal_plan[target][band]
+        gaincalibrator_dict.update(target_gaincalibrator_dict)
+
 
 
 with open('selfcal_library.pickle', 'wb') as handle:
