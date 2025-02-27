@@ -2215,7 +2215,7 @@ def get_bands(vislist,fields,telescope):
       spw_names_bb=['']*len(spws_for_field)
       spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
 
-      if telescope == 'VLA':
+      if 'VLA' in telescope:
          for i in range(len(spws_for_field)):
             spw_names_band[i]=spw_names[spws_for_field[i]].split('#')[0]
             spw_names_bb[i]=spw_names[spws_for_field[i]].split('#')[1]
@@ -2234,7 +2234,7 @@ def get_bands(vislist,fields,telescope):
                observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
                indices_to_remove=np.array([])
                for i in range(len(observed_bands[vis][band]['spwarray'])):
-                   meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
+                   meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
                    if (meanfreq==8.332e9) or (meanfreq==8.460e9):
                       indices_to_remove=np.append(indices_to_remove,[i])
                observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
@@ -2243,7 +2243,7 @@ def get_bands(vislist,fields,telescope):
                observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
                indices_to_remove=np.array([])
                for i in range(len(observed_bands[vis][band]['spwarray'])):
-                   meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
+                   meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],np.array([observed_bands[vis][band]['spwarray'][i]]))
                    if (meanfreq==4.832e9) or (meanfreq==4.960e9):
                       indices_to_remove=np.append(indices_to_remove,[i])
                observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
@@ -2252,7 +2252,7 @@ def get_bands(vislist,fields,telescope):
             spwslist=observed_bands[vis][band]['spwarray'].tolist()
             spwstring=','.join(str(spw) for spw in spwslist)
             observed_bands[vis][band]['spwstring']=spwstring+''
-            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: [observed_bands[vis][band]['spwarray']]})
+            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
 
             msmd.open(vis)
             observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(observed_bands[vis][band]['spwarray'][0]))
