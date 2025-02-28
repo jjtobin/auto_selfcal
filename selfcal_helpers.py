@@ -592,6 +592,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    min_spws=np.array([])
    scansforspw=np.array([])
    spwslist=np.array([])
+   spwslist_dict = {}
    spws_set_dict = {}
    mosaic_field={}
    scansdict={}
@@ -605,6 +606,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       integrationsdict[vis]={}
       integrationtimesdict[vis]={}
       spws_set_dict[vis] = {}
+      spwslist_dict[vis]=np.array([])
       scansdict[vis]={}
       msmd.open(vis)
       for target in targets:
@@ -644,6 +646,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
             n_spws=np.append(len(spws),n_spws)
             min_spws=np.append(np.min(spws),min_spws)
             spwslist=np.append(spws,spwslist)
+            spwslist_dict[vis]=np.append(spws,spwslist_dict[vis])
             integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
             integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
             times=msmd.timesforscan(scan)
@@ -673,6 +676,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
       spws_set_list=[np.array(i) for i in unique_spws_set_list]
       spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
+      spwslist_dict[vis]=np.unique(spwslist_dict[vis]).astype(int)
    if len(n_spws) > 0:
       if np.mean(n_spws) != np.max(n_spws):
          print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
@@ -680,8 +684,8 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
       spwslist=np.unique(spwslist).astype(int)
    else:
-     return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist,mosaic_field
-   return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist,spws_set_dict,mosaic_field
+     return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,-99,-99,spwslist_dict,mosaic_field
+   return scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict,mosaic_field
 
 
 def fetch_spws(vislist,targets):
@@ -3244,7 +3248,7 @@ def importdata(vislist,all_targets,telescope):
    scanstartsdict={}
    scanendsdict={}
    integrationsdict={}
-   integrationtimesdict
+   integrationtimesdict={}
    mosaic_field_dict={}
    bands_to_remove=[]
    spws_set_dict = {}
@@ -3253,13 +3257,12 @@ def importdata(vislist,all_targets,telescope):
    for band in bands:
         print(band)
         scantimesdict_temp,scanfieldsdict_temp,scannfieldsdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_dict,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
 
-        ### move after fetch_scan times band aware and use its spwsarray_dict?
         spwslist_dict = {}
         spwstring_dict = {}
         for vis in vislist:
-             spwslist_dict[vis] = spwsarray_temp[vis].tolist()
+             spwslist_dict[vis] = spwsarray_dict[vis].tolist()
              spwstring_dict[vis]=','.join(str(spw) for spw in spwslist_dict[vis])
         if spws_set_dict_temp[vislist[0]].ndim > 1:
            nspws_sets=spws_set_dict_temp[vislist[0]].shape[0]
@@ -3269,7 +3272,6 @@ def importdata(vislist,all_targets,telescope):
         if telescope=='ALMA' or telescope =='ACA':
            if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
               spectral_scan=True
-        ####
 
 
         scantimesdict[band]=scantimesdict_temp.copy()
