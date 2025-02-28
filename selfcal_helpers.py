@@ -3235,7 +3235,93 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
 def importdata(vislist,all_targets,telescope):
    spectral_scan=False
    listdict=collect_listobs_per_vis(vislist)
+
+   bands, band_properties = get_bands(vislist,all_targets,telescope)
+
+   scantimesdict={}
+   scanfieldsdict={}
+   scannfieldsdict={}
+   scanstartsdict={}
+   scanendsdict={}
+   integrationsdict={}
+   integrationtimesdict
+   mosaic_field_dict={}
+   bands_to_remove=[]
+   spws_set_dict = {}
+   nspws_sets_dict = {}
+
+   for band in bands:
+        print(band)
+        scantimesdict_temp,scanfieldsdict_temp,scannfieldsdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+
+        ### move after fetch_scan times band aware and use its spwsarray_dict?
+        spwslist_dict = {}
+        spwstring_dict = {}
+        for vis in vislist:
+             spwslist_dict[vis] = spwsarray_temp[vis].tolist()
+             spwstring_dict[vis]=','.join(str(spw) for spw in spwslist_dict[vis])
+        if spws_set_dict_temp[vislist[0]].ndim > 1:
+           nspws_sets=spws_set_dict_temp[vislist[0]].shape[0]
+        else:
+           nspws_sets=1
+
+        if telescope=='ALMA' or telescope =='ACA':
+           if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
+              spectral_scan=True
+        ####
+
+
+        scantimesdict[band]=scantimesdict_temp.copy()
+        scanfieldsdict[band]=scanfieldsdict_temp.copy()
+        scannfieldsdict[band]=scannfieldsdict_temp.copy()
+        scanstartsdict[band]=scanstartsdict_temp.copy()
+        scanendsdict[band]=scanendsdict_temp.copy()
+        integrationsdict[band]=integrationsdict_temp.copy()
+        mosaic_field_dict[band]=mosaic_field_temp.copy()
+        integrationtimesdict[band]=integrationtimesdict_temp.copy()
+        spws_set_dict[band] = spws_set_dict_temp.copy()
+        if spws_set_dict[band][vislist[0]].ndim > 1:
+           nspws_sets_dict[band]=spws_set_dict[band][vislist[0]].shape[0]
+        else:
+           nspws_sets_dict[band]=1
+   ## Load the gain calibrator information.
+
+   gaincalibrator_dict = {}
+   for vis in vislist:
+       if "targets" in vis:
+           vis_string = "_targets"
+       else:
+           vis_string = "_target"
+
+       viskey = vis.replace(vis_string+".ms",vis_string+".selfcal.ms")
+
+       gaincalibrator_dict[viskey] = {}
+       if os.path.exists(vis.replace(vis_string+".ms",".ms").replace(vis_string+".selfcal.ms",".ms")):
+           msmd.open(vis.replace(vis_string+".ms",".ms").replace(vis_string+".selfcal.ms",".ms"))
+   
+           for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
+               scans_for_field = msmd.scansforfield(field)
+               scans_for_gaincal = msmd.scansforintent("*CALIBRATE_PHASE*")
+               field_name = msmd.fieldnames()[field]
+               gaincalibrator_dict[viskey][field_name] = {}
+               gaincalibrator_dict[viskey][field_name]["scans"] = np.intersect1d(scans_for_field, scans_for_gaincal)
+               gaincalibrator_dict[viskey][field_name]["phasecenter"] = msmd.phasecenter(field)
+               gaincalibrator_dict[viskey][field_name]["intent"] = "phase"
+               gaincalibrator_dict[viskey][field_name]["times"] = np.array([np.mean(msmd.timesforscan(scan)) for scan in \
+                       gaincalibrator_dict[viskey][field_name]["scans"]])
+   
+           msmd.close()
+
+   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set_dict
+
+def importdata_old(vislist,all_targets,telescope):
+   spectral_scan=False
+   listdict=collect_listobs_per_vis(vislist)
+   #### remove
    scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray_dict,spws_set=fetch_scan_times(vislist,all_targets)
+
+   ### move after fetch_scan times band aware and use its spwsarray_dict?
    spwslist_dict = {}
    spwstring_dict = {}
    for vis in vislist:
@@ -3249,7 +3335,7 @@ def importdata(vislist,all_targets,telescope):
    if telescope=='ALMA' or telescope =='ACA':
       if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
          spectral_scan=True
-
+   ####
    bands, band_properties = get_bands(vislist,all_targets,telescope)
 
    scantimesdict={}
@@ -3282,6 +3368,7 @@ def importdata(vislist,all_targets,telescope):
            nspws_sets_dict[band]=spws_set_dict[band][vislist[0]].shape[0]
         else:
            nspws_sets_dict[band]=1
+        #######CODE BETWEEN CAN BE REMOVED DUE TO SPLITTING INTO PER TARGET PER BAND
         if n_spws_temp == -99:
            for vis in vislist:
               band_properties[vis].pop(band)
@@ -3307,7 +3394,7 @@ def importdata(vislist,all_targets,telescope):
    if len(bands_to_remove) > 0:
       for delband in bands_to_remove:
          bands.remove(delband)
-   
+        #######CODE BETWEEN CAN BE REMOVED DUE TO SPLITTING INTO PER TARGET PER BAND
    ## Load the gain calibrator information.
 
    gaincalibrator_dict = {}
