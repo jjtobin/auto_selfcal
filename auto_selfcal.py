@@ -595,6 +595,16 @@ for target in selfcal_library:
        print('Original RMS: ',selfcal_library[target][band][fid]['RMS_orig'])
        print('Final RMS: ',selfcal_library[target][band][fid]['RMS_final'])
 
+##
+## Save final library results
+##
+
+with open('selfcal_library.pickle', 'wb') as handle:
+    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('selfcal_plan.pickle', 'wb') as handle:
+    pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 applyCalOut=open('applycal_to_orig_MSes.py','w')
 #apply selfcal solutions back to original ms files
@@ -625,8 +635,6 @@ casaversion=casatasks.version()
 if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[1]==5 and casaversion[2]>=2))):   # new uvcontsub format only works in CASA >=6.5.2
    if os.path.exists("cont.dat"):
       contsub_dict={}
-      for vis in selfcal_library[target][band]['vislist']:  
-         contsub_dict[vis]={}  
       for target in selfcal_library:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
@@ -635,6 +643,8 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
                 selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:
+               if vis not in contsub_dict:
+                   contsub_dict[vis]={}  
                msmd.open(vis)
                field_num_array=msmd.fieldsforname(target)
                msmd.close()
@@ -700,14 +710,8 @@ if check_all_spws:
 
 
 ##
-## Save final library results
+## Generate the weblog.
 ##
-
-with open('selfcal_library.pickle', 'wb') as handle:
-    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-with open('selfcal_plan.pickle', 'wb') as handle:
-    pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 generate_weblog(selfcal_library,selfcal_plan,directory='weblog')
 
