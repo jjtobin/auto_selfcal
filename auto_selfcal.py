@@ -643,18 +643,18 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
                 selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:
-               if vis not in contsub_dict:
-                   contsub_dict[vis]={}  
+               if selfcal_library[target][band]['original_vislist_map'][vis] not in contsub_dict:
+                   contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]]={}  
                msmd.open(vis)
                field_num_array=msmd.fieldsforname(target)
                msmd.close()
                for fieldnum in field_num_array:
-                  contsub_dict[vis][str(fieldnum)]=get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat)
-                  print(contsub_dict[vis][str(fieldnum)])
+                  contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)]=get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat)
+                  print(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)])
       print(contsub_dict)
       uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
       for vis in selfcal_library[target][band]['vislist']:  
-         line='uvcontsub(vis="'+selfcal_library[target][band]['original_vislist_map'][vis]+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
+         line='uvcontsub(vis="'+selfcal_library[target][band]['original_vislist_map'][vis]+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]])+', outputvis="'+selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
          uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
