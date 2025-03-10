@@ -104,6 +104,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             continue
 
          selfcal_library['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
+         for fid in selfcal_library['sub-fields-to-selfcal']:
+             selfcal_library[fid]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
          break
       else:
          solint=selfcal_plan['solints'][iteration]
@@ -163,9 +165,14 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          # code will break.
          if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
              selfcal_library['Stop_Reason'] = 'Empty model for solint '+solint
+             for fid in selfcal_library['sub-fields-to-selfcal']:
+                selfcal_library[fid]['Stop_Reason'] = 'Empty model for solint '+solint
              for vis in vislist:
                 selfcal_library[vis][solint]['Pass'] = False
                 selfcal_library[vis][solint]['Fail_Reason'] = 'Empty model for solint '+solint
+                for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                   selfcal_library[fid][vis][solint]['Pass'] = False
+                   selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Empty model for solint '+solint
              break # breakout of loop because the model is empty and gaincal will therefore fail
 
 
