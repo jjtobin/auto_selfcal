@@ -3202,7 +3202,7 @@ def analyze_inf_EB_flagging(selfcal_library,band,spwlist,gaintable,vis,target,sp
          fallback='combinespw'
 
    # If all of the spws map to the same spw, we might as well do a combinespw fallback.
-   if len(np.unique(np.array(applycal_spwmap)[np.array(spwlist).astype(int)])) == 1:
+   if fallback == 'spwmap' and len(np.unique(np.array(applycal_spwmap)[np.array(spwlist).astype(int)])) == 1:
        fallback = 'combinespw'
        applycal_spwmap = []
 
