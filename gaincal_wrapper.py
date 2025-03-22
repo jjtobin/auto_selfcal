@@ -276,7 +276,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                       spwselect=selfcal_library[vis]['spws']
                    count=0
                    minsnr_for_gc=gaincal_minsnr+0.0
-                   while not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'):
+                   while not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g') or i > 0:
                      if count == 1:
                         minsnr_for_gc=0.0
                      elif count > 1:
@@ -292,6 +292,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                         solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=minsnr_for_gc, minblperant=4,combine=selfcal_plan['gaincal_combine'][iteration],
                         field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],
                         interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'))
+                     if i > 0: # only run through once if iterating through multiple spectral window sets
+                        break
                      count+=1
                       
                    if minsnr_for_gc == 0.0:
@@ -449,7 +451,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                  spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
               count=0
               minsnr_for_gc=gaincal_minsnr+0.0
-              while not os.path.exists('test_inf_EB_'+gaintype+'.g'):
+              while not os.path.exists('test_inf_EB_'+gaintype+'.g') or i > 0:
                 if count == 1:
                    minsnr_for_gc=0.0
                 elif count > 1:
@@ -466,6 +468,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                    minsnr=minsnr_for_gc, minblperant=4,combine=test_gaincal_combine,\
                    field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],\
                    uvrange=selfcal_library['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB_'+gaintype+'.g'))
+                if i > 0: # if multiple spectral window sets only run through once
+                   break
                 count+=1
               if minsnr_for_gc == 0.0:
                  print('Flagging and Zeroing out gain table after re-running with minsnr = 0.0')

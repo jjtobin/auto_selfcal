@@ -3270,7 +3270,7 @@ def importdata(vislist,all_targets,telescope):
            nspws_sets=1
 
         if telescope=='ALMA' or telescope =='ACA':
-           if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
+           if nspws_sets > 1 and spws_set_dict_temp[vislist[0]].ndim >1:
               spectral_scan=True
 
 
