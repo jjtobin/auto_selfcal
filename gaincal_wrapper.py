@@ -258,7 +258,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             selfcal_library[vis][solint]["include_targets"] = include_targets
 
             selfcal_library[vis][solint]['gaincal_return'] = []
-            for incl_scans, incl_targets in zip(include_scans, include_targets):
+            for iscan, (incl_scans, incl_targets) in enumerate(zip(include_scans, include_targets)):
                 if 'inf_EB' in solint:
                    if selfcal_library['spws_set'][vis].ndim == 1:
                       nspw_sets=1
@@ -276,7 +276,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                       spwselect=selfcal_library[vis]['spws']
                    count=0
                    minsnr_for_gc=gaincal_minsnr+0.0
-                   while not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g') or i > 0:
+                   while not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g') or i > 0 or iscan > 0:
                      if count == 1:
                         minsnr_for_gc=0.0
                      elif count > 1:
@@ -292,7 +292,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                         solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=minsnr_for_gc, minblperant=4,combine=selfcal_plan['gaincal_combine'][iteration],
                         field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],
                         interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'))
-                     if i > 0: # only run through once if iterating through multiple spectral window sets
+                     if i > 0 or iscan > 0: # only run through once if iterating through multiple spectral window sets
                         break
                      count+=1
                       
