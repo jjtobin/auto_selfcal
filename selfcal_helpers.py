@@ -3412,16 +3412,19 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
     neff = (nants)**(-1./(1+4))
     kernal2 = scipy.stats.gaussian_kde(offsets, bw_method=neff)
 
+    divisor = 1
+    multiplier = cals.shape[0]
     if len(np.unique(flagged_offsets)) == 1:
         flagged_offsets = np.concatenate((flagged_offsets, flagged_offsets*1.05))
+        divisor = 2
     elif len(flagged_offsets) == 0:
         tb.close()
         print("Not unflagging any antennas because there are no flags! The beam size probably changed because of calwt=True.")
         return
     kernel = scipy.stats.gaussian_kde(flagged_offsets,
             bw_method=kernal2.factor*offsets.std()/flagged_offsets.std())
-    normalized = kernel(test_r) * len(flagged_offsets) / np.trapz(kernel(test_r), test_r)
-    normalized2 = kernal2(test_r) * antennas.size / np.trapz(kernal2(test_r), test_r)
+    normalized = kernel(test_r) * len(flagged_offsets) / divisor / np.trapz(kernel(test_r), test_r)
+    normalized2 = kernal2(test_r) * antennas.size * multiplier / np.trapz(kernal2(test_r), test_r)
     fraction_flagged_antennas = normalized / normalized2
 
     # Calculate the derivatives to see where flagged fraction is sharply changing.
