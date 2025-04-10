@@ -139,10 +139,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                 ##
                 ## Restore original flagging state each time before applying a new gaintable
                 ##
-                if os.path.exists(vis+".flagversions/flags.selfcal_starting_flags_"+sani_target):
-                   flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags_'+sani_target, comment = 'Flag states at start of reduction')
+                if os.path.exists(vis+".flagversions/flags.selfcal_starting_flags_"+sani_target+'_'+band):
+                   flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags_'+sani_target+'_'+band, comment = 'Flag states at start of reduction')
                 else:
-                   flagmanager(vis=vis,mode='save',versionname='selfcal_starting_flags_'+sani_target)
+                   flagmanager(vis=vis,mode='save',versionname='selfcal_starting_flags_'+sani_target+'_'+band)
 
              # We need to redo saving the model now that we have potentially unflagged some data.
              if applymode == "calflag":
@@ -958,7 +958,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  field_by_field_success_dict = dict(zip(selfcal_library[target][band]['sub-fields-to-selfcal'], field_by_field_success))
                  print('****************Not all fields were successful, so re-applying and re-making _post image*************')
                  for vis in vislist:
-                     flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
+                     flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target+'_'+band)
                      for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
                          if fid not in field_by_field_success_dict or not field_by_field_success_dict[fid]:
                              if selfcal_library[target][band][fid]['SC_success']:
@@ -1146,7 +1146,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                  if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round
                     print('****************Reapplying previous solint solutions*************')
                     for vis in vislist:
-                       flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
+                       flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target+'_'+band)
                        for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
                            if selfcal_library[target][band][fid]['SC_success']:
                                print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+\
@@ -1278,7 +1278,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                       selfcal_library[target][band][fid][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
 
              for vis in vislist:
-                 flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target)
+                 flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target+'_'+band)
                  for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
                      if selfcal_library[target][band][fid]['SC_success']:
                          print('****************Applying '+str(selfcal_library[target][band][fid][vis]['gaintable_final'])+' to '+target+' field '+\
