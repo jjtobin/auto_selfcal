@@ -625,7 +625,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                                 if fid_n_solutions < 0.75 * max_n_solutions:
                                     flags[:,:,fields == fid] = True
 
-                    bad = np.where(flags[0,0,:])[0]
+                    bad = np.where(np.any(flags, axis=0)[0])[0]
                     tb.removerows(rownrs=bad)
                     tb.flush()
                     tb.close()
