@@ -1259,25 +1259,29 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                      print('FIELD: '+str(fid)+', REASON: Failed earlier solint')
              print('****************Reapplying previous solint solutions where available*************')
 
-             #if the final successful solint was inf_EB but inf_EB had a S/N decrease, don't count it as a success and revert to no selfcal
-             if selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']:
-                selfcal_library[target][band]['SC_success']=False
-                selfcal_library[target][band]['final_solint']='None'
-                for vis in vislist:
-                   selfcal_library[target][band][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
-                   selfcal_library[target][band][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
-                
-             # Only set the inf_EB Pass flag to False if the mosaic as a whole failed or if this is the last phase-only solint (either because it is int or
-             # because the solint failed, because for mosaics we can keep trying the field as we clean deeper. If we set to False now, that wont happen.
-             for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
-                if (selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']) or \
-                        ((not selfcal_library[target][band][vislist[0]][solint]['Pass'] or solint == 'int') and \
-                        (selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease'])):
-                   selfcal_library[target][band][fid]['SC_success']=False
-                   selfcal_library[target][band][fid]['final_solint']='None'
-                   for vis in vislist:
-                      selfcal_library[target][band][fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
-                      selfcal_library[target][band][fid][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
+             # Because a mosaic can have sub-fields fail outright when the mosaic as a whole and/or sub-fields fail with inf_EB_SNR_decrease
+             # we need to make sure this part is only entered if we are not in the inf_EB solint, so the inf_EB_SNR_decrease flag doesn't cause
+             # all of those fields to fail before the next solint can be tried.
+             if solint != 'inf_EB':
+                 #if the final successful solint was inf_EB but inf_EB had a S/N decrease, don't count it as a success and revert to no selfcal
+                 if selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']:
+                    selfcal_library[target][band]['SC_success']=False
+                    selfcal_library[target][band]['final_solint']='None'
+                    for vis in vislist:
+                       selfcal_library[target][band][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+                       selfcal_library[target][band][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
+                    
+                 # Only set the inf_EB Pass flag to False if the mosaic as a whole failed or if this is the last phase-only solint (either because it is int or
+                 # because the solint failed, because for mosaics we can keep trying the field as we clean deeper. If we set to False now, that wont happen.
+                 for fid in np.intersect1d(selfcal_library[target][band]['sub-fields'],list(selfcal_library[target][band]['sub-fields-fid_map'][vis].keys())):
+                    if (selfcal_library[target][band]['final_solint'] == 'inf_EB' and selfcal_library[target][band]['inf_EB_SNR_decrease']) or \
+                            ((not selfcal_library[target][band][vislist[0]][solint]['Pass'] or solint == 'int') and \
+                            (selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease'])):
+                       selfcal_library[target][band][fid]['SC_success']=False
+                       selfcal_library[target][band][fid]['final_solint']='None'
+                       for vis in vislist:
+                          selfcal_library[target][band][fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
+                          selfcal_library[target][band][fid][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
 
              for vis in vislist:
                  flagmanager(vis=vis,mode='restore',versionname='selfcal_starting_flags_'+sani_target+'_'+band)
