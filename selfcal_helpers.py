@@ -3398,23 +3398,33 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
             mean_longitude)**2 + (offsets[i]["latitude offset"]['value'] - mean_latitude)**2) for i in range(len(antennas))])
     unique_offsets = np.array([np.sqrt((unique_offsets[i]["longitude offset"]['value'] - \
             mean_longitude)**2 + (unique_offsets[i]["latitude offset"]['value'] - mean_latitude)**2) for i in range(len(unique_antennas))])
- 
+
+    flagged_offsets = np.array([])
+    offsets = np.array([])
+    for i, ant in enumerate(unique_antennas):
+        offsets = np.concatenate((offsets, np.repeat(unique_offsets[i], np.array([[gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['data_unflagged'] 
+                for spw in good_spw_ids] for gcdict in gaincal_return]).sum())))
+        flagged_offsets = np.concatenate((flagged_offsets, np.repeat(unique_offsets[i], np.array([[gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['data_unflagged'] - 
+                gcdict['solvestats'][f'spw{spw}'][f'ant{ant}']['above_minsnr'] for spw in good_spw_ids] for gcdict in gaincal_return]).sum())))
+          
     # Get a smoothed number of antennas flagged as a function of offset.
     test_r = np.linspace(0., offsets.max(), 1000)
     neff = (nants)**(-1./(1+4))
     kernal2 = scipy.stats.gaussian_kde(offsets, bw_method=neff)
 
-    flagged_offsets = offsets[np.any(flags, axis=(0,1))]
+    divisor = 1
+    multiplier = cals.shape[0]
     if len(np.unique(flagged_offsets)) == 1:
         flagged_offsets = np.concatenate((flagged_offsets, flagged_offsets*1.05))
+        divisor = 2
     elif len(flagged_offsets) == 0:
         tb.close()
         print("Not unflagging any antennas because there are no flags! The beam size probably changed because of calwt=True.")
         return
     kernel = scipy.stats.gaussian_kde(flagged_offsets,
             bw_method=kernal2.factor*offsets.std()/flagged_offsets.std())
-    normalized = kernel(test_r) * len(flagged_offsets) / np.trapz(kernel(test_r), test_r)
-    normalized2 = kernal2(test_r) * antennas.size / np.trapz(kernal2(test_r), test_r)
+    normalized = kernel(test_r) * len(flagged_offsets) / divisor / np.trapz(kernel(test_r), test_r)
+    normalized2 = kernal2(test_r) * antennas.size * multiplier / np.trapz(kernal2(test_r), test_r)
     fraction_flagged_antennas = normalized / normalized2
 
     # Calculate the derivatives to see where flagged fraction is sharply changing.
@@ -3488,11 +3498,6 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
             if second_derivative[m] < 0:
                 continue
 
-            # Estimated change ine the size of the beam.
-            beam_change = np.percentile(offsets, 80) / np.percentile(offsets[np.logical_or(flags.any(axis=0).any(axis=0) == False, \
-                    offsets > test_r[m])], 80)
-
-            #if beam_change < 1.05:
             if test_r[m] == offset_limit:
                 ax1.axvline(test_r[m], linestyle="--")
                 ax1.axhline(fraction_flagged_antennas[m], linestyle="--")
