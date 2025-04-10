@@ -172,7 +172,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                 ##
                 ## Restore original flagging state each time before applying a new gaintable
                 ##
-                versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target
+                versionname = ("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target+'_'+band
                 if not os.path.exists(vis+".flagversions/flags."+versionname):
                    flagmanager(vis=vis,mode='save',versionname=versionname)
                 elif mode == "selfcal":
@@ -226,7 +226,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                 applycal_wrapper(vis, target, band, solint, selfcal_library, 
                         current=lambda f: f in selfcal_library['sub-fields-to-selfcal'],
                         final=lambda f: f not in selfcal_library['sub-fields-to-selfcal'] and selfcal_library[f]['SC_success'],
-                        restore_flags='fb_selfcal_starting_flags_'+sani_target if mode == "cocal" else None)
+                        restore_flags='fb_selfcal_starting_flags_'+sani_target+'_'+band if mode == "cocal" else None)
 
              ## Create post self-cal image using the model as a startmodel to evaluate how much selfcal helped
              ##
@@ -338,7 +338,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                                  selfcal_library[f]['SC_success'],
                              clear=lambda f: (f not in field_by_field_success_dict or not field_by_field_success_dict[f]) and 
                                  not selfcal_library[f]['SC_success'],
-                             restore_flags='selfcal_starting_flags_'+sani_target)
+                             restore_flags='selfcal_starting_flags_'+sani_target+'_'+band)
 
 
                  files = glob.glob(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+"_post.*")
@@ -382,7 +382,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                 for vis in vislist:
                    print('****************Applying '+str(selfcal_library[vis]['gaintable_final'])+' to '+target+' '+band+'*************')
                    ## NOTE: should this be selfcal_starting_flags instead of fb_selfcal_starting_flags ???
-                   flagmanager(vis=vis,mode='restore',versionname='fb_selfcal_starting_flags_'+sani_target)
+                   flagmanager(vis=vis,mode='restore',versionname='fb_selfcal_starting_flags_'+sani_target+'_'+band)
                    applycal(vis=vis,\
                            gaintable=selfcal_library[vis]['gaintable_final'],\
                            interp=selfcal_library[vis]['applycal_interpolate_final'],\
@@ -479,7 +479,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     for vis in vislist:
                        applycal_wrapper(vis, target, band, solint, selfcal_library, 
                                final=lambda f: selfcal_library[f]['SC_success'],
-                               restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target)
+                               restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target+'_'+band)
                  else:
                     for vis in vislist:
                        selfcal_plan[vis]['inf_EB_gaincal_combine']=inf_EB_gaincal_combine #'scan'
@@ -599,7 +599,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  applycal_wrapper(vis, target, band, solint, selfcal_library, 
                          final=lambda f: selfcal_library[f]['SC_success'],
                          clear=lambda f: not selfcal_library[f]['SC_success'], 
-                         restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target)
+                         restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target+'_'+band)
 
                  for fid in np.intersect1d(selfcal_library['sub-fields'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                      if not selfcal_library[fid]['SC_success']:
