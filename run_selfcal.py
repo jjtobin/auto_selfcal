@@ -317,8 +317,10 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             msmd.open(vis)
                             include_scans = []
                             for iscan in range(scans.size-1):
-                                include_scans.append(",".join(np.intersect1d(msmd.scansforfield(target), \
-                                        np.array(list(range(scans[iscan]+1,scans[iscan+1])))).astype(str)))
+                                scan_group = np.intersect1d(msmd.scansforfield(target), 
+                                        np.array(list(range(scans[iscan]+1, scans[iscan+1])))).astype(str)
+                                if scan_group.size > 0:
+                                    include_scans.append(",".join(scan_group))
                             msmd.close()
                         elif guess_scan_combine:
                             msmd.open(vis)
