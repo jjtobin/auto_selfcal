@@ -19,10 +19,15 @@ A note: casampi can be quite particular about versions of mpi4py and other libra
 Install with conda
 ------------------
 
-To create an Anaconda environment with auto_selfcal installed, we provide an Anaconda environment file that is capable of reproducing the necessary environment. To create an environment from this file, run:
+To create an Anaconda environment into which auto_selfcal can be installed, we provide an Anaconda environment file that is capable of reproducing the necessary environment. To create an environment from this file, run:
 
-    conda create -f environment.yaml
+    conda env create -f environment.yaml
+
+Once the environment is created, auto_selfcal can be pip installed into it:
+
     conda activate casa-6.6.5
+
+    pip install auto_selfcal
 
 Install into monolithic CASA
 ----------------------------
