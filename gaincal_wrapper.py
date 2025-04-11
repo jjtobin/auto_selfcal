@@ -5,11 +5,8 @@ import sys
 #execfile('selfcal_helpers.py',globals())
 sys.path.append("./")
 from selfcal_helpers import *
-try:
-    from casampi.MPIEnvironment import MPIEnvironment 
-    parallel=MPIEnvironment.is_mpi_enabled
-except:
-    parallel=False
+from casampi.MPIEnvironment import MPIEnvironment 
+parallel=MPIEnvironment.is_mpi_enabled
 
 def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, \
@@ -260,7 +257,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             selfcal_library[vis][solint]["include_targets"] = include_targets
 
             selfcal_library[vis][solint]['gaincal_return'] = []
-            for iscan, (incl_scans, incl_targets) in enumerate(zip(include_scans, include_targets)):
+            for incl_scans, incl_targets in zip(include_scans, include_targets):
                 if 'inf_EB' in solint:
                    if selfcal_library['spws_set'][vis].ndim == 1:
                       nspw_sets=1
@@ -276,33 +273,13 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                          spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
                    else:
                       spwselect=selfcal_library[vis]['spws']
-                   count=0
-                   minsnr_for_gc=gaincal_minsnr+0.0
-                   while not os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g') or i > 0 or iscan > 0:
-                     if count == 1:
-                        minsnr_for_gc=0.0
-                     elif count > 1:
-                        break
-                     elif applymode=='calflag':
-                        minsnr_for_gc=gaincal_minsnr+0.0
-                     else:
-                        minsnr_for_gc=  max(gaincal_minsnr,gaincal_unflag_minsnr)
-                     gaincal_return_tmp = gaincal(vis=vis,\
-                        caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
-                        gaintype=gaincal_gaintype, spw=spwselect,
-                        refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                        solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=minsnr_for_gc, minblperant=4,combine=selfcal_plan['gaincal_combine'][iteration],
-                        field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],
-                        interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'))
-                     if i > 0 or iscan > 0: # only run through once if iterating through multiple spectral window sets
-                        break
-                     count+=1
-                      
-                   if minsnr_for_gc == 0.0:
-                      print('Flagging and Zeroing out gain table after re-running with minsnr = 0.0')
-                      flagdata(vis=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',mode='manual')
-                      gaincal_return_tmp = zero_out_gc_return_dict(gaincal_return_tmp)
-
+                   gaincal_return_tmp = gaincal(vis=vis,\
+                     caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
+                     gaintype=gaincal_gaintype, spw=spwselect,
+                     refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
+                     solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=selfcal_plan['gaincal_combine'][iteration],
+                     field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],
+                     interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex', append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'))
                    #
                    selfcal_library[vis][solint]['gaincal_return'].append(gaincal_return_tmp)
                    if 'inf_EB' not in solint:
@@ -354,33 +331,17 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                     splinetime = selfcal_library[fid]["Median_scan_time"]
                 else:
                     splinetime = float(splinetime[0:-1])
-            count=0
-            minsnr_for_gc=gaincal_minsnr+0.0
-            while not os.path.exists('temp.g'):
-              if count == 1:
-                 minsnr_for_gc=0.0
-              elif count > 1:
-                 break
-              elif applymode=='calflag':
-                 minsnr_for_gc=gaincal_minsnr+0.0
-              else:
-                 minsnr_for_gc=  max(gaincal_minsnr,gaincal_unflag_minsnr)
-              gaincal_return_tmp = gaincal(vis=vis,\
-                  #caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
-                  caltable="temp.g",\
-                  gaintype=gaincal_gaintype, spw=selfcal_library[fid][vis]['spws'],
-                  refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
-                  solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=minsnr_for_gc, minblperant=4,combine=selfcal_plan['gaincal_combine'][iteration],
-                  field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],
-                  #interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+
-                  #solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'))
-                  interp=gaincal_interpolate, solmode=gaincal_solmode, append=os.path.exists('temp.g'), refantmode='flex')
-              count+=1
-            if minsnr_for_gc == 0.0:
-               print('Flagging and Zeroing out gain table after re-running with minsnr = 0.0')
-               flagdata(vis='temp.g',mode='manual')
-               gaincal_return_tmp = zero_out_gc_return_dict(gaincal_return_tmp)
 
+            gaincal_return_tmp = gaincal(vis=vis,\
+                 #caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',\
+                 caltable="temp.g",\
+                 gaintype=gaincal_gaintype, spw=selfcal_library[fid][vis]['spws'],
+                 refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if applymode=="calflag" else False,
+                 solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),minsnr=gaincal_minsnr if applymode == 'calflag' else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=selfcal_plan['gaincal_combine'][iteration],
+                 field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],
+                 #interp=gaincal_interpolate[vis], solmode=gaincal_solmode, append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+
+                 #solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'))
+                 interp=gaincal_interpolate, solmode=gaincal_solmode, append=os.path.exists('temp.g'), refantmode='flex')
             selfcal_library[vis][solint]['gaincal_return'].append(gaincal_return_tmp)
 
         tb.open("temp.g")
@@ -451,34 +412,13 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                  spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis].tolist())
               else:
                  spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
-              count=0
-              minsnr_for_gc=gaincal_minsnr+0.0
-              while not os.path.exists('test_inf_EB_'+gaintype+'.g') or i > 0:
-                if count == 1:
-                   minsnr_for_gc=0.0
-                elif count > 1:
-                   break
-                elif applymode=='calflag':
-                   minsnr_for_gc=gaincal_minsnr+0.0
-                else:
-                   minsnr_for_gc=  max(gaincal_minsnr,gaincal_unflag_minsnr)
-                gaincal_return_tmp = gaincal(vis=vis,\
-                   caltable='test_inf_EB_'+gaintype+'.g',\
-                   gaintype=gaintype, spw=spwselect,
-                   refant=selfcal_library[vis]['refant'], calmode='p', 
-                   solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
-                   minsnr=minsnr_for_gc, minblperant=4,combine=test_gaincal_combine,\
-                   field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],\
-                   uvrange=selfcal_library['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB_'+gaintype+'.g'))
-                if i > 0: # if multiple spectral window sets only run through once
-                   break
-                count+=1
-              if minsnr_for_gc == 0.0:
-                 print('Flagging and Zeroing out gain table after re-running with minsnr = 0.0')
-                 flagdata(vis='test_inf_EB_'+gaintype+'.g',mode='manual')
-                 gaincal_return_tmp = zero_out_gc_return_dict(gaincal_return_tmp)
 
-              test_gaincal_return[gaintype] += [gaincal_return_tmp]
+              test_gaincal_return[gaintype] += [gaincal(vis=vis,\
+                caltable='test_inf_EB_'+gaintype+'.g',\
+                gaintype=gaintype, spw=spwselect,
+                refant=selfcal_library[vis]['refant'], calmode='p', 
+                solint=solint.replace('_EB','').replace('_ap','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),minsnr=gaincal_minsnr if applymode == "calflag" else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=test_gaincal_combine,
+                field=include_targets[0],scan=include_scans[0],gaintable='',spwmap=[],uvrange=selfcal_library['uvrange'], refantmode=refantmode,append=os.path.exists('test_inf_EB_'+gaintype+'.g'))]
        spwlist=selfcal_library[vis]['spws'].split(',')
        fallback,map_index,spwmap,applycal_spwmap_inf_EB=analyze_inf_EB_flagging(selfcal_library,band,spwlist,sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g',vis,target,'test_inf_EB_'+gaincal_gaintype+'.g',selfcal_library['spectral_scan'],telescope, selfcal_plan['solint_snr_per_spw'], minsnr_to_proceed,'test_inf_EB_T.g' if gaincal_gaintype=='G' else None)
 
