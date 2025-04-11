@@ -26,8 +26,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
    # If we are running this on a mosaic, we want to rerank reference antennas and have a higher gaincal_minsnr by default.
 
    if selfcal_library["obstype"] == "mosaic":
-       if gaincal_minsnr < 2.0:
-          gaincal_minsnr = 2.0
+       gaincal_minsnr = 2.0
        rerank_refants = True
        refantmode = "strict"
    elif mode == "cocal":
@@ -104,8 +103,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             continue
 
          selfcal_library['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
-         for fid in selfcal_library['sub-fields-to-selfcal']:
-             selfcal_library[fid]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
          break
       else:
          solint=selfcal_plan['solints'][iteration]
@@ -165,14 +162,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          # code will break.
          if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
              selfcal_library['Stop_Reason'] = 'Empty model for solint '+solint
-             for fid in selfcal_library['sub-fields-to-selfcal']:
-                selfcal_library[fid]['Stop_Reason'] = 'Empty model for solint '+solint
-             for vis in vislist:
-                selfcal_library[vis][solint]['Pass'] = False
-                selfcal_library[vis][solint]['Fail_Reason'] = 'Empty model for solint '+solint
-                for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
-                   selfcal_library[fid][vis][solint]['Pass'] = False
-                   selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Empty model for solint '+solint
              break # breakout of loop because the model is empty and gaincal will therefore fail
 
 
@@ -432,7 +421,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                 #keep track of whether inf_EB had a S/N decrease
                 if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
                    selfcal_library['inf_EB_SNR_decrease']=True
-                elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR >= 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF >= 0.0)):
+                elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR > 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF > 0.0)):
                    selfcal_library['inf_EB_SNR_decrease']=False
                 for vis in vislist:
                    selfcal_library[vis]['gaintable_final']=selfcal_library[vis][solint]['gaintable']
