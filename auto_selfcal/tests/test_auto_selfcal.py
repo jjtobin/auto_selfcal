@@ -8,6 +8,7 @@ import pytest
 from auto_selfcal import auto_selfcal
 import numpy as np
 import pickle
+import glob
 import os
 
 @pytest.mark.benchmark
@@ -35,16 +36,21 @@ import os
 def test_benchmark(tmp_path, dataset):
     d = tmp_path
     os.chdir(d)
-    os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/*_target.ms .")
-    os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/*_targets.ms .")
+
+    starting_MS_files = glob.glob(f"/lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/*.ms")
+    for msfile in starting_MS_files:
+        if ".selfcal." in msfile:
+            continue
+        os.system(f"cp -r {msfile} .")
+
     os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/cont.dat .")
     os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/selfcal_library_reference.pickle .")
 
-    ex = submitit.SlurmExecutor(folder=".", python=f"xvfb-run -d mpirun -n 5 {sys.executable}")
-    ex.update_parameters(partition="batch2", nodes=1, ntasks_per_node=5, cpus_per_task=1, use_srun=False, time=7200, \
+    ex = submitit.SlurmExecutor(folder=".", python=f"OMP_NUM_THREADS=1 xvfb-run -d mpirun -n 8 {sys.executable}")
+    ex.update_parameters(partition="batch2", nodes=1, ntasks_per_node=8, cpus_per_task=1, use_srun=False, time=10080, \
             mem="128gb", job_name=dataset)
 
-    job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=True)
+    job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=True, parallel=True)
     job.wait()
 
     assert job.state in ['DONE','COMPLETED']
@@ -54,7 +60,7 @@ def test_benchmark(tmp_path, dataset):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.1)
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=1e-3, exclude=['vislist_orig'])
 
     assert difference_count == 0
 
