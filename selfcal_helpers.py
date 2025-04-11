@@ -514,71 +514,6 @@ def collect_listobs_per_vis(vislist):
       listdict[vis]=listobs(vis)
    return listdict
 
-def fetch_scan_times(vislist,targets):
-   scantimesdict={}
-   integrationsdict={}
-   integrationtimesdict={}
-   integrationtimes=np.array([])
-   n_spws=np.array([])
-   min_spws=np.array([])
-   spwslist_dict = {}
-   spws_set_dict = {}
-   scansdict={}
-   for vis in vislist:
-      scantimesdict[vis]={}
-      integrationsdict[vis]={}
-      integrationtimesdict[vis]={}
-      scansdict[vis]={}
-      spws_set_dict[vis]={}
-      spwslist_dict[vis]=np.array([])
-      msmd.open(vis)
-      for target in targets:
-         scansdict[vis][target]=msmd.scansforfield(target)
-
-      for target in targets:
-         scantimes=np.array([])
-         integrations=np.array([])
-         for scan in scansdict[vis][target]:
-            spws_set_dict[vis][scan]=np.array([])
-            spws=msmd.spwsforscan(scan)
-            #print(scan, spws)
-            spws_set_dict[vis][scan]=spws.copy()
-            n_spws=np.append(len(spws),n_spws)
-            min_spws=np.append(np.min(spws),min_spws)
-            spwslist_dict[vis]=np.append(spws,spwslist_dict[vis])
-            integrationtime=msmd.exposuretime(scan=scan,spwid=spws[0])['value']
-            integrationtimes=np.append(integrationtimes,np.array([integrationtime]))
-            times=msmd.timesforscan(scan)
-            scantime=np.max(times)+integrationtime-np.min(times)
-            ints_per_scan=np.round(scantime/integrationtimes[0])
-            scantimes=np.append(scantimes,np.array([scantime]))
-            integrations=np.append(integrations,np.array([ints_per_scan]))
-
-
-
-         scantimesdict[vis][target]=scantimes.copy()
-         #assume each band only has a single integration time
-         integrationtimesdict[vis][target]=np.median(integrationtimes)
-         integrationsdict[vis][target]=integrations.copy()
-      msmd.close()
-   if np.mean(n_spws) != np.max(n_spws):
-      print('WARNING, INCONSISTENT NUMBER OF SPWS IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
-   if np.max(min_spws) != np.min(min_spws):
-      print('WARNING, INCONSISTENT MINIMUM SPW IN SCANS/MSes (Possibly expected if Multi-band VLA data or ALMA Spectral Scan)')
-
-   for vis in vislist:
-      spwslist_dict[vis]=np.unique(spwslist_dict[vis]).astype(int)
-   # jump through some hoops to get the dictionary that has spws per scan into a dictionary of unique
-   # spw sets per vis file
-   for vis in vislist:
-      spws_set_list=[i for i in spws_set_dict[vis].values()]
-      spws_set_list=[i.tolist() for i in spws_set_list]
-      unique_spws_set_list=[list(i) for i in set(tuple(i) for i in spws_set_list)]
-      spws_set_list=[np.array(i) for i in unique_spws_set_list]
-      spws_set_dict[vis]=np.array(spws_set_list,dtype=object)
-
-   return scantimesdict,integrationsdict,integrationtimesdict, integrationtimes,np.max(n_spws),np.min(min_spws),spwslist_dict,spws_set_dict
-
 def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
    scantimesdict={}
    scanfieldsdict={}
@@ -926,18 +861,7 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
       #print(delta_ints_per_solint[min_index])
    return delta_ints_per_solint[min_index]
    
-def fetch_targets_old(vis):
-      fields=[]
-      msmd.open(vis)
-      fieldnames=msmd.fieldnames()
-      for fieldname in fieldnames:
-         scans=msmd.scansforfield(fieldname)
-         if len(scans) > 0:
-            fields.append(fieldname)
-      msmd.close()
-      fields=list(set(fields)) # convert to set to only get unique items
-      return fields
-      
+
 def fetch_targets(vislist,telescope):
    targets_vis={}
    targets_band_vis={}
@@ -1993,16 +1917,6 @@ def get_mean_freq(vis,spwsarray):
    maxfreq=np.max(freqarray[spwsarray])
    fracbw=np.abs(maxfreq-minfreq)/meanfreq
    return meanfreq, maxfreq,minfreq,fracbw
-   
-def get_mean_freq_old(vislist,spwsarray):
-   tb.open(vislist[0]+'/SPECTRAL_WINDOW')
-   freqarray=tb.getcol('REF_FREQUENCY')
-   tb.close()
-   meanfreq=np.mean(freqarray[spwsarray[vislist[0]]])
-   minfreq=np.min(freqarray[spwsarray[vislist[0]]])
-   maxfreq=np.max(freqarray[spwsarray[vislist[0]]])
-   fracbw=np.abs(maxfreq-minfreq)/meanfreq
-   return meanfreq, maxfreq,minfreq,fracbw   
 
 def get_reffreq(vislist,field_ids,spwsarray,telescope):
     meanfreqs = []
@@ -2073,126 +1987,6 @@ def get_desired_width(meanfreq):
    elif (meanfreq < 4.0e9):
       desiredWidth=2.0e6
    return desiredWidth
-
-
-def get_ALMA_bands(vislist,spwstring,spwarray):
-   meanfreq, maxfreq,minfreq,fracbw=get_mean_freq(vislist,spwarray)
-   observed_bands={}
-   if (meanfreq < 950.0e9) and (meanfreq >=787.0e9):
-      band='Band_10'
-   elif (meanfreq < 720.0e9) and (meanfreq >=602.0e9):
-      band='Band_9'
-   elif (meanfreq < 500.0e9) and (meanfreq >=385.0e9):
-      band='Band_8'
-   elif (meanfreq < 373.0e9) and (meanfreq >=275.0e9):
-      band='Band_7'
-   elif (meanfreq < 275.0e9) and (meanfreq >=211.0e9):
-      band='Band_6'
-   elif (meanfreq < 211.0e9) and (meanfreq >=163.0e9):
-      band='Band_5'
-   elif (meanfreq < 163.0e9) and (meanfreq >=125.0e9):
-      band='Band_4'
-   elif (meanfreq < 116.0e9) and (meanfreq >=84.0e9):
-      band='Band_3'
-   elif (meanfreq < 84.0e9) and (meanfreq >=67.0e9):
-      band='Band_2'
-   elif (meanfreq < 50.0e9) and (meanfreq >=30.0e9):
-      band='Band_1'
-   bands=[band]
-   for vis in vislist:
-      observed_bands[vis]={}
-      observed_bands[vis]['bands']=[band]
-      for band in bands:
-         observed_bands[vis][band]={}
-         observed_bands[vis][band]['spwarray']=spwarray[vis]
-         observed_bands[vis][band]['spwstring']=spwstring[vis]+''
-         observed_bands[vis][band]['meanfreq']=meanfreq
-         observed_bands[vis][band]['maxfreq']=maxfreq
-         observed_bands[vis][band]['minfreq']=minfreq
-         observed_bands[vis][band]['fracbw']=fracbw
-
-         msmd.open(vis)
-         observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(spwarray[vis][0]))
-         msmd.close()
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'ALMA')
-   return bands,observed_bands
-
-
-
-def get_VLA_bands(vislist,fields):
-   observed_bands={}
-   for vis in vislist:
-      observed_bands[vis]={}
-      msmd.open(vis)
-      spws_for_field=np.array([])
-      for field in fields:
-         spws_temp=msmd.spwsforfield(field)
-         spws_for_field=np.concatenate((spws_for_field,np.array(spws_temp)))
-      msmd.close()
-      spws_for_field=np.unique(spws_for_field)
-      spws_for_field.sort()
-      spws_for_field=spws_for_field.astype('int')
-      #visheader=vishead(vis,mode='list',listitems=[])
-      tb.open(vis+'/SPECTRAL_WINDOW') 
-      spw_names=tb.getcol('NAME')
-      tb.close()
-      #spw_names=visheader['spw_name'][0]
-      spw_names_band=['']*len(spws_for_field)
-      spw_names_band=['']*len(spws_for_field)
-      spw_names_bb=['']*len(spws_for_field)
-      spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
-
-      for i in range(len(spws_for_field)):
-         spw_names_band[i]=spw_names[spws_for_field[i]].split('#')[0]
-         spw_names_bb[i]=spw_names[spws_for_field[i]].split('#')[1]
-         spw_names_spw[i]=spws_for_field[i]
-      all_bands=np.unique(spw_names_band)
-      observed_bands[vis]['n_bands']=len(all_bands)
-      observed_bands[vis]['bands']=all_bands.tolist()
-      for band in all_bands:
-         index=np.where(np.array(spw_names_band)==band)
-         observed_bands[vis][band]={}
-         # logic below removes the VLA standard pointing setups at X and C-bands
-         # the code is mostly immune to this issue since we get the spws for only
-         # the science targets above; however, should not ignore the possibility
-         # that someone might also do pointing on what is the science target
-         if (band == 'EVLA_X') and (len(index[0]) >= 2): # ignore pointing band
-            observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
-            indices_to_remove=np.array([])
-            for i in range(len(observed_bands[vis][band]['spwarray'])):
-                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
-                if (meanfreq==8.332e9) or (meanfreq==8.460e9):
-                   indices_to_remove=np.append(indices_to_remove,[i])
-            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
-         elif (band == 'EVLA_C') and (len(index[0]) >= 2): # ignore pointing band
-
-            observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
-            indices_to_remove=np.array([])
-            for i in range(len(observed_bands[vis][band]['spwarray'])):
-                meanfreq,maxfreq,minfreq,fracbw=get_mean_freq([vis],{vis: np.array([observed_bands[vis][band]['spwarray'][i]])})
-                if (meanfreq==4.832e9) or (meanfreq==4.960e9):
-                   indices_to_remove=np.append(indices_to_remove,[i])
-            observed_bands[vis][band]['spwarray']=np.delete(observed_bands[vis][band]['spwarray'],indices_to_remove.astype(int))
-         else:
-            observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
-         spwslist=observed_bands[vis][band]['spwarray'].tolist()
-         spwstring=','.join(str(spw) for spw in spwslist)
-         observed_bands[vis][band]['spwstring']=spwstring+''
-         observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],{vis: [observed_bands[vis][band]['spwarray']]})
-
-         msmd.open(vis)
-         observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(observed_bands[vis][band]['spwarray'][0]))
-         msmd.close()
-   bands_match=True
-   for i in range(len(vislist)):
-      for j in range(i+1,len(vislist)):
-         bandlist_match=(observed_bands[vislist[i]]['bands'] ==observed_bands[vislist[i+1]]['bands'])
-         if not bandlist_match:
-            bands_match=False
-   if not bands_match:
-     print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
-   get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
-   return observed_bands[vislist[0]]['bands'].copy(),observed_bands
 
 
 
@@ -3303,116 +3097,6 @@ def importdata(vislist,all_targets,telescope):
        gaincalibrator_dict[viskey] = {}
        if os.path.exists(original_vis):
            msmd.open(original_vis)
-   
-           for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
-               scans_for_field = msmd.scansforfield(field)
-               scans_for_gaincal = msmd.scansforintent("*CALIBRATE_PHASE*")
-               field_name = msmd.fieldnames()[field]
-               gaincalibrator_dict[viskey][field_name] = {}
-               gaincalibrator_dict[viskey][field_name]["scans"] = np.intersect1d(scans_for_field, scans_for_gaincal)
-               gaincalibrator_dict[viskey][field_name]["phasecenter"] = msmd.phasecenter(field)
-               gaincalibrator_dict[viskey][field_name]["intent"] = "phase"
-               gaincalibrator_dict[viskey][field_name]["times"] = np.array([np.mean(msmd.timesforscan(scan)) for scan in \
-                       gaincalibrator_dict[viskey][field_name]["scans"]])
-   
-           msmd.close()
-
-   return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set_dict
-
-def importdata_old(vislist,all_targets,telescope):
-   spectral_scan=False
-   listdict=collect_listobs_per_vis(vislist)
-   #### remove
-   scantimesdict,integrationsdict,integrationtimesdict,integrationtimes,n_spws,minspw,spwsarray_dict,spws_set=fetch_scan_times(vislist,all_targets)
-
-   ### move after fetch_scan times band aware and use its spwsarray_dict?
-   spwslist_dict = {}
-   spwstring_dict = {}
-   for vis in vislist:
-        spwslist_dict[vis] = spwsarray_dict[vis].tolist()
-        spwstring_dict[vis]=','.join(str(spw) for spw in spwslist_dict[vis])
-   if spws_set[vislist[0]].ndim > 1:
-      nspws_sets=spws_set[vislist[0]].shape[0]
-   else:
-      nspws_sets=1
-
-   if telescope=='ALMA' or telescope =='ACA':
-      if nspws_sets > 1 and spws_set[vislist[0]].ndim >1:
-         spectral_scan=True
-   ####
-   bands, band_properties = get_bands(vislist,all_targets,telescope)
-
-   scantimesdict={}
-   scanfieldsdict={}
-   scannfieldsdict={}
-   scanstartsdict={}
-   scanendsdict={}
-   integrationsdict={}
-   integrationtimesdict
-   mosaic_field_dict={}
-   bands_to_remove=[]
-   spws_set_dict = {}
-   nspws_sets_dict = {}
-
-   for band in bands:
-        print(band)
-        scantimesdict_temp,scanfieldsdict_temp,scannfieldsdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_temp,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
-
-        scantimesdict[band]=scantimesdict_temp.copy()
-        scanfieldsdict[band]=scanfieldsdict_temp.copy()
-        scannfieldsdict[band]=scannfieldsdict_temp.copy()
-        scanstartsdict[band]=scanstartsdict_temp.copy()
-        scanendsdict[band]=scanendsdict_temp.copy()
-        integrationsdict[band]=integrationsdict_temp.copy()
-        mosaic_field_dict[band]=mosaic_field_temp.copy()
-        integrationtimesdict[band]=integrationtimesdict_temp.copy()
-        spws_set_dict[band] = spws_set_dict_temp.copy()
-        if spws_set_dict[band][vislist[0]].ndim > 1:
-           nspws_sets_dict[band]=spws_set_dict[band][vislist[0]].shape[0]
-        else:
-           nspws_sets_dict[band]=1
-        #######CODE BETWEEN CAN BE REMOVED DUE TO SPLITTING INTO PER TARGET PER BAND
-        if n_spws_temp == -99:
-           for vis in vislist:
-              band_properties[vis].pop(band)
-              band_properties[vis]['bands'].remove(band)
-              print('Removing '+band+' bands from list due to no observations')
-           bands_to_remove.append(band)
-        loopcount=0
-        for vis in vislist:
-           for target in all_targets:
-              check_target=len(integrationsdict[band][vis][target])
-              if check_target == 0:
-                 integrationsdict[band][vis].pop(target)
-                 integrationtimesdict[band][vis].pop(target)
-                 scantimesdict[band][vis].pop(target)
-                 scanfieldsdict[band][vis].pop(target)
-                 scannfieldsdict[band][vis].pop(target)
-                 scanstartsdict[band][vis].pop(target)
-                 scanendsdict[band][vis].pop(target) 
-                 #handle case of multiMS mosaic data; assumes mosaic info is the same for MSes
-                 if loopcount == 0:
-                    mosaic_field_dict[band][vis].pop(target)
-           loopcount+=1        
-   if len(bands_to_remove) > 0:
-      for delband in bands_to_remove:
-         bands.remove(delband)
-        #######CODE BETWEEN CAN BE REMOVED DUE TO SPLITTING INTO PER TARGET PER BAND
-   ## Load the gain calibrator information.
-
-   gaincalibrator_dict = {}
-   for vis in vislist:
-       if "targets" in vis:
-           vis_string = "_targets"
-       else:
-           vis_string = "_target"
-
-       viskey = vis.replace(vis_string+".ms",vis_string+".selfcal.ms")
-
-       gaincalibrator_dict[viskey] = {}
-       if os.path.exists(vis.replace(vis_string+".ms",".ms").replace(vis_string+".selfcal.ms",".ms")):
-           msmd.open(vis.replace(vis_string+".ms",".ms").replace(vis_string+".selfcal.ms",".ms"))
    
            for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
                scans_for_field = msmd.scansforfield(field)
