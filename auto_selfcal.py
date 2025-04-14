@@ -114,6 +114,33 @@ sort_targets_and_EBs=False
 run_findcont=False
 debug=False
 
+##
+## save starting flags or restore to the starting flags
+##
+for vis in vislist:
+   if os.path.exists(vis+".flagversions/flags.starting_flags"):
+      flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+   else:
+      flagmanager(vis=vis,mode='save',versionname='starting_flags')
+
+if sort_targets_and_EBs:
+    vislist.sort()
+
+## 
+## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
+##
+#all_targets=fetch_targets(vislist[0])
+all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist, telescope)
+
+##
+## Global environment variables for control of selfcal
+##
+if sort_targets_and_EBs:
+    all_targets.sort()
+
+##
+## If the user asks to run findcont, do that now
+##
 if run_findcont and os.path.exists("cont.dat"):
     if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
         if not os.path.exists("cont.dat.original"):
@@ -145,10 +172,19 @@ if run_findcont:
 ##
 ## Get all of the relevant data from the MS files
 ##
-selfcal_library, selfcal_plan, gaincalibrator_dict = prepare_selfcal(vislist, spectral_average=spectral_average, 
-        sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
-        inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-        usermask=usermask, usermodel=usermodel,debug=debug)
+selfcal_library, selfcal_plan, gaincalibrator_dict = {}, {}, {}
+for target in all_targets:
+    selfcal_library[target], selfcal_plan[target] = {}, {}
+    for band in vis_for_targets[target]['Bands']:
+        target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], vis_for_targets[target][band]['vislist'], 
+                spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
+                inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
+                usermask=usermask, usermodel=usermodel,debug=debug)
+
+        selfcal_library[target][band] = target_selfcal_library[target][band]
+        selfcal_plan[target][band] = target_selfcal_plan[target][band]
+        gaincalibrator_dict.update(target_gaincalibrator_dict)
+
 
 
 with open('selfcal_library.pickle', 'wb') as handle:
@@ -581,6 +617,16 @@ for target in selfcal_library:
        print('Original RMS: ',selfcal_library[target][band][fid]['RMS_orig'])
        print('Final RMS: ',selfcal_library[target][band][fid]['RMS_final'])
 
+##
+## Save final library results
+##
+
+with open('selfcal_library.pickle', 'wb') as handle:
+    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('selfcal_plan.pickle', 'wb') as handle:
+    pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 applyCalOut=open('applycal_to_orig_MSes.py','w')
 #apply selfcal solutions back to original ms files
@@ -593,14 +639,14 @@ for target in selfcal_library:
          for vis in selfcal_library[target][band]['vislist']: 
             solint=selfcal_library[target][band]['final_solint']
             iteration=selfcal_library[target][band][vis][solint]['iteration']    
-            line='applycal(vis="'+vis.replace('.selfcal','')+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+selfcal_library[target][band][vis]['spws_orig']+'")\n'
+            line='applycal(vis="'+selfcal_library[target][band]['original_vislist_map'][vis]+'",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+', applymode="'+selfcal_library[target][band][vis]['applycal_mode_final']+'",field="'+target+'",spw="'+selfcal_library[target][band][vis]['spws_orig']+'")\n'
             applyCalOut.writelines(line)
             if apply_to_target_ms:
-               if os.path.exists(vis.replace('.selfcal','')+".flagversions/flags.starting_flags"):
-                  flagmanager(vis=vis.replace('.selfcal',''), mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+               if os.path.exists(selfcal_library[target][band]['original_vislist_map'][vis]+".flagversions/flags.starting_flags"):
+                  flagmanager(vis=selfcal_library[target][band]['original_vislist_map'][vis], mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
                else:
-                  flagmanager(vis=vis.replace('.selfcal',''),mode='save',versionname='before_final_applycal')
-               applycal(vis=vis.replace('.selfcal',''),\
+                  flagmanager(vis=selfcal_library[target][band]['original_vislist_map'][vis],mode='save',versionname='before_final_applycal')
+               applycal(vis=selfcal_library[target][band]['original_spw_map'][vis],\
                     gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                     interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
                     applymode=selfcal_library[target][band][vis]['applycal_mode_final'],field=target,spw=selfcal_library[target][band][vis]['spws_orig'])
@@ -611,8 +657,6 @@ casaversion=casatasks.version()
 if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[1]==5 and casaversion[2]>=2))):   # new uvcontsub format only works in CASA >=6.5.2
    if os.path.exists("cont.dat"):
       contsub_dict={}
-      for vis in selfcal_library[target][band]['vislist']:  
-         contsub_dict[vis]={}  
       for target in selfcal_library:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
@@ -621,16 +665,18 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
                 selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:
+               if selfcal_library[target][band]['original_vislist_map'][vis] not in contsub_dict:
+                   contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]]={}  
                msmd.open(vis)
                field_num_array=msmd.fieldsforname(target)
                msmd.close()
                for fieldnum in field_num_array:
-                  contsub_dict[vis][str(fieldnum)]=get_fitspw_dict(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat)
-                  print(contsub_dict[vis][str(fieldnum)])
+                  contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)]=get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat)
+                  print(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)])
       print(contsub_dict)
       uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
       for vis in selfcal_library[target][band]['vislist']:  
-         line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[vis])+', outputvis="'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
+         line='uvcontsub(vis="'+selfcal_library[target][band]['original_vislist_map'][vis]+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec='+str(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]])+', outputvis="'+selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms','.contsub.ms')+'",datacolumn="corrected")\n'
          uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
@@ -647,8 +693,8 @@ else:   # old uvcontsub formatting, requires splitting out per target, new one i
                 selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:      
-               contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace('.selfcal',''),target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat,return_contfit_range=True)
-               line='uvcontsub(vis="'+vis.replace('.selfcal','')+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal',''.replace('.ms','.contsub.ms'))+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
+               contdot_dat_flagchannels_string = flagchannels_from_contdotdat(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat,return_contfit_range=True)
+               line='uvcontsub(vis="'+selfcal_library[target][band]['original_vislist_map'][vis]+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
                uvcontsubOut.writelines(line)
       uvcontsubOut.close()
 
@@ -686,14 +732,8 @@ if check_all_spws:
 
 
 ##
-## Save final library results
+## Generate the weblog.
 ##
-
-with open('selfcal_library.pickle', 'wb') as handle:
-    pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-with open('selfcal_plan.pickle', 'wb') as handle:
-    pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 generate_weblog(selfcal_library,selfcal_plan,directory='weblog')
 
