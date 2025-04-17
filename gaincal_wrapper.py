@@ -654,7 +654,7 @@ def call_gaincal(vis, caltable='', append=False, minsnr=3.0, **kwargs):
         elif count > 1:
             break
     
-        gaincal_return = gaincal(vis, caltable=caltable, minsnr=minsnr_for_gc, **kwargs)
+        gaincal_return = gaincal(vis, caltable=caltable, minsnr=minsnr_for_gc, append=append, **kwargs)
 
         if append:
             break
