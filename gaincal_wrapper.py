@@ -33,8 +33,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
     ## At some point remove the conditional for use_inf_EB_preapply, since there isn't a reason not to do it
     ##
     current_solint_index=selfcal_plan['solints'].index(solint)
+    selfcal_plan[vis]['solint_settings'][solint]['computed_gaintable'] = {}
     if selfcal_plan['solmode'][iteration] == 'p':
-        selfcal_plan[vis]['solint_settings'][solint]['computed_gaintable'] = {}
         if mode == "cocal":
             if 'inf_EB' in selfcal_library[vis]:
                 #gaincal_preapply_gaintable[vis]=[sani_target+'_'+vis+'_'+band+'_inf_EB_0_p.g']
@@ -426,6 +426,9 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                               interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
                               append=os.path.exists(gaintable_name))
                          selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode].append(gcdict.copy())
+
+               selfcal_plan[vis]['solint_settings'][solint]['computed_gaintable'][mode] = gaintable_name
+
         gaintable_prefix='temp_'
         if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1:
             preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
