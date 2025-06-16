@@ -11,11 +11,17 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
     """
     Apply self-calibration solutions derived from auto_selfcal back to the original, unaveraged, MSes.
 
-    Args:
-        selfcal_library (int, dict): Name of the file containing the selfcal_library results from auto_selfcal,
+    Parameters
+    ----------
+        selfcal_library : int, dict
+            Name of the file containing the selfcal_library results from auto_selfcal,
             or the selfcal_library dictionary itself. Default: 'selfcal_library.pickle'
-        write_only (bool): Only write a file that can be executed to apply the calibrations, but
-            do not apply. Defaut: True
+        write_only : bool
+            Only write a file that can be executed to apply the calibrations, but do not apply. Defaut: True
+
+    Returns
+    -------
+        None
     """
 
     # First we need to load in the relevant results files.
@@ -85,11 +91,13 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
     """
     Do continuum subtraction of the original MS files.
 
-    Args:
-        selfcal_library (int, dict): Name of the file containing the selfcal_library results from auto_selfcal,
+    Parameters
+    ----------
+        selfcal_library : str, dict
+            Name of the file containing the selfcal_library results from auto_selfcal,
             or the selfcal_library dictionary itself. Default: 'selfcal_library.pickle'
-        write_only (bool): Only write a file that can be executed to apply the calibrations, but
-            do not apply. Defaut: True
+        write_only : bool
+            Only write a file that can be executed to apply the calibrations, but do not apply. Defaut: True
     """
 
     # First we need to load in the relevant results files.

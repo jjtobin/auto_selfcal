@@ -3,6 +3,12 @@ from .selfcal_helpers import *
 from .weblog_creation import *
 
 def regenerate_weblog():
+    """
+    Regenerate the weblog from the selfcal_library and selfcal_plan files.
+    This function reads the selfcal_library and selfcal_plan files, which contain information about how self-calibration proceeded, and generates a weblog.
+    The weblog is saved in the 'weblog' directory.
+    """
+    
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library=pickle.load(handle)
 
