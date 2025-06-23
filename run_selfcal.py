@@ -229,7 +229,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
                        allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction, 
-                       do_fallback_calonly=do_fallback_calonly)
+                       do_fallback_calonly=do_fallback_calonly, guess_scan_combine=guess_scan_combine)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.
