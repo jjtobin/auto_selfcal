@@ -12,9 +12,19 @@ def split_calibrated_final(vislist=[], overwrite=True):
     Takes an input list of MS files and splits out the data into a collection of datasets that are in the format
     expected by the auto_selfcal function.
 
-    Args:
-        vislist (list-like): List of input MS files. If [], will default to ['calibrated_final.ms'].
-        overwrite (bool): If any output files conflict with existing files, overwrite them? Default: True.
+    Parameters
+    ----------
+    vislist : list or str, optional:
+        A list of MS files to split. If a string is provided, it will be treated as a single MS file.
+        If a list is provided, it should contain the names of the MS files to split.
+        If vislist is empty, it will default to looking for 'calibrated_final.ms' in the current directory.
+    overwrite : bool, optional:
+        If True, will overwrite any existing output files. Default is True.
+        If False, will skip any existing output files.
+        
+    Returns
+    -------
+    None
     """
 
     # Check that the vislist keyword is supplied correctly.
