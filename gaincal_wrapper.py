@@ -13,9 +13,10 @@ except:
 
 def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, 
-        calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
-        refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3,
+        calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False,
+        refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,guess_scan_combine=False,spectral_solution_fraction=0.3,
         do_fallback_calonly=False):
+
 
     sani_target=sanitize_string(target)
     ##

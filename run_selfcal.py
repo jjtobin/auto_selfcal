@@ -257,6 +257,19 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                   field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'])
  
 
+             # Calculate the complex gains
+             for vis in vislist:
+                if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
+                        list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
+                     continue
+
+                gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, gaincal_minsnr, 
+                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, rerank_refants=rerank_refants, \
+                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
+                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
+                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
+                        allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine)
+
 
          ##
          ## Do the assessment of the post- (and pre-) selfcal images.
