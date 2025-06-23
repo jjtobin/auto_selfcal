@@ -14,8 +14,7 @@ sys.path.append("./")
 from selfcal_helpers import *
 from run_selfcal import run_selfcal
 from image_analysis_helpers import *
-from weblog_creation import *
-from prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_per_solint
+from prepare_selfcal import prepare_selfcal, set_clean_thresholds
 
 # Mac builds of CASA lack MPI and error without this try/except
 try:
@@ -23,22 +22,6 @@ try:
    parallel=MPIEnvironment.is_mpi_enabled
 except:
    parallel=False
-
-def end_program():
-    print('This version of auto_selfcal requires CASA 6.5.3 or higher to run. Please update your CASA version and try again.')
-    sys.exit(0)
-
-casaversion=casatasks.version()
-if casaversion[0]>=6:
-   if  casaversion[1]>=5:
-      if casaversion[1]==5 and casaversion[2]<3:
-         end_program()
-   else:
-      end_program()
-else:
-   end_program()
-
-
 
 ###################################################################################################
 ######################## All code until line ~170 is just jumping through hoops ###################
@@ -63,7 +46,6 @@ if len(vislist) == 0:
 ##
 spectral_average=True
 do_amp_selfcal=True
-
              # input as dictionary for target name to allow support of multiple targets           
 usermask={}  # require that it is a CRTF region (CASA region format)
              # usermask={'IRAS32':{'Band_6':'IRAS32.rgn'}, 'IRS5N':{'Band_6': 'IRS5N.rgn'}}
@@ -81,14 +63,12 @@ usermodel={}
              # NOTE THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
 
 
-inf_EB_gaincal_combine='scan'  # should we get rid of this option?
+inf_EB_gaincal_combine='scan'
 inf_EB_gaintype='G'
 inf_EB_override=False
-optimize_spw_combine=True      # if False, will not attempt per spw or per baseband solutions for any solint except inf_EB
 gaincal_minsnr=2.0
 gaincal_unflag_minsnr=5.0
-minsnr_to_proceed=2.95
-spectral_solution_fraction=0.25
+minsnr_to_proceed=3.0
 delta_beam_thresh=0.05
 n_ants=get_n_ants(vislist)
 telescope=get_telescope(vislist[0])
@@ -103,7 +83,6 @@ allow_gain_interpolation=False
 guess_scan_combine=False
 aca_use_nfmask=False
 allow_cocal=False
-debug=False
 scale_fov=1.0   # option to make field of view larger than the default
 rel_thresh_scaling='log10'  #can set to linear, log10, or loge (natural log)
 dividing_factor=-99.0  # number that the peak SNR is divided by to determine first clean threshold -99.0 uses default
@@ -343,7 +322,6 @@ get_SNR_self(selfcal_library,selfcal_plan,n_ants,inf_EB_gaincal_combine,inf_EB_g
 
 set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=dividing_factor, rel_thresh_scaling=rel_thresh_scaling, telescope=telescope)
 
-plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=optimize_spw_combine)
 ##
 ## Save self-cal library
 ##
@@ -364,7 +342,7 @@ for target in selfcal_library:
            unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
            second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, rerank_refants=rerank_refants, \
            gaincalibrator_dict=gaincalibrator_dict, allow_gain_interpolation=allow_gain_interpolation, guess_scan_combine=guess_scan_combine, \
-           aca_use_nfmask=aca_use_nfmask,debug=debug,spectral_solution_fraction=spectral_solution_fraction)
+           aca_use_nfmask=aca_use_nfmask)
 
 if debug:
     print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
