@@ -1,0 +1,1 @@
+auto-selfcal[docs] @ git+https://github.com/jjtobin/auto_selfcal@make_pip_installable
