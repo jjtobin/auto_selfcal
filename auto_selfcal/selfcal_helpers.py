@@ -3,6 +3,7 @@ import numpy
 import scipy.stats
 import scipy.signal
 import math
+import glob
 import os
 
 
@@ -193,54 +194,77 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        if nsigma*nfrms_multiplier*0.66 > nsigma:
           nsigma=nsigma*nfrms_multiplier*0.66
 
+    if np.all([selfcal_library[vis]['pol_type'] == 'full-pol' for vis in vlist]):
+        stokes_list = ['I','Q','U','V']
+    else:
+        stokes_list = ['I']
+
     if gridder=='mosaic' and startmodel!='':
        parallel=False
     if not savemodel_only:
         if not resume:
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
-        tclean_return = tclean(vis=vlist, 
-               imagename = imagename, 
-               field=field,
-               specmode = 'mfs', 
-               deconvolver = 'mtmfs',
-               scales = scales, 
-               gridder=gridder,
-               weighting='briggs', 
-               robust = robust,
-               gain = gain,
-               imsize = selfcal_library['imsize'],
-               cell = selfcal_library['cellsize'], 
-               smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
-               niter = niter, #we want to end on the threshold
-               interactive = interactive,
-               nsigma=nsigma,    
-               cycleniter = cycleniter,
-               cyclefactor = selfcal_library['cyclefactor'], 
-               uvtaper = uvtaper, 
-               savemodel = 'none',
-               mask=mask,
-               usemask=usemask,
-               sidelobethreshold=sidelobethreshold,
-               noisethreshold=noisethreshold,
-               lownoisethreshold=lownoisethreshold,
-               smoothfactor=smoothfactor,
-               growiterations=growiterations,
-               negativethreshold=negativethreshold,
-               minbeamfrac=minbeamfrac,
-               dogrowprune=dogrowprune,
-               minpercentchange=minpercentchange,
-               fastnoise=fastnoise,
-               pbmask=pbmask,
-               pblimit=pblimit,
-               nterms = nterms,
-               reffreq = reffreq,
-               uvrange=selfcal_library['uvrange'],
-               threshold=threshold,
-               parallel=parallel,
-               phasecenter=phasecenter,
-               startmodel=startmodel,
-               datacolumn=datacolumn,spw=spws_per_vis,wprojplanes=wprojplanes, verbose=True)
+        for stokes in stokes_list:
+            tclean_return = tclean(vis=vlist, 
+                   imagename = imagename+f'.{stokes}', 
+                   field=field,
+                   stokes=stokes,
+                   specmode = 'mfs', 
+                   deconvolver = 'mtmfs',
+                   scales = scales, 
+                   gridder=gridder,
+                   weighting='briggs', 
+                   robust = robust,
+                   gain = gain,
+                   imsize = selfcal_library['imsize'],
+                   cell = selfcal_library['cellsize'], 
+                   smallscalebias = smallscalebias, #set to CASA's default of 0.6 unless manually changed
+                   niter = niter, #we want to end on the threshold
+                   interactive = interactive,
+                   nsigma=nsigma,    
+                   cycleniter = cycleniter,
+                   cyclefactor = selfcal_library['cyclefactor'], 
+                   uvtaper = uvtaper, 
+                   savemodel = 'none',
+                   mask=mask,
+                   usemask=usemask,
+                   sidelobethreshold=sidelobethreshold,
+                   noisethreshold=noisethreshold,
+                   lownoisethreshold=lownoisethreshold,
+                   smoothfactor=smoothfactor,
+                   growiterations=growiterations,
+                   negativethreshold=negativethreshold,
+                   minbeamfrac=minbeamfrac,
+                   dogrowprune=dogrowprune,
+                   minpercentchange=minpercentchange,
+                   fastnoise=fastnoise,
+                   pbmask=pbmask,
+                   pblimit=pblimit,
+                   nterms = nterms,
+                   reffreq = reffreq,
+                   uvrange=selfcal_library['uvrange'],
+                   threshold=threshold,
+                   parallel=parallel,
+                   phasecenter=phasecenter,
+                   startmodel=startmodel,
+                   datacolumn=datacolumn,spw=spws_per_vis,wprojplanes=wprojplanes, verbose=True)
+
+        files = glob.glob(imagename+f".I.*")
+        for f in files:
+            fsplit = f.split(".")
+            if fsplit[-2] == "I":
+                ext = fsplit[-1]
+            else:
+                ext = '.'.join(fsplit[-2:])
+
+            if len(stokes_list) > 1:
+                full_image = ia.imageconcat(outfile=imagename+'.'+ext, infiles=[f.replace('I',stokes) for stokes in stokes_list], axis=2)
+                full_image.done()
+            else:
+                os.system(f"mv {imagename}.I.{ext} {imagename}.{ext}")
+
+            os.system(f"rm -rf {imagename}.*.{ext}")
 
         if store_threshold != '':
             if telescope == "ALMA" or telescope == "ACA":
@@ -311,6 +335,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
           tclean(vis= vlist, 
                  imagename = imagename, 
                  field=field,
+                 stokes = ''.join(stokes_list),
                  specmode = 'mfs', 
                  deconvolver = 'mtmfs',
                  scales = scales, 
@@ -945,7 +970,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
         image_stats= imstat(imagename = "temp.image")
         os.system("rm -rf temp.image")
     else:
-        image_stats= imstat(imagename = imagename)
+        image_stats= imstat(imagename = imagename, axes=[0,1])
 
     if maskname is None:
        maskImage=imagename.replace('image','mask').replace('.tt0','')
@@ -970,19 +995,19 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
        ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        mask0Stats = ia.statistics(robust=True,axes=[0,1])
        ia.maskhandler(op='set',name='madpbmask0')
-       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
-       residualMean = mask0Stats['median'][0]
+       rms = mask0Stats['medabsdevmed'] * MADtoRMS
+       residualMean = mask0Stats['median']
     else:
-       residual_stats=imstat(imagename=imagename,algorithm='chauvenet')
-       rms = residual_stats['rms'][0]
-    peak_intensity = image_stats['max'][0]
+       residual_stats=imstat(imagename=imagename,algorithm='chauvenet',axes=[0,1])
+       rms = residual_stats['rms']
+    peak_intensity = image_stats['max']
     SNR = peak_intensity/rms
     if verbose:
            print("#%s" % imagename)
            print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-           print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-           print("#rms: %.2e mJy/beam" % (rms*1000,))
-           print("#Peak SNR: %.2f" % (SNR,))
+           print(f"#Peak intensity of source: {np.array2string(peak_intensity*1000, precision=2)} mJy/beam")
+           print(f"#rms:{np.array2string(rms*1000, precision=2)} mJy/beam")
+           print(f"#Peak SNR: {np.array2string(SNR, precision=2)}")
     ia.close()
     ia.done()
     if mosaic_sub_field:
@@ -1017,7 +1042,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
         image_stats= imstat(imagename = "temp.image")
         os.system("rm -rf temp.image")
     else:
-        image_stats= imstat(imagename = imagename)
+        image_stats= imstat(imagename = imagename, axes=[0,1])
 
     residualImage=imagename   # change to .image JT 04-15-2024 .replace('image','residual')
     os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
@@ -1054,7 +1079,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     beam_extent_size = ((center_coords - max_coords)**2)[0:2].sum()**0.5 * 360*60*60/(2*np.pi)
 
     # use the maximum of the three possibilities as the outer extent of the mask.
-    print("beammajor*5 = ", beammajor*5, ", LAS = ", 5*las, ", beam_extent = ", beam_extent_size)
+    print("beammajor*5 = ", beammajor*5, ", LAS = ", 5*(las if las is not None else 0.), ", beam_extent = ", beam_extent_size)
     outer_major = max(beammajor*5, beam_extent_size, 5*las if las is not None else 0.)
 
     imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(outer_major)+'arcsec',minor=str(outer_major)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
@@ -1077,18 +1102,22 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
        ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
        mask0Stats = ia.statistics(robust=True,axes=[0,1])
        ia.maskhandler(op='set',name='madpbmask0')
-       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
-       residualMean = mask0Stats['median'][0]
-       peak_intensity = image_stats['max'][0]
+       rms = mask0Stats['medabsdevmed'] * MADtoRMS
+       residualMean = mask0Stats['median']
+       peak_intensity = image_stats['max']
        SNR = peak_intensity/rms
        if verbose:
               print("#%s" % imagename)
               print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-              print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-              print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
-              print("#Peak Near Field SNR: %.2f" % (SNR,))
+              print(f"#Peak intensity of source: {np.array2string(peak_intensity*1000, precision=2)} mJy/beam")
+              print(f"#Near Field rms:{np.array2string(rms*1000, precision=2)} mJy/beam")
+              print(f"#Peak Near Field SNR: {np.array2string(SNR, precision=2)}")
        ia.close()
        ia.done()
+
+       # Catch when one plane doesn't have mask and is zero RMS.
+       SNR = np.where(rms == 0, -99.0, rms)
+       rms = np.where(rms == 0, -99.0, rms)
 
     if save_near_field_mask:
         os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
@@ -1110,14 +1139,15 @@ def get_intflux(imagename,rms,maskname=None,mosaic_sub_field=False):
    if mosaic_sub_field:
        immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
                expr="IM0*IM1/IM2")
-       imagestats= imstat(imagename = "temp.image", mask=maskname)
+       imagestats= imstat(imagename = "temp.image", mask=maskname, axes=[0,1])
        os.system("rm -rf temp.image")
    else:
-       imagestats= imstat(imagename = imagename, mask=maskname)
+       imagestats= imstat(imagename = imagename, mask=maskname, axes=[0,1])
 
+   print(imagestats)
    if len(imagestats['flux']) > 0:
-       flux=imagestats['flux'][0]
-       n_beams=imagestats['npts'][0]/pix_per_beam
+       flux=imagestats['flux']
+       n_beams=imagestats['npts']/pix_per_beam
        e_flux=(n_beams)**0.5*rms
    else:
        flux = 0.
