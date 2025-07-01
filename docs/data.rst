@@ -25,15 +25,22 @@ with the following naming conventions (in order; please don't mix and match):
 
 To run this code with a concatenated calibrated_final.ms that one might receive from the NA ARC or with the variety of formats that might be 
 expected from restores of older pipeline runs, one must split out the groups of SPWs associated with the individual observations, selecting on SPW, 
-such that one has a set of MSes with SPWs that are all the same. To simplify this process, we provide a helper routine, `split_calibrated_final` 
-that can ingest data from a variety of formats and spit out data that should be in the format that auto_selfcal expects. It can be used via the command
-line tool:
-::
+such that one has a set of MSes with SPWs that are all the same. To simplify this process, we provide a helper routine, :meth:`split_calibrated_final<auto_selfcal.split_calibrated_final>` 
+that can ingest data from a variety of formats and spit out data that should be in the format that auto_selfcal expects. It can be used from Monolithic CASA via the provided auto_selfcal scripts:
+
+.. code-block:: bash
+
+    casa -c <path/to/auto_selfcal>/bin/split_calibrated_final.py
+
+via the command line tool in modular CASA:
+
+.. code-block:: bash
 
     auto_selfcal --action prepare_data --vislist <list of MSes>
 
-or via the Python API:
-::
+or via the Python API (either modular CASA or pip-installed-auto_selfcal in monolithic CASA):
+
+.. code-block:: python
 
     from auto_selfcal import split_calibrated_final
 
