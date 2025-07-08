@@ -103,6 +103,33 @@ def auto_selfcal(
     n_ants=get_n_ants(vislist)
     telescope=get_telescope(vislist[0])
 
+    ##
+    ## save starting flags or restore to the starting flags
+    ##
+    for vis in vislist:
+        if os.path.exists(vis+".flagversions/flags.starting_flags"):
+            flagmanager(vis=vis, mode = 'restore', versionname = 'starting_flags', comment = 'Flag states at start of reduction')
+        else:
+            flagmanager(vis=vis,mode='save',versionname='starting_flags')
+
+        if sort_targets_and_EBs:
+            vislist.sort()
+
+    ## 
+    ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
+    ##
+    #all_targets=fetch_targets(vislist[0])
+    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist, telescope)
+
+    ##
+    ## Global environment variables for control of selfcal
+    ##
+    if sort_targets_and_EBs:
+        all_targets.sort()
+
+    ##
+    ## If the user asks to run findcont, do that now
+    ##
     if run_findcont and os.path.exists("cont.dat"):
         if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
             if not os.path.exists("cont.dat.original"):
@@ -134,11 +161,18 @@ def auto_selfcal(
     ##
     ## Get all of the relevant data from the MS files
     ##
-    selfcal_library, selfcal_plan, gaincalibrator_dict = prepare_selfcal(vislist, spectral_average=spectral_average, 
-            sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
-            inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-            usermask=usermask, usermodel=usermodel,debug=debug)
+    selfcal_library, selfcal_plan, gaincalibrator_dict = {}, {}, {}
+    for target in all_targets:
+        selfcal_library[target], selfcal_plan[target] = {}, {}
+        for band in vis_for_targets[target]['Bands']:
+            target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], vis_for_targets[target][band]['vislist'], 
+                    spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
+                    inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
+                    usermask=usermask, usermodel=usermodel,debug=debug)
 
+            selfcal_library[target][band] = target_selfcal_library[target][band]
+            selfcal_plan[target][band] = target_selfcal_plan[target][band]
+            gaincalibrator_dict.update(target_gaincalibrator_dict)
 
     with open('selfcal_library.pickle', 'wb') as handle:
         pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -185,7 +219,7 @@ def auto_selfcal(
         for target in all_targets:
             offsets[target] = {}
             for band in bands:
-                offsets[target][band] = align_measurement_sets(vislist[0], vislist, target,
+                offsets[target][band] = align_measurement_sets(selfcal_library[target][band]['vislist'][0], selfcal_library[target][band]['vislist'], target,
                         aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
                         spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
                         suffix='')
@@ -639,6 +673,16 @@ def auto_selfcal(
            print('Original RMS: ',selfcal_library[target][band][fid]['RMS_orig'])
            print('Final RMS: ',selfcal_library[target][band][fid]['RMS_final'])
 
+    ##
+    ## Save final library results
+    ##
+
+    with open('selfcal_library.pickle', 'wb') as handle:
+        pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open('selfcal_plan.pickle', 'wb') as handle:
+        pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
     # If the user asks to align the EBs, then align the original EBs using the alignment values found from the
     # averaged EBs.
 
@@ -649,8 +693,9 @@ def auto_selfcal(
         for target in all_targets:
             for band in bands:
                 selfcal_library[target][band]['offsets'] = offsets[target][band]
-                align_measurement_sets(vislist[0].replace('.selfcal',''), [vis.replace('.selfcal','') for vis in vislist], target, \
-                        align_offsets=[offsets[target][band][vis] for vis in vislist], npix=imsize[target][band], 
+                align_measurement_sets(selfcal_library[target][band]['original_vislist_map'][selfcal_library[target][band]['vislist'][0], 
+                        [selfcal_library[target][band]['original_vislist_map'][vis] for vis in selfcal_library[target][band]['vislist']], target, \
+                        align_offsets=[offsets[target][band][vis] for vis in selfcal_library[target][band]['vislist']], npix=imsize[target][band], 
                         cell_size=float(cellsize[target][band][0:-6]), plot_uv_grid=False, plot_file_template=None, 
                         suffix='.shift')
     else:
@@ -696,14 +741,8 @@ def auto_selfcal(
 
 
     ##
-    ## Save final library results
+    ## Generate the weblog.
     ##
-
-    with open('selfcal_library.pickle', 'wb') as handle:
-        pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    with open('selfcal_plan.pickle', 'wb') as handle:
-        pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     if weblog:
         generate_weblog(selfcal_library,selfcal_plan,directory='weblog')

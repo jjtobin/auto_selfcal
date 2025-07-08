@@ -51,7 +51,7 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
 
                 # Write the line to the command log
 
-                line='applycal(vis="'+vis.replace('.selfcal',suffix)+\
+                line='applycal(vis="'+selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms',suffix+'.ms')+\
                         '",gaintable='+str(selfcal_library[target][band][vis]['gaintable_final'])+\
                         ',interp='+str(selfcal_library[target][band][vis]['applycal_interpolate_final'])+\
                         ', calwt=False,spwmap='+str(selfcal_library[target][band][vis]['spwmap_final'])+\
@@ -63,15 +63,15 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
                 if not write_only:
                    # First we need to restore the flags to the state they were in prior to self-calibration.
 
-                   if os.path.exists(vis.replace('.selfcal',suffix)+".flagversions/flags.starting_flags"):
-                      flagmanager(vis=vis.replace('.selfcal',suffix), mode = 'restore', versionname = 'starting_flags', 
+                   if os.path.exists(selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms',suffix+'.ms')+".flagversions/flags.starting_flags"):
+                      flagmanager(vis=selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms',suffix+'.ms'), mode = 'restore', versionname = 'starting_flags', 
                             comment = 'Flag states at start of reduction')
                    else:
-                      flagmanager(vis=vis.replace('.selfcal',suffix),mode='save',versionname='before_final_applycal')
+                      flagmanager(vis=selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms',suffix+'.ms'),mode='save',versionname='before_final_applycal')
 
                    # Now apply
 
-                   applycal(vis=vis.replace('.selfcal',suffix),\
+                   applycal(vis=selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms',suffix+'.ms'),\
                         gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                         interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], 
                         calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
@@ -118,10 +118,6 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
         # new uvcontsub format only works in CASA >=6.5.2
         if os.path.exists("cont.dat"):
             contsub_dict = {}
-            for target in list(selfcal_library.keys())[0:1]:
-                for band in list(selfcal_library[target].keys())[0:1]:
-                    for vis in selfcal_library[target][band]["vislist"]:
-                        contsub_dict[vis] = {}
 
             for target in selfcal_library:
                 sani_target = sanitize_string(target)
@@ -136,23 +132,27 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
                             selfcal_library[target][band]["vislist"]])))
 
                     for vis in selfcal_library[target][band]["vislist"]:
+                        if selfcal_library[target][band]['original_vislist_map'][vis] not in contsub_dict:
+                            contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]]={}
+                
                         msmd.open(vis)
                         field_num_array = msmd.fieldsforname(target)
                         msmd.close()
                         for fieldnum in field_num_array:
-                            contsub_dict[vis][str(fieldnum)] = get_fitspw_dict(vis.replace(".selfcal", ""),
+                            contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)] = \
+                                get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],
                                 target, selfcal_library[target][band][vis]["spwsarray"],
                                 selfcal_library[target][band]["vislist"], spwvisref, contdotdat)
-                            print(contsub_dict[vis][str(fieldnum)])
+                            print(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)])
 
             print(contsub_dict)
 
             uvcontsubOut = open("uvcontsub_orig_MSes.py", "w")
             for vis in selfcal_library[target][band]["vislist"]:
-                line = 'uvcontsub(vis="'+vis.replace(".selfcal", suffix)+\
+                line = 'uvcontsub(vis="'+selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms',suffix+'.ms')+\
                     '", spw="'+selfcal_library[target][band][vis]["spws"]+\
-                    '",fitspec='+str(contsub_dict[vis])+\
-                    ', outputvis="'+vis.replace(".selfcal", "").replace(".ms", ".contsub.ms")+\
+                    '",fitspec='+str(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]])+\
+                    ', outputvis="'+selfcal_library[target][band]['original_vislist_map'][vis].replace(".ms", ".contsub.ms")+\
                     '",datacolumn="corrected")\n'
 
                 uvcontsubOut.writelines(line)
@@ -182,11 +182,11 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
                                 for vis in selfcal_library[target][band]["vislist"]])))
 
                     for vis in selfcal_library[target][band]["vislist"]:
-                        contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis.replace(".selfcal", ""),
+                        contdot_dat_flagchannels_string = flagchannels_from_contdotdat(selfcal_library[target][band]['original_vislist_map'][vis],
                             target, selfcal_library[target][band][vis]["spwsarray"], selfcal_library[target][band]["vislist"],
                             spwvisref, contdotdat, return_contfit_range=True)
 
-                        line = 'uvcontsub(vis="' + vis.replace(".selfcal", suffix) + \
+                        line = 'uvcontsub(vis="' + selfcal_library[target][band]['original_vislist_map'][vis].replace('.ms',suffix+'.ms') + \
                             '", outputvis="'+sani_target+"_"+vis.replace(".selfcal", "".replace(".ms", ".contsub.ms")) + \
                             '",field="' + target + \
                             '", spw="' + selfcal_library[target][band][vis]["spws"] + \

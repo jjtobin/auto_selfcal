@@ -2,21 +2,21 @@
 [![codecov](https://codecov.io/github/psheehan/auto_selfcal/graph/badge.svg?token=6PLBR79LWF)](https://codecov.io/github/psheehan/auto_selfcal)
 
 # auto_selfcal
-The goal of this code is to be able to run on an a set of ALMA or VLA *_target.ms (or other MS files with the targets split out and having the same setup in each MS) files for single-pointing data and perform self-calibration using the continuum. If a cont.dat file is present, the code will flag the non-continuum regions and perform self-calibration on the continuum only.
+The goal of this code is to be able to run on an a set of ALMA or VLA *_target.ms (or other MS files with the targets split out and having the same setup in each MS) files for single-pointing or msoaic data and perform self-calibration using the continuum. If a cont.dat file is present, the code will flag the non-continuum regions and perform self-calibration on the continuum only.
 
 To run this code with a concatenated calibrated_final.ms that one might receive from the NA ARC, one must split out the groups of SPWs associated with the individual observations, selecting on SPW, such that one has a set of MSes with SPWs that are all the same. For example, if an MS has SPWs 0,1,2,3,10,11,12,13, and 0,1,2,3 are from the first observation and 10,11,12,13 are from the second observation, they should be split out as follows:
 split(vis='my_concat.ms',spw'0,1,2,3',outputvis='my_ms_0_target.ms')
 split(vis='my_concat.ms',spw'10,11,12,13',outputvis='my_ms_1_target.ms')
 We provide a script split_calibrated_final.py to do this automatically.
 
-This code should only be executed within the CASA 6.4+ environment. CASA versions earlier that 6.4.0 are likely to encounter problems due to a gaincal bug that was fixed in CASA 6.4.0. Current testing of this code was conducted using CASA 6.5.4 and CASA 6.5.6, but we fully expect this code to run properly on CASA 6.6 and should aso run properly back to CASA 6.4.0.
+This code should only be executed within the CASA 6.4+ environment. CASA versions earlier that 6.4.0 are likely to encounter problems due to a gaincal bug that was fixed in CASA 6.4.0. Current testing of this code was conducted using the CASA 6.5 and 6.6 series. We note that the continuum subtraction portions of the code requires CASA 6.5.2 to use the new uvcontsub.
 
 Supported data:
 Standard ALMA and VLA data.
 Single or multiple targets.
 Multi-band VLA.
 ALMA spectral scans.
-Small ALMA mosaics, where there is emission of the same source(s) within each pointing may work, but more rigorous implementation of mosaic heuristics are implemented at github.com/psheehan/auto_selfcal.
+ALMA Mosaics
 
 Amplitude self-calibration will be attempted after phase-only self-calibration. If amplitude self-cal is not desired, set the variable 'do_amp_selfcal' to False in the auto_selfcal.py script.
 
