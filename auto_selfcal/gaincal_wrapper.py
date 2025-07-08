@@ -6,6 +6,20 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3,
         guess_scan_combine=False, do_fallback_calonly=False):
+    """
+    This function runs gaincal for a given target, band, and solint, and updates the selfcal_library and selfcal_plan dictionaries with the results.
+    It also handles the pre-application of inf_EB solutions if necessary.
+    Parameters
+    ----------
+    selfcal_library : dict
+        The selfcal_library dictionary containing information about the self-calibration process.
+    selfcal_plan : dict
+        The selfcal_plan dictionary containing the planned self-calibration steps.
+    target : str
+        The target field for which gaincal is being run.
+    band : str
+        The band for which gaincal is being run.
+    """
 
     sani_target=sanitize_string(target)
     ##

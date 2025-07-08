@@ -1,5 +1,6 @@
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
+from casatasks import split
 import glob
 import os
 import numpy as np
@@ -12,9 +13,19 @@ def split_calibrated_final(vislist=[], overwrite=True):
     Takes an input list of MS files and splits out the data into a collection of datasets that are in the format
     expected by the auto_selfcal function.
 
-    Args:
-        vislist (list-like): List of input MS files. If [], will default to ['calibrated_final.ms'].
-        overwrite (bool): If any output files conflict with existing files, overwrite them? Default: True.
+    Parameters
+    ----------
+    vislist : list or str, optional:
+        A list of MS files to split. If a string is provided, it will be treated as a single MS file.
+        If a list is provided, it should contain the names of the MS files to split.
+        If vislist is empty, it will default to looking for 'calibrated_final.ms' in the current directory.
+    overwrite : bool, optional:
+        If True, will overwrite any existing output files. Default is True.
+        If False, will skip any existing output files.
+        
+    Returns
+    -------
+    None
     """
 
     # Check that the vislist keyword is supplied correctly.
@@ -57,11 +68,11 @@ def split_calibrated_final(vislist=[], overwrite=True):
             # TDM and FDM spws for that scan, in case some of the other types of spw that can exist are left over.
 
             output_spw = ','.join(np.intersect1d(msmd.spwsforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i), \
-                    np.concatenate((msmd.tdmspws(),msmd.fdmspws()))).astype(str)), \
+                    np.concatenate((msmd.tdmspws(),msmd.fdmspws()))).astype(str))
 
             # Only take the antennas used for a scan on a relevant target from the relevant observation ID.
 
-            output_antennas = ','.join(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i).astype(str)), \
+            output_antennas = ','.join(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i).astype(str))
 
             # Do the split
 
