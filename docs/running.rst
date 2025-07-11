@@ -18,14 +18,17 @@ Or with mpicasa:
 
     mpicasa -n <N> casa -c <path/to/auto_selfcal>/bin/auto_selfcal.py
 
-Additional CASA scripts that handle other aspects of auto_selfcal are also available:
+By default, the :meth:`auto_selfcal<auto_selfcal.auto_selfcal>` function does not apply the derived calibrations back to the original MS files supplied. Though this can be changed with the relevant keyword arguments, the calibrations can be applied after the fact using a script supplied with auto_selfcal:
 
 .. code-block:: bash
 
-    mpicasa -n <N> casa -c <path/to/auto_selfcal>/bin/split_calibrated_final.py
-    mpicasa -n <N> casa -c <path/to/auto_selfcal>/bin/applycal_to_orig_MSes.py
-    mpicasa -n <N> casa -c <path/to/auto_selfcal>/bin/uvcontsub_orig_MSes.py
-    mpicasa -n <N> casa -c <path/to/auto_selfcal>/bin/regenerate_weblog.py
+    casa -c <path/to/auto_selfcal>/bin/applycal_to_orig_MSes.py
+
+We also provide a tool to do continuum subtraction of the original MS files using the continuum ranges from cont.dat (if available):
+
+.. code-block:: bash
+
+    casa -c <path/to/auto_selfcal>/bin/uvcontsub_orig_MSes.py
 
 Note that with these scripts there is no support for command line arguments; to change these options, edit the bin/\*.py files directly. For details about the available parameters for each of these functions, see our :ref:`Top Level API`.
 
@@ -44,13 +47,23 @@ Or, if installed with support for MPI:
 
     mpirun -n <N> auto_selfcal --<command line option> <argument> ...
 
+For the same examples as above,
+
+.. code-block:: bash
+
+    mpirun -n 5 auto_selfcal --action run
+    auto_selfcal --action apply
+    auto_selfcal --action contsub
+
 auto_selfcal can also be imported and run within Python scripts or environments:
 
 .. code-block:: python
 
-    from auto_selfcal import auto_selfcal
+    from auto_selfcal import auto_selfcal, applycal_to_orig_MSes, uvcontsub_orig_MSes
 
     auto_selfcal(vislist=<list of MSes>)
+    applycal_to_orig_MSes()
+    uvcontsub_orig_MSes()
 
 For a full list of command line options, run:
 

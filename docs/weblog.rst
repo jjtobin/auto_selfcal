@@ -17,3 +17,23 @@ setting up an HTTP Server with Python on the tunneled port:
     python -m http.server 8000
 
 and then to directing your browser to 'localhost:8000'.
+
+If a weblog was not generated at the time that auto_selfcal was run, e.g. ``weblog=False``, or the weblog was deleted, it can be regenerated without needed to re-run the entire self-calibration procedure. In Monolithic CASA this can be done with
+
+.. code-block:: bash
+
+    casa -c <path/to/auto_selfcal>/bin/regenerate_weblog.py
+
+In modular CASA, this can be done either via the command line tool
+
+.. code-block:: bash
+
+    auto_selfcal --action weblog
+
+or through the Python API
+
+.. code-block:: python
+
+    from auto_selfcal import regenerate_weblog
+
+    regenerate_weblog()
