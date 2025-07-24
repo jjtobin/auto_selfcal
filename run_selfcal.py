@@ -205,6 +205,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                          for vis in selfcal_library[target][band][fid]['vislist']:
                              #selfcal_library[target][band][fid][vis][solint]['interpolated_gains'] = True
                              #selfcal_library[target][band][fid]['Stop_Reason'] = "Gaincal solutions would be interpolated"
+                             selfcal_library[target][band][fid]['Stop_Reason'] = skip_reason
                              selfcal_library[target][band][fid][vis][solint]['Pass'] = "None"
                              selfcal_library[target][band][fid][vis][solint]['Fail_Reason'] = skip_reason
 
