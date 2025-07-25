@@ -55,6 +55,7 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
              for vis in selfcal_library[fid]['vislist']:
                  #selfcal_library[fid][vis][solint]['interpolated_gains'] = True
                  #selfcal_library[fid]['Stop_Reason'] = "Gaincal solutions would be interpolated"
+                 selfcal_library[fid]['Stop_Reason'] = skip_reason
                  selfcal_library[fid][vis][solint]['Pass'] = "None"
                  selfcal_library[fid][vis][solint]['Fail_Reason'] = skip_reason
 
