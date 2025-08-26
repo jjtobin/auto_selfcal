@@ -1210,27 +1210,27 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
                for spw in selfcal_library['spw_map']:
-                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  vis = np.intersect1d(list(selfcal_library['spw_map'][spw].keys()),selfcal_library['vislist'])[0]
                   true_spw = selfcal_library['spw_map'][spw][vis]
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
          elif solint =='inf' or solint == 'inf_ap':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
                for spw in selfcal_library['spw_map']:
-                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  vis = np.intersect1d(list(selfcal_library['spw_map'][spw].keys()),selfcal_library['vislist'])[0]
                   true_spw = selfcal_library['spw_map'][spw][vis]
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
          elif solint == 'int':
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
                for spw in selfcal_library['spw_map']:
-                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  vis = np.intersect1d(list(selfcal_library['spw_map'][spw].keys()),selfcal_library['vislist'])[0]
                   true_spw = selfcal_library['spw_map'][spw][vis]
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
          else:
                solint_float=float(solint.replace('s','').replace('_ap',''))
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
                for spw in selfcal_library['spw_map']:
-                  vis = list(selfcal_library['spw_map'][spw].keys())[0]
+                  vis = np.intersect1d(list(selfcal_library['spw_map'][spw].keys()),selfcal_library['vislist'])[0]
                   true_spw = selfcal_library['spw_map'][spw][vis]
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
       return solint_snr,solint_snr_per_spw
@@ -2727,7 +2727,7 @@ def render_spw_stats_summary_table(htmlOut,sclib,target,band):
                 line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key])
              if 'RMS' in key and key in spwkeys:
                 line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band]['per_spw_stats'][spw][key]*1000.0)
-         vis = list(sclib[target][band]['spw_map'][spw].keys())[0]
+         vis = np.intersect1d(list(sclib[target][band]['spw_map'][spw].keys()), sclib[target][band]['vislist'])[0]
          if 'bandwidth' in key and key in sclib[target][band][vis]['per_spw_stats'][sclib[target][band]['spw_map'][spw][vis]].keys():
             line+='    <td>{:0.4f} GHz</td>\n'.format(sclib[target][band][vis]['per_spw_stats'][sclib[target][band]['spw_map'][spw][vis]][key])
          if key in sclib[target][band]['vislist'] and key in sclib[target][band]['spw_map'][spw]:
