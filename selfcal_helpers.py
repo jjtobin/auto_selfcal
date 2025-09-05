@@ -1728,7 +1728,7 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
 
    spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
    for key in contdotdat['ranges'].keys():
-      trans_spw = find_matching_spw(spwvisref, key, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+      trans_spw = find_matching_spw(spwvisref, key, vis, spwsarray_dict[vis], methods=["name","properties"], frame="LSRK")
 
       cumulat_bw=0.0
       for i in range(len(contdotdat['ranges'][key])):
