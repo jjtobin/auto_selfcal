@@ -342,7 +342,7 @@ def prepare_selfcal(all_targets, bands, vislist,
           vislist=selfcal_library[target][band]['vislist'].copy()
 
           selfcal_library[target][band]['spw_map'], selfcal_library[target][band]['reverse_spw_map'] = get_spw_map(selfcal_library, 
-                  target, band, telescope)
+                  target, band, telescope, 0)
 
           #code to work around some VLA data not having the same number of spws due to missing BlBPs
           #selects spwlist from the visibilities with the greates number of spws
@@ -387,8 +387,7 @@ def prepare_selfcal(all_targets, bands, vislist,
                    selfcal_library[target][band][vis]['baseband'][baseband]['total_effective_bandwidth']+=spw_bandwidths_dict[vis][spw]
           for fid in selfcal_library[target][band]['sub-fields']:
               selfcal_library[target][band][fid]['per_spw_stats']={}
-              selfcal_library[target][band][fid]['spw_map'] = selfcal_library[target][band]['spw_map']
-              selfcal_library[target][band][fid]['reverse_spw_map'] = selfcal_library[target][band]['reverse_spw_map']
+              selfcal_library[target][band][fid]['spw_map'], selfcal_library[target][band][fid]['reverse_spw_map'] = get_spw_map(selfcal_library, target, band, telescope, fid)
               for vis in selfcal_library[target][band][fid]['vislist']:
                   selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
 

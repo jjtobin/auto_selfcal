@@ -1593,26 +1593,11 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat):
-        msmd.open(spwvisref)
-        spwname=msmd.namesforspws(spw)[0]
-        msmd.close()
-        msmd.open(vis)
-        spws=msmd.spwsfornames(spwname)
-        msmd.close()
-        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-        #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
-        trans_spw = -1
-        for check_spw in spws[spwname]:
-           matching_index=np.where(check_spw == spwsarray)
-           if len(matching_index[0]) == 0:
-              continue
-           else:
-              trans_spw=check_spw
-              break
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+
         if trans_spw == -1:
            print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
            return ''
-        #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
 
         flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
@@ -1667,22 +1652,8 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat):
-        msmd.open(spwvisref)
-        spwname=msmd.namesforspws(spw)[0]
-        msmd.close()
-        msmd.open(vis)
-        spws=msmd.spwsfornames(spwname)
-        msmd.close()
-        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-        #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
-        trans_spw = -1
-        for check_spw in spws[spwname]:
-           matching_index=np.where(check_spw == spwsarray)
-           if len(matching_index[0]) == 0:
-              continue
-           else:
-              trans_spw=check_spw
-              break
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+
         if trans_spw==-1:
            print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
            return ''
@@ -1795,9 +1766,9 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
 
 
 
-def get_spw_map(selfcal_library, target, band, telescope):
+def get_spw_map(selfcal_library, target, band, telescope, fid):
     # Get the list of EBs from the selfcal_library
-    vislist = selfcal_library[target][band]['vislist'].copy()
+    vislist = selfcal_library[target][band][fid]['vislist'].copy()
 
     # If we are looking at VLA data, find the EB with the maximum number of SPWs so that we have the fewest "odd man out" SPWs hanging out at the end as possible.
     if "VLA" in telescope:
@@ -1816,52 +1787,34 @@ def get_spw_map(selfcal_library, target, band, telescope):
     virtual_index = 0
     # This code is meant to be generic in order to prepare for cases where multiple EBs might have unique SPWs in them (e.g. inhomogeneous data),
     # but the criterea for which SPWs match will need to be updated for this to truly generalize.
+    print("Creating spw_map")
     for vis in vislist:
         reverse_spw_map[vis] = {}
         for spw in selfcal_library[target][band][vis]['spwsarray']:
+            print("Checking ", vis, "spw", spw, "for matches in existing map")
             found_match = False
-            for s in spw_map:
-                for v in spw_map[s].keys():
-                   if vis == v:
-                       continue
+            for v in reverse_spw_map.keys():
+               if vis == v:
+                   continue
 
-                   if telescope == "ALMA" or telescope == "ACA":
-                       # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
-                       msmd.open(vis)
-                       spwname=msmd.namesforspws(spw)[0]
-                       msmd.close()
+               print("Comparing to ", v, "spws", list(reverse_spw_map[v].keys()))
+               matched_spw = find_matching_spw(vis, spw, v, list(reverse_spw_map[v].keys()), 
+                       frame='LSRK' if (telescope == "ALMA" or telescope == "ACA") else '', 
+                       methods=['name','properties'] if (telescope == "ALMA" or telescope == "ACA") else ['properties'],
+                       fid1=selfcal_library[target][band]['sub-fields-fid_map'][vis][fid], fid2=selfcal_library[target][band]['sub-fields-fid_map'][v][fid])
+               print("matched_spw = ", matched_spw)
 
-                       msmd.open(v)
-                       sname = msmd.namesforspws(spw_map[s][v])[0]
-                       msmd.close()
-
-                       if spwname == sname:
-                           found_match = True
-                   elif 'VLA' in telescope:
-                       msmd.open(vis)
-                       bandwidth1 = msmd.bandwidths(spw)
-                       chanwidth1 = msmd.chanwidths(spw)[0]
-                       chanfreq1 = msmd.chanfreqs(spw)[0]
-                       msmd.close()
-
-                       msmd.open(v)
-                       bandwidth2 = msmd.bandwidths(spw_map[s][v])
-                       chanwidth2 = msmd.chanwidths(spw_map[s][v])[0]
-                       chanfreq2 = msmd.chanfreqs(spw_map[s][v])[0]
-                       msmd.close()
-
-                       if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and chanfreq1 == chanfreq2:
-                           found_match = True
-
-                   if found_match:
-                       spw_map[s][vis] = spw
-                       reverse_spw_map[vis][spw] = s
-                       break
-
-                if found_match:
-                    break
+               if matched_spw != -1:
+                   print("Found a match!")
+                   found_match = True
+                   s = reverse_spw_map[v][matched_spw]
+                   print("virtual_spw = ", s)
+                   spw_map[s][vis] = spw
+                   reverse_spw_map[vis][spw] = s
+                   break
 
             if not found_match:
+                print("Could not find a match, adding new virtual spw", virtual_index)
                 spw_map[virtual_index] = {}
                 spw_map[virtual_index][vis] = spw
                 reverse_spw_map[vis][spw] = virtual_index
@@ -1872,6 +1825,58 @@ def get_spw_map(selfcal_library, target, band, telescope):
     print("reverse_spw_map:")
     print(reverse_spw_map)
     return spw_map, reverse_spw_map
+
+
+def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0):
+    spw2 = -1
+
+    for method in methods:
+        print("Attempting to match based on", method)
+        for s in vis2_spwarray:
+            if method == "name":
+                # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
+                msmd.open(vis1)
+                spwname=msmd.namesforspws(spw1)[0]
+                msmd.close()
+
+                msmd.open(vis2)
+                sname = msmd.namesforspws(s)[0]
+                msmd.close()
+
+                print("spw", s, spwname, sname)
+
+                if spwname == sname:
+                    spw2 = s
+                    break
+            elif method == "properties":
+                msmd.open(vis1)
+                ms.open(vis1)
+                bandwidth1 = msmd.bandwidths(spw1)
+                chanwidth1 = msmd.chanwidths(spw1)[0]
+                chanfreq1 = ms.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=len(msmd.chanwidths(spw1)), 
+                        start=0, outframe=frame)[0]
+                msmd.close()
+                ms.close()
+
+                msmd.open(vis2)
+                ms.open(vis2)
+                bandwidth2 = msmd.bandwidths(s)
+                chanwidth2 = msmd.chanwidths(s)[0]
+                chanfreq2 = ms.cvelfreqs(spwids=[s], fieldids=[fid2], mode="channel", nchan=len(msmd.chanwidths(s)), 
+                        start=0, outframe=frame)[0]
+                msmd.close()
+                ms.close()
+
+                print("spw", s, "bandwidth", bandwidth1, bandwidth2, "chanwidth", chanwidth1, chanwidth2, "chanfreq", chanfreq1, chanfreq2)
+
+                if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < 0.1:
+                    spw2 = s
+                    break
+
+        if spw2 != -1:
+            break
+
+    return spw2
 
 
 def largest_prime_factor(n):
