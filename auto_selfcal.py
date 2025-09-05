@@ -142,7 +142,7 @@ if sort_targets_and_EBs:
 ## If the user asks to run findcont, do that now
 ##
 if run_findcont and os.path.exists("cont.dat"):
-    if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
+    if np.any([len(parse_contdotdat('cont.dat',target)["ranges"]) == 0 for target in all_targets]):
         if not os.path.exists("cont.dat.original"):
             print("Found existing cont.dat, but it is missing targets. Backing that up to cont.dat.original")
             os.system("mv cont.dat cont.dat.original")
@@ -661,7 +661,7 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
             contdotdat = parse_contdotdat('cont.dat',target)
-            if len(contdotdat) == 0:
+            if len(contdotdat['ranges']) == 0:
                 selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:
@@ -689,7 +689,7 @@ else:   # old uvcontsub formatting, requires splitting out per target, new one i
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
             contdotdat = parse_contdotdat('cont.dat',target)
-            if len(contdotdat) == 0:
+            if len(contdotdat['ranges']) == 0:
                 selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:      

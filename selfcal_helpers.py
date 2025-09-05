@@ -1518,6 +1518,8 @@ def parse_contdotdat(contdotdat_file,target):
         lines.remove('\n')
 
     contdotdat = {}
+    contdotdat["names"] = {}
+    contdotdat["ranges"] = {}
     desiredTarget=False
     for i, line in enumerate(lines):
         if 'ALL' in line:
@@ -1539,22 +1541,23 @@ def parse_contdotdat(contdotdat_file,target):
               if len(splitline)==3:
                  spw = int(splitline[-2])
                  spwname=splitline[-1]
+                 contdotdat['names'][spw] = spwname
               else:
                  spw = int(splitline[-1])
                  spwname=''
-              contdotdat[spw] = []
+              contdotdat['ranges'][spw] = []
            else:
-              contdotdat[spw] += [line.split()[0].split("G")[0].split("~")]
+              contdotdat['ranges'][spw] += [line.split()[0].split("G")[0].split("~")]
 
-    for spw in contdotdat:
-        contdotdat[spw] = np.array(contdotdat[spw], dtype=float)
+    for spw in contdotdat['ranges']:
+        contdotdat['ranges'][spw] = np.array(contdotdat['ranges'][spw], dtype=float)
 
     return contdotdat
 
 def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
    # calculate a score for each visibility based on which one ends up with cont.dat freq ranges that correspond to 
    # channel limits; lowest score is chosen as the reference visibility file
-   spws=list(contdotdat.keys())
+   spws=list(contdotdat['ranges'].keys())
    score=np.zeros(len(vislist))
    for i in range(len(vislist)):
       for spw in spws:
@@ -1564,7 +1567,7 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
 
          # The score is computed as the total distance of the top and bottom of the contdotdat range for this SPW to the
          # known edges of the SPW.
-         test = LSRKfreq_to_chan(vislist[i], target, spw, np.array([contdotdat[spw][0][0],contdotdat[spw][-1][1]]), \
+         test = LSRKfreq_to_chan(vislist[i], target, spw, np.array([contdotdat['ranges'][spw][0][0],contdotdat['ranges'][spw][-1][1]]), \
                  spwsarray_dict[vislist[i]], minmaxchans=True)
          score[i] += test.sum()
 
@@ -1592,7 +1595,7 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #moved out of function to not for each MS for efficiency
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
-    for j,spw in enumerate(contdotdat):
+    for j,spw in enumerate(contdotdat['ranges']):
         trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
 
         if trans_spw == -1:
@@ -1605,10 +1608,10 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
         tb.close()
 
         chans = np.array([])
-        for k in range(contdotdat[spw].shape[0]):
-            print(trans_spw, contdotdat[spw][k])
+        for k in range(contdotdat['ranges'][spw].shape[0]):
+            print(trans_spw, contdotdat['ranges'][spw][k])
 
-            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat[spw][k],spwsarray),chans))
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat['ranges'][spw][k],spwsarray),chans))
 
             """
             if flagchannels_string == '':
@@ -1651,7 +1654,7 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
     #moved out of function to not for each MS for efficiency
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
-    for j,spw in enumerate(contdotdat):
+    for j,spw in enumerate(contdotdat['ranges']):
         trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
 
         if trans_spw==-1:
@@ -1664,10 +1667,10 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
         tb.close()
 
         chans = np.array([])
-        for k in range(contdotdat[spw].shape[0]):
-            print(trans_spw, contdotdat[spw][k])
+        for k in range(contdotdat['ranges'][spw].shape[0]):
+            print(trans_spw, contdotdat['ranges'][spw][k])
 
-            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat[spw][k],spwsarray),chans))
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat['ranges'][spw][k],spwsarray),chans))
 
             """
             if flagchannels_string == '':
@@ -1724,27 +1727,12 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
    contdotdat=parse_contdotdat('cont.dat',target)
 
    spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
-   for key in contdotdat.keys():
-      msmd.open(spwvisref)
-      spwname=msmd.namesforspws(key)[0]
-      msmd.close()
-      msmd.open(vis)
-      spws=msmd.spwsfornames(spwname)
-      msmd.close()
-      trans_spw=-1
-      # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-      #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
-      for check_spw in spws[spwname]:
-         matching_index=np.where(check_spw == spwsarray_dict[vis])
-         if len(matching_index[0]) == 0:
-              continue
-         else:
-              trans_spw=check_spw
-              break
-      #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+   for key in contdotdat['ranges'].keys():
+      trans_spw = find_matching_spw(spwvisref, key, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+
       cumulat_bw=0.0
-      for i in range(len(contdotdat[key])):
-         cumulat_bw+=np.abs(contdotdat[key][i][1]-contdotdat[key][i][0])
+      for i in range(len(contdotdat['ranges'][key])):
+         cumulat_bw+=np.abs(contdotdat['ranges'][key][i][1]-contdotdat['ranges'][key][i][0])
       spweffbws[trans_spw]=cumulat_bw+0.0
    return spweffbws
    
@@ -2760,7 +2748,7 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
          contdotdat = parse_contdotdat('cont.dat',target)
-         if len(contdotdat) == 0:
+         if len(contdotdat['ranges']) == 0:
              print("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.")
              print("No flagging will be done for target "+target)
              continue
