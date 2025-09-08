@@ -1286,9 +1286,9 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                for spw in selfcal_library['spw_map']:
                  if selfcal_library['vislist'][i] in selfcal_library['spw_map'][spw]:
                      SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][selfcal_library['spw_map'][spw][selfcal_library['vislist'][i]]]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
-                 print(selfcal_library[vislist[i]]['baseband'])
+                 print(selfcal_library[selfcal_library['vislist'][i]]['baseband'])
                print('SNR_self_EB_spw: ',SNR_self_EB_spw)
-               for baseband in selfcal_library[vislist[i]]['baseband']:
+               for baseband in selfcal_library[selfcal_library['vislist'][i]]['baseband']:
                      SNR_self_EB_bb[selfcal_library['vislist'][i]][baseband]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
                print('SNR_self_EB_bb: ',SNR_self_EB_bb)
             for spw in selfcal_library['spw_map']:
@@ -1300,7 +1300,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                      total_vis += 1
                mean_SNR_spw=mean_SNR_spw/total_vis
                solint_snr_per_spw[solint][str(spw)]=mean_SNR_spw
-            for baseband in selfcal_library[vislist[i]]['baseband']:
+            for baseband in selfcal_library[selfcal_library['vislist'][i]]['baseband']:
                mean_SNR_bb=0.0
                for j in range(len(selfcal_library['vislist'])):
                   if baseband in SNR_self_EB_bb[selfcal_library['vislist'][j]].keys():
