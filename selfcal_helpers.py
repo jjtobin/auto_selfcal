@@ -1596,7 +1596,7 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK", target=target)
 
         if trans_spw == -1:
            print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
@@ -1655,7 +1655,7 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK", target=target)
 
         if trans_spw==-1:
            print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
@@ -1728,7 +1728,7 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
 
    spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
    for key in contdotdat['ranges'].keys():
-      trans_spw = find_matching_spw(spwvisref, key, vis, spwsarray_dict[vis], methods=["name","properties"], frame="LSRK")
+      trans_spw = find_matching_spw(spwvisref, key, vis, spwsarray_dict[vis], methods=["name","properties"], frame="LSRK", target=target)
 
       cumulat_bw=0.0
       for i in range(len(contdotdat['ranges'][key])):
@@ -1815,8 +1815,17 @@ def get_spw_map(selfcal_library, target, band, telescope, fid):
     return spw_map, reverse_spw_map
 
 
-def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0):
+def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0, target=None):
     spw2 = -1
+
+    if target is not None:
+        msmd.open(vis1)
+        fid1 = msmd.fieldsforname(target)[0]
+        msmd.close()
+
+        msmd.open(vis2)
+        fid2 = msmd.fieldsforname(target)[0]
+        msmd.close()
 
     for method in methods:
         print("Attempting to match based on", method)
