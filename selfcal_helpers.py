@@ -1597,7 +1597,7 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
         print("spwvisref = ", spwvisref)
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK", target=target)
 
         if trans_spw == -1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT FLAGGING FOR '+vis)
@@ -1656,7 +1656,7 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK", target=target)
 
         if trans_spw==-1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT CONTINUUM SUBTRACTION FOR '+vis)
@@ -1736,7 +1736,7 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
 
    spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
    for spw in spwsarray_dict[vis]:
-      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"], frame="LSRK")
+      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"], frame="LSRK", target=target)
 
       if trans_spw == -1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR {spw} in CONT.DAT SPW, USING TOTAL BANDWIDTH FOR '+vis)
@@ -1827,8 +1827,17 @@ def get_spw_map(selfcal_library, target, band, telescope, fid):
     return spw_map, reverse_spw_map
 
 
-def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0):
+def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0, target=None):
     spw2 = -1
+
+    if target is not None:
+        msmd.open(vis1)
+        fid1 = msmd.fieldsforname(target)[0]
+        msmd.close()
+
+        msmd.open(vis2)
+        fid2 = msmd.fieldsforname(target)[0]
+        msmd.close()
 
     for method in methods:
         print("Attempting to match based on", method)

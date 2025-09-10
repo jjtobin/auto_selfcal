@@ -671,7 +671,7 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
                field_num_array=msmd.fieldsforname(target)
                msmd.close()
                for fieldnum in field_num_array:
-                  contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)]=get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat)
+                  contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)]=get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],selfcal_library[target][band]['original_vislist_map'][spwvisref],contdotdat)
                   print(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)])
       print(contsub_dict)
       uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
@@ -693,7 +693,7 @@ else:   # old uvcontsub formatting, requires splitting out per target, new one i
                 selfcal_library[target][band]['Found_contdotdat'] = False
             spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
             for vis in selfcal_library[target][band]['vislist']:      
-               contdot_dat_flagchannels_string = flagchannels_from_contdotdat(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],spwvisref,contdotdat,return_contfit_range=True)
+               contdot_dat_flagchannels_string = flagchannels_from_contdotdat(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],selfcal_library[target][band]['original_vislist_map'][spwvisref],contdotdat,return_contfit_range=True)
                line='uvcontsub(vis="'+selfcal_library[target][band]['original_vislist_map'][vis]+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
                uvcontsubOut.writelines(line)
       uvcontsubOut.close()
