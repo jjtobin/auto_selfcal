@@ -1596,11 +1596,12 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
+        print("spwvisref = ", spwvisref)
         trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
 
         if trans_spw == -1:
-           print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
-           return ''
+           print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT FLAGGING FOR '+vis)
+           continue
 
         flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
@@ -1658,8 +1659,8 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
         trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK")
 
         if trans_spw==-1:
-           print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
-           return ''
+           print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT CONTINUUM SUBTRACTION FOR '+vis)
+           continue
         #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
         #flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
@@ -1719,6 +1720,13 @@ def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
    if os.path.exists("cont.dat"):
       spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict)
 
+      if len(spweffbws.keys()) != len(spwbws.keys()):
+         print(f'cont.dat does not contain all spws for {vis}')
+         for spw in spwbws.keys():
+            if spw not in spweffbws.keys():
+               print(f'    falling back to total bandwidth for {spw}')
+               spweffbws[spw]=spwbws[spw]
+
    return spwbws,spweffbws,spwfreqs
 
 
@@ -1727,13 +1735,17 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
    contdotdat=parse_contdotdat('cont.dat',target)
 
    spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
-   for key in contdotdat['ranges'].keys():
-      trans_spw = find_matching_spw(spwvisref, key, vis, spwsarray_dict[vis], methods=["name","properties"], frame="LSRK")
+   for spw in spwsarray_dict[vis]:
+      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"], frame="LSRK")
+
+      if trans_spw == -1:
+           print(f'COULD NOT DETERMINE SPW MAPPING FOR {spw} in CONT.DAT SPW, USING TOTAL BANDWIDTH FOR '+vis)
+           continue
 
       cumulat_bw=0.0
-      for i in range(len(contdotdat['ranges'][key])):
-         cumulat_bw+=np.abs(contdotdat['ranges'][key][i][1]-contdotdat['ranges'][key][i][0])
-      spweffbws[trans_spw]=cumulat_bw+0.0
+      for i in range(len(contdotdat['ranges'][trans_spw])):
+         cumulat_bw+=np.abs(contdotdat['ranges'][trans_spw][i][1]-contdotdat['ranges'][trans_spw][i][0])
+      spweffbws[spw]=cumulat_bw+0.0
    return spweffbws
    
 
