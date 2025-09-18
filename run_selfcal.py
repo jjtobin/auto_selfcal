@@ -1289,7 +1289,7 @@ def run_selfcal(selfcal_library, target, band, solints, solint_snr, solint_snr_p
                             (selfcal_library[target][band][fid]['final_solint'] == 'inf_EB' and selfcal_library[target][band][fid]['inf_EB_SNR_decrease'])):
                        selfcal_library[target][band][fid]['SC_success']=False
                        selfcal_library[target][band][fid]['final_solint']='None'
-                       for vis in vislist:
+                       for vis in selfcal_library[target][band][fid]['vislist']:
                           selfcal_library[target][band][fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
                           selfcal_library[target][band][fid][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
 
