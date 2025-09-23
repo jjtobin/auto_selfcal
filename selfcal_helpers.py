@@ -1827,7 +1827,7 @@ def get_spw_map(selfcal_library, target, band, telescope, fid):
     return spw_map, reverse_spw_map
 
 
-def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0, target=None):
+def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0, target=None, max_tolerance=0.1):
     spw2 = -1
 
     if target is not None:
@@ -1841,7 +1841,11 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name'
 
     for method in methods:
         print("Attempting to match based on", method)
-        for s in vis2_spwarray:
+
+        if method == "properties":
+            score = np.repeat(np.inf, len(vis2_spwarray))
+
+        for i, s in enumerate(vis2_spwarray):
             if method == "name":
                 # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
                 msmd.open(vis1)
@@ -1876,11 +1880,16 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name'
                 msmd.close()
                 ms.close()
 
-                print("spw", s, "bandwidth", bandwidth1, bandwidth2, "chanwidth", chanwidth1, chanwidth2, "chanfreq", chanfreq1, chanfreq2)
+                if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < max_tolerance:
+                    score[i] = abs(chanfreq1 - chanfreq2) / abs(chanwidth1)
+                    #spw2 = s
+                    #break
 
-                if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < 0.1:
-                    spw2 = s
-                    break
+                print("spw", s, "bandwidth", bandwidth1, bandwidth2, "chanwidth", chanwidth1, chanwidth2, "chanfreq", chanfreq1, chanfreq2, "score", score[i])
+
+        if method == "properties":
+            if np.any(np.isfinite(score)):
+                spw2 = vis2_spwarray[np.argmin(score)]
 
         if spw2 != -1:
             break
