@@ -612,6 +612,8 @@ def set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=-99.0, r
                dividing_factor_band=40.0
             elif (dividing_factor ==-99.0):
                dividing_factor_band=15.0
+            else:
+               dividing_factor_band=dividing_factor
 
             # restricts initial nsigma to be at least 5
             nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor_band,5.0])

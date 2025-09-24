@@ -2109,15 +2109,6 @@ def get_bands(vislist,fields,telescope):
             msmd.open(vis)
             observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(observed_bands[vis][band]['spwarray'][0]))
             msmd.close()
-         bands_match=True
-      
-         for i in range(len(vislist)):
-            for j in range(i+1,len(vislist)):
-               bandlist_match=(observed_bands[vislist[i]]['bands'] ==observed_bands[vislist[i+1]]['bands'])
-               if not bandlist_match:
-                  bands_match=False
-         if not bands_match:
-           print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
       if telescope == 'ALMA' or telescope == 'ACA':
          meanfreq, maxfreq,minfreq,fracbw=get_mean_freq(vislist,spws_for_field)
          band=get_ALMA_band_string(meanfreq)
@@ -2138,6 +2129,16 @@ def get_bands(vislist,fields,telescope):
             msmd.close()
 
    if 'VLA' in telescope:
+      bands_match=True
+  
+      for i in range(len(vislist)):
+         for j in range(i+1,len(vislist)):
+            bandlist_match=(observed_bands[vislist[i]]['bands'] ==observed_bands[vislist[i+1]]['bands'])
+            if not bandlist_match:
+               bands_match=False
+      if not bands_match:
+        print('WARNING: INCONSISTENT BANDS IN THE MSFILES')
+
       get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
    elif telescope == 'ALMA' or telescope == 'ACA':
       get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'ALMA')   
