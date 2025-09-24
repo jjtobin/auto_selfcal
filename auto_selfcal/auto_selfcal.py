@@ -68,111 +68,168 @@ def auto_selfcal(
     Parameters
     ----------
     vislist : str or list, optional
-        A string or list of strings containing the names of the measurement sets to be processed.
+        A string or list of strings containing the names of the measurement 
+        sets to be processed.
     spectral_average : bool, optional
-        If True, spectral averaging will be performed on the data before self-calibration.
+        If True, spectral averaging will be performed on the data before self-
+        calibration.
     do_amp_selfcal : bool, optional
         If True, amplitude self-calibration will be performed.
     usermask : dict, optional
-        A dictionary containing user-defined masks for specific targets and bands.
-        The keys should be target names, and the values should be dictionaries with band names as keys and mask file names as values, for example,
+        A dictionary containing user-defined masks for specific targets and 
+        bands. The keys should be target names, and the values should be 
+        dictionaries with band names as keys and mask file names as values, 
+        for example,
 
         .. code-block:: python
 
-            usermask={'IRAS32':{'Band_6':'IRAS32.rgn'}, 'IRS5N':{'Band_6': 'IRS5N.rgn'}}.
+            usermask={'IRAS32':{'Band_6':'IRAS32.rgn'}, 
+                      'IRS5N':{'Band_6': 'IRS5N.rgn'}}.
 
-        The mask files are required to be CRTF regions (CASA region format). If multiple sources are present in a MS and only want to use a mask for one, 
-        just specify that source. The keys for remaining sources will be filled with empty strings.
+        The mask files are required to be CRTF regions (CASA region format). 
+        If multiple sources are present in a MS and only want to use a mask 
+        for one, just specify that source. The keys for remaining sources will
+        be filled with empty strings.
         
-        NOTE: THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSIONS, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
+        NOTE: THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSIONS, NOW
+        IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
     usermodel : dict, optional
-        A dictionary containing user-defined models for specific targets and bands.
-        The keys should be target names, and the values should be dictionaries with band names as keys and model file names as values, for example,
+        A dictionary containing user-defined models for specific targets and 
+        bands. The keys should be target names, and the values should be 
+        dictionaries with band names as keys and model file names as values, 
+        for example,
 
         .. code-block:: python
 
-            usermodel={'IRAS32':{'Band_6':['IRAS32-model.tt0','IRAS32-model.tt1']}, 'IRS5N':{'Band_6'['IRS5N-model.tt0','IRS5N-model.tt1']}}.
+            usermodel={'IRAS32':{'Band_6':['IRAS32-model.tt0',
+                                           'IRAS32-model.tt1']}, 
+                       'IRS5N':{'Band_6'['IRS5N-model.tt0',
+                                         'IRS5N-model.tt1']}}.
 
-        If the model name includes .fits, auto_selfcal will assume it is a fits image, otherwise it assumes a CASA image. For a multi-term image, 
+        If the model name includes .fits, auto_selfcal will assume it is a 
+        fits image, otherwise it assumes a CASA image. For a multi-term image, 
         input the term images as a list i.e., 
         
         .. code-block:: python
         
             usermodel=['usermodel.tt0','usermodel.tt1'].
 
-        If multiple sources are present in a dataset and a model is being supplied for only a subset, just specify the models for those sources and 
-        exclude sources for which auto_selfcal should derive a model. The keys for remaining sources will be filled with empty strings.
+        If multiple sources are present in a dataset and a model is being 
+        supplied for only a subset, just specify the models for those sources 
+        and exclude sources for which auto_selfcal should derive a model. The 
+        keys for remaining sources will be filled with empty strings.
 
-        NOTE: THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
+        NOTE: THE DICTIONARY HEIRARCHY HAS CHANGED FROM PREVIOUS VERSION, NOW 
+        IT IS [TARGET][BAND] INSTEAD OF [BAND][TARGET]
     inf_EB_gaincal_combine : str, optional
-        The method for combining gain calibration solutions for inf_EB. Default is 'scan'.
+        The method for combining gain calibration solutions for inf_EB. 
+        Default is 'scan'.
     inf_EB_gaintype : str, optional
         The type of gain calibration to use for inf_EB. Default is 'G'.
     inf_EB_override : bool, optional
-        If True, will override the inf_EB settings in the self-calibration library.
+        If True, will override the inf_EB settings in the self-calibration 
+        library.
     optimize_spw_combine : bool, optional
-        If True, will attempt to optimize (per-baseband, per-spw, spw mapping) the spw combination for solution intervals beyond the inf_EB solution interval.
+        If True, will attempt to optimize (per-baseband, per-spw, spw mapping) 
+        the spw combination for solution intervals beyond the inf_EB solution 
+        interval.
     gaincal_minsnr : float, optional
-        The minimum SNR for gain calibration solutions; solutions below this SNR will be flagged. Default is 2.0.
+        The minimum SNR for gain calibration solutions; solutions below this 
+        SNR will be flagged. Default is 2.0.
     gaincal_unflag_minsnr : float, optional
-        The minimum SNR for gain calibration solutions during the beam-size fallback mode; solutions below this SNR will be flagged. Default is 5.0.
+        The minimum SNR for gain calibration solutions during the beam-size 
+        fallback mode; solutions below this SNR will be flagged. Default is 
+        5.0.
     minsnr_to_proceed : float, optional
-        The minimum SNR, per solution interval per antenna, required to proceed with the next iteration of self-calibration. Default is 2.95.
+        The minimum SNR, per solution interval per antenna, required to 
+        proceed with the next iteration of self-calibration. Default is 2.95.
     spectral_solution_fraction : float, optional
-        The fraction of the spectral range to use for spectral solutions. Default is 0.25.
+        The fraction of the spectral range to use for spectral solutions. 
+        Default is 0.25.
     delta_beam_thresh : float, optional
-        The threshold fraction for the change in beam size to consider a significant change. If the beam size grows by more than this value
-        self-calibration will fail, and on the first failure per solint the beam-size fallback mode will be invoked. Default is 0.05.
+        The threshold fraction for the change in beam size to consider a 
+        significant change. If the beam size grows by more than this value
+        self-calibration will fail, and on the first failure per solint the 
+        beam-size fallback mode will be invoked. Default is 0.05.
     apply_cal_mode_default : str, optional
-        The default mode for applying calibration solutions. Default is 'calflag'.
+        The default mode for applying calibration solutions. Default is 
+        'calflag'.
     unflag_only_lbants : bool, optional
-        If True, will only unflag antennas identified as long-baseline during the beam-size fallback mode.
+        If True, will only unflag antennas identified as long-baseline during 
+        the beam-size fallback mode.
     unflag_only_lbants_onlyap : bool, optional
-        If True, will only unflag antennas identified as long-baseline during the beam-size fallback mode, and only during solution intervals 
+        If True, will only unflag antennas identified as long-baseline during 
+        the beam-size fallback mode, and only during solution intervals 
         performing amplitude self-calibration.
     calonly_max_flagged : float, optional
-        The maximum fraction of flagged data allowed for calonly solutions. Default is 0.0.
+        The maximum fraction of flagged data allowed for calonly solutions. 
+        Default is 0.0.
     second_iter_solmode : str, optional
-        The gaincal solution mode for the second iteration of self-calibration. Enables passing alternative optimization metrics to the gaincal method, such as 'L1', 'R', or 'L1R'.
+        The gaincal solution mode for the second iteration of self-
+        calibration. Enables passing alternative optimization metrics to the 
+        gaincal method, such as 'L1', 'R', or 'L1R'.
     unflag_fb_to_prev_solint : bool, optional
-        If True, when in the beam-size fallback mode, antennas identified as long-baseline and also as having significant flagging will use gain solutions from the last
-        solint in which the antenna was successfully calibrated, rather than having the gain solutions set to 1+0j.
+        If True, when in the beam-size fallback mode, antennas identified as 
+        long-baseline and also as having significant flagging will use gain 
+        solutions from the last solint in which the antenna was successfully 
+        calibrated, rather than having the gain solutions set to 1+0j.
     rerank_refants : bool, optional
-        If True, will re-rank the reference antennas list based on their performance during self-calibration.
+        If True, will re-rank the reference antennas list based on their 
+        performance during self-calibration.
     allow_gain_interpolation : bool, optional
-        During mosaic self-calibration, setting this to True will allow solutions from successful sub-fields to be applied to unsuccessful sub-fields via interpolation.
+        During mosaic self-calibration, setting this to True will allow 
+        solutions from successful sub-fields to be applied to unsuccessful 
+        sub-fields via interpolation.
     guess_scan_combine : bool, optional
-        If True, auto_selfcal will attempt to guess at which mosaic scans on a target fall between successive gain calibrator scans for the scan_inf solint, and will combine
-        the gaincal solutions for these scans. If False, scans will all be treated individually.
+        If True, auto_selfcal will attempt to guess at which mosaic scans on a
+        target fall between successive gain calibrator scans for the scan_inf 
+        solint, and will combine the gaincal solutions for these scans. If 
+        False, scans will all be treated individually.
     aca_use_nfmask : bool, optional
-        If True, will use the near-field mask statistics when evaluating ACA data.
+        If True, will use the near-field mask statistics when evaluating ACA 
+        data.
     allow_cocal : bool, optional
-        If True, will allow a fallback self-calibration mode where the inf_EB and inf solutions for targets with successful self-calibration solutions will
-        be applied to fields with unsuccessful self-calibration solutions.
+        If True, will allow a fallback self-calibration mode where the inf_EB 
+        and inf solutions for targets with successful self-calibration 
+        solutions will be applied to fields with unsuccessful self-calibration
+        solutions.
     scale_fov : float, optional
-        Scale factor for the field of view imaged within tclean. Default is 1.0 (no scaling).
+        Scale factor for the field of view imaged within tclean. Default is 
+        1.0 (no scaling).
     rel_thresh_scaling : str, optional
-        How the thresholds for tclean should scale across the solution intervals. Options are 'linear', 'log10', or 'loge' (natural log). Default is 'log10'.
+        How the thresholds for tclean should scale across the solution 
+        intervals. Options are 'linear', 'log10', or 'loge' (natural log). 
+        Default is 'log10'.
     dividing_factor : float, optional
-        The factor by which the peak SNR is divided to determine the first clean threshold. Default is -99.0, which uses the default values (40 for <8 GHz and 15 for others).
+        The factor by which the peak SNR is divided to determine the first 
+        clean threshold. Default is -99.0, which uses the default values (40 
+        for <8 GHz and 15 for others).
     check_all_spws : bool, optional
-        If True, will generate per-spw initial and final images to check phase transfer did not go poorly for narrow windows.
+        If True, will generate per-spw initial and final images to check phase
+        transfer did not go poorly for narrow windows.
     apply_to_target_ms : bool, optional
-        If True, will apply the final self-calibration solutions back to the input _target.ms files.
+        If True, will apply the final self-calibration solutions back to the 
+        input _target.ms files.
     uvcontsub_target_ms : bool, optional
-        If True, will perform continuum subtraction on the input _target.ms files after the application of the self-calibration solutions.
+        If True, will perform continuum subtraction on the input _target.ms 
+        files after the application of the self-calibration solutions.
     sort_targets_and_EBs : bool, optional
-        If True, will sort targets and execution blocks (EBs) alphabetically before processing.
+        If True, will sort targets and execution blocks (EBs) alphabetically 
+        before processing.
     run_findcont : bool, optional
-        If True, will run the hif_findcont task to identify continuum windows. Only available when run within CASA distributions where the pipeline is installed.
+        If True, will run the hif_findcont task to identify continuum windows.
+        Only available when run within CASA distributions where the pipeline 
+        is installed.
     debug : bool, optional
         If True, will print debug information during processing.
     parallel : bool, optional
         If True, will run tasks in parallel where possible.
     weblog : bool, optional
-        If True, will create a weblog that provides information on how the self-calibration process proceeded.
+        If True, will create a weblog that provides information on how the 
+        self-calibration process proceeded.
     **kwargs : dict, optional
-        Additional keyword arguments to pass to the self-calibration functions.
+        Additional keyword arguments to pass to the self-calibration 
+        functions.
 
     Returns
     -------

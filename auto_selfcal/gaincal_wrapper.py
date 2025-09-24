@@ -127,12 +127,21 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 scans = scans[is_gaincalibrator]
 
                 msmd.open(vis)
+                scan_ids_for_target = msmd.scansforfield(target)
                 include_scans = []
                 for iscan in range(scans.size-1):
-                    scan_group = np.intersect1d(msmd.scansforfield(target), 
+                    scan_group = np.intersect1d(scan_ids_for_target, 
                             np.array(list(range(scans[iscan]+1, scans[iscan+1])))).astype(str)
                     if scan_group.size > 0:
                         include_scans.append(",".join(scan_group))
+                # PIPE-2741: if there are any scans before the first gain calibrator scan or after the last gain calibrator scan, catch them.
+                if scans.size > 0:
+                    extra_scans = scan_ids_for_target[scan_ids_for_target > max(scans)]
+                    if extra_scans.size > 0:
+                        include_scans.append(','.join(extra_scans.astype(str)))
+                    extra_scans = scan_ids_for_target[scan_ids_for_target < min(scans)]
+                    if extra_scans.size > 0:
+                        include_scans.append(','.join(extra_scans.astype(str)))
                 msmd.close()
             elif guess_scan_combine:
                 msmd.open(vis)
