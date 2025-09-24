@@ -31,7 +31,7 @@ def prepare_selfcal(all_targets, bands, vislist,
     ##
     if os.path.exists("cont.dat"):
        spwsarray_dict = dict(zip(vislist,[np.concatenate([band_properties[vis][band]['spwarray'] for band in bands]) for vis in vislist]))
-       flag_spectral_lines(vislist,all_targets,spwsarray_dict)
+       flag_spectral_lines(vislist,all_targets,spwsarray_dict,telescope)
 
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
@@ -353,7 +353,7 @@ def prepare_selfcal(all_targets, bands, vislist,
           for vis in selfcal_library[target][band]['vislist']:
              selfcal_library[target][band][vis]['per_spw_stats'] = {}
               
-             spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+             spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
 
              selfcal_library[target][band][vis]['total_bandwidth']=0.0
              selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
@@ -385,7 +385,7 @@ def prepare_selfcal(all_targets, bands, vislist,
               for vis in selfcal_library[target][band][fid]['vislist']:
                   selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
 
-                  spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+                  spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
 
                   selfcal_library[target][band][fid][vis]['total_bandwidth']=0.0
                   selfcal_library[target][band][fid][vis]['total_effective_bandwidth']=0.0

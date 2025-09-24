@@ -1554,7 +1554,7 @@ def parse_contdotdat(contdotdat_file,target):
 
     return contdotdat
 
-def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
+def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict, use_names=True):
    # calculate a score for each visibility based on which one ends up with cont.dat freq ranges that correspond to 
    # channel limits; lowest score is chosen as the reference visibility file
    spws=list(contdotdat['ranges'].keys())
@@ -1564,6 +1564,16 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
          if spw not in spwsarray_dict[vislist[i]]:
              score[i] += 1e8
              continue
+
+         if use_names and spw in contdotdat['names']:
+             msmd.open(vislist[i])
+             spwname=msmd.namesforspws(spw)[0]
+             msmd.close()
+
+             if spwname != contdotdat['names'][spw]:
+                 print(vislist[i], spw, "name doesn't match")
+                 score[i] += 1e8
+                 continue
 
          # The score is computed as the total distance of the top and bottom of the contdotdat range for this SPW to the
          # known edges of the SPW.
@@ -1706,7 +1716,7 @@ def get_spw_chanwidths(vis,spwarray):
 
    return widtharray,bwarray,nchanarray
 
-def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
+def get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope):
    spwbws={}
    spwfreqs={}
    for spw in spwsarray_dict[vis]:
@@ -1718,7 +1728,7 @@ def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
       msmd.close()
    spweffbws=spwbws.copy()
    if os.path.exists("cont.dat"):
-      spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict)
+      spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope)
 
       if len(spweffbws.keys()) != len(spwbws.keys()):
          print(f'cont.dat does not contain all spws for {vis}')
@@ -1730,11 +1740,11 @@ def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
    return spwbws,spweffbws,spwfreqs
 
 
-def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
+def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope):
    spweffbws={}
    contdotdat=parse_contdotdat('cont.dat',target)
 
-   spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
+   spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict, use_names=telescope in ['ALMA', 'ACA'])
    for spw in spwsarray_dict[vis]:
       trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"], frame="LSRK", target=target)
 
@@ -2768,10 +2778,10 @@ def importdata(vislist,all_targets,telescope):
 
    return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set_dict
 
-def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
+def flag_spectral_lines(vislist,all_targets,spwsarray_dict, telescope):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
    contdotdat = parse_contdotdat('cont.dat',all_targets[0])
-   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict)
+   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict, use_names=telescope in ['ALMA', 'ACA'])
    for vis in vislist:
       if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
          flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')

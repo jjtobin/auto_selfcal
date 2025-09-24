@@ -663,7 +663,7 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
             contdotdat = parse_contdotdat('cont.dat',target)
             if len(contdotdat['ranges']) == 0:
                 selfcal_library[target][band]['Found_contdotdat'] = False
-            spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
+            spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])), use_names=telescope in ['ALMA','ACA'])
             for vis in selfcal_library[target][band]['vislist']:
                if selfcal_library[target][band]['original_vislist_map'][vis] not in contsub_dict:
                    contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]]={}  
@@ -691,7 +691,7 @@ else:   # old uvcontsub formatting, requires splitting out per target, new one i
             contdotdat = parse_contdotdat('cont.dat',target)
             if len(contdotdat['ranges']) == 0:
                 selfcal_library[target][band]['Found_contdotdat'] = False
-            spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])))
+            spwvisref=get_spwnum_refvis(selfcal_library[target][band]['vislist'],target,contdotdat,dict(zip(selfcal_library[target][band]['vislist'],[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']])), use_names=telescope in ['ALMA','ACA'])
             for vis in selfcal_library[target][band]['vislist']:      
                contdot_dat_flagchannels_string = flagchannels_from_contdotdat(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],selfcal_library[target][band]['original_vislist_map'][spwvisref],contdotdat,return_contfit_range=True)
                line='uvcontsub(vis="'+selfcal_library[target][band]['original_vislist_map'][vis]+'", outputvis="'+sani_target+'_'+vis.replace('.selfcal','').replace('.ms','.contsub.ms')+'",field="'+target+'", spw="'+selfcal_library[target][band][vis]['spws']+'",fitspec="'+contdot_dat_flagchannels_string+'", combine="spw")\n'
