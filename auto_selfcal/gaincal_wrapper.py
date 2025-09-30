@@ -132,13 +132,13 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 if telescope == 'ALMA':
                     scan_ids_for_target = msmd.scansforfield(target)
                 elif 'VLA' in telescope:
-                    scans_ids_for_target=np.array([],dtype=int)
+                    scan_ids_for_target=np.array([],dtype=int)
                     for fid in selfcal_library['sub-fields']:
                         if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
                             field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
-                            scans_ids_for_target=np.append(scans,msmd.scansforfield(field_id))
+                            scan_ids_for_target=np.append(scans,msmd.scansforfield(field_id))
 
-                    scans_ids_for_target.sort() # sort scans since they will be out of order
+                    scan_ids_for_target.sort() # sort scans since they will be out of order
                 include_scans = []
                 for iscan in range(scans.size-1):
                     scan_group = np.intersect1d(scan_ids_for_target, 
