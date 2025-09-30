@@ -1,7 +1,7 @@
 import numpy as np
 from .selfcal_helpers import *
 
-def prepare_selfcal(all_targets, bands, vislist, 
+def prepare_selfcal(all_targets, bands, bands_for_targets, vislist, 
         spectral_average=True, 
         sort_targets_and_EBs=False,
         scale_fov=1.0,
@@ -32,7 +32,7 @@ def prepare_selfcal(all_targets, bands, vislist,
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
     ##
-    split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average)
+    split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average,bands_for_targets)
 
     ##
     ## put flagging back at original state for originally input ms for when they are used next time
@@ -53,7 +53,7 @@ def prepare_selfcal(all_targets, bands, vislist,
     print(vislist)
 
     listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
-    integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,telescope)
+    integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,bands_for_targets,telescope)
 
     ##
     ## Save/restore starting flags
@@ -241,6 +241,7 @@ def prepare_selfcal(all_targets, bands, vislist,
        selfcal_library[target][band]['meanfreq']=band_properties[vislist[0]][band]['meanfreq']
        selfcal_library[target][band]['spectral_scan'] = spectral_scan
        selfcal_library[target][band]['spws_set'] = spws_set[band]
+       selfcal_library[target][band]['field_str'] = bands_for_targets['field_str']
        print(selfcal_library[target][band]['uvrange'])
 
        for fid in selfcal_library[target][band]['sub-fields']:
@@ -461,6 +462,15 @@ def prepare_selfcal(all_targets, bands, vislist,
     ## e.g., inf, max_scan_time/2.0, prev_solint/2.0, ..., int
     ## starting solints will have solint the length of the entire EB to correct bulk offsets
     ##
+
+    # check if we want to omit scan_inf or not
+    do_scan_inf = True
+    if selfcal_library[target][band]['obstype'] == 'mosaic':
+        #specifically omit scan_inf for VLA if no guessing and no original MS
+        for key in gaincalibrator_dict.keys():
+            if len(gaincalibrator_dict[key].keys()) == 0 and guess_scan_combine == False and 'VLA' in telescope:
+                do_scan_inf = False
+
     selfcal_plan = {}
     for target in all_targets:
        selfcal_plan[target] = {}
@@ -471,7 +481,7 @@ def prepare_selfcal(all_targets, bands, vislist,
              selfcal_plan[target][band]['solints'],selfcal_plan[target][band]['integration_time'],selfcal_plan[target][band]['gaincal_combine'], \
                     selfcal_plan[target][band]['solmode']=get_solints_simple(selfcal_library[target][band]['vislist'],scantimesdict[band],
                     scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
-                    inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic')
+                    inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic',do_scan_inf=do_scan_inf)
              print(band,target,selfcal_plan[target][band]['solints'])
              selfcal_plan[target][band]['applycal_mode']=[apply_cal_mode_default]*len(selfcal_plan[target][band]['solints'])
 
