@@ -11,6 +11,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
         do_amp_selfcal=True,
         usermask={},
         usermodel={},
+        guess_scan_combine=False,
         debug=False):
 
     n_ants=get_n_ants(vislist)
