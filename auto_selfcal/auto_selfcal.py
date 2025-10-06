@@ -285,7 +285,7 @@ def auto_selfcal(
     ## If the user asks to run findcont, do that now
     ##
     if run_findcont and os.path.exists("cont.dat"):
-        if np.any([len(parse_contdotdat('cont.dat',target)) == 0 for target in all_targets]):
+        if np.any([len(parse_contdotdat('cont.dat',target))['ranges'] == 0 for target in all_targets]):
             if not os.path.exists("cont.dat.original"):
                 print("Found existing cont.dat, but it is missing targets. Backing that up to cont.dat.original")
                 os.system("mv cont.dat cont.dat.original")
