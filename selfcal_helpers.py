@@ -1607,7 +1607,7 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
         print("spwvisref = ", spwvisref)
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK", target=target)
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], target=target)
 
         if trans_spw == -1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT FLAGGING FOR '+vis)
@@ -1666,7 +1666,7 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], frame="LSRK", target=target)
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], target=target)
 
         if trans_spw==-1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT CONTINUUM SUBTRACTION FOR '+vis)
@@ -1746,7 +1746,7 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope):
 
    spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict, use_names=telescope in ['ALMA', 'ACA'])
    for spw in spwsarray_dict[vis]:
-      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"], frame="LSRK", target=target)
+      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"], target=target)
 
       if trans_spw == -1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR {spw} in CONT.DAT SPW, USING TOTAL BANDWIDTH FOR '+vis)
@@ -1809,7 +1809,6 @@ def get_spw_map(selfcal_library, target, band, telescope, fid):
 
                print("Comparing to ", v, "spws", list(reverse_spw_map[v].keys()))
                matched_spw = find_matching_spw(vis, spw, v, list(reverse_spw_map[v].keys()), 
-                       frame='LSRK' if (telescope == "ALMA" or telescope == "ACA") else '', 
                        methods=['name','properties'] if (telescope == "ALMA" or telescope == "ACA") else ['properties'],
                        fid1=selfcal_library[target][band]['sub-fields-fid_map'][vis][fid], fid2=selfcal_library[target][band]['sub-fields-fid_map'][v][fid])
                print("matched_spw = ", matched_spw)
@@ -1837,7 +1836,7 @@ def get_spw_map(selfcal_library, target, band, telescope, fid):
     return spw_map, reverse_spw_map
 
 
-def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name','properties'], fid1=0, fid2=0, target=None, max_tolerance=0.1):
+def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properties'], fid1=0, fid2=0, target=None, max_tolerance=65.):
     spw2 = -1
 
     if target is not None:
@@ -1877,7 +1876,7 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name'
                 bandwidth1 = msmd.bandwidths(spw1)
                 chanwidth1 = msmd.chanwidths(spw1)[0]
                 chanfreq1 = ms.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=len(msmd.chanwidths(spw1)), 
-                        start=0, outframe=frame)[0]
+                        start=0, outframe='LSRK')[0]
                 msmd.close()
                 ms.close()
 
@@ -1886,11 +1885,11 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, frame='', methods=['name'
                 bandwidth2 = msmd.bandwidths(s)
                 chanwidth2 = msmd.chanwidths(s)[0]
                 chanfreq2 = ms.cvelfreqs(spwids=[s], fieldids=[fid2], mode="channel", nchan=len(msmd.chanwidths(s)), 
-                        start=0, outframe=frame)[0]
+                        start=0, outframe='LSRK')[0]
                 msmd.close()
                 ms.close()
 
-                if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < max_tolerance:
+                if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < max_tolerance / msmd.chanres(s, 'km/s', asvel=True).min():
                     score[i] = abs(chanfreq1 - chanfreq2) / abs(chanwidth1)
                     #spw2 = s
                     #break
