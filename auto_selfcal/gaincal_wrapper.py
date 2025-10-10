@@ -136,7 +136,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                     for fid in selfcal_library['sub-fields']:
                         if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
                             field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
-                            scan_ids_for_target=np.append(scans,msmd.scansforfield(field_id))
+                            scan_ids_for_target=np.append(scan_ids_for_target,msmd.scansforfield(field_id))
 
                     scan_ids_for_target.sort() # sort scans since they will be out of order
                 include_scans = []
@@ -304,7 +304,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
             selfcal_library[vis][solint]["include_scans"] = include_scans
             selfcal_library[vis][solint]["include_targets"] = include_targets
-
+            print(solint,'Include scans: ', include_scans)
+            print(solint,'Include targets: ', include_targets)
             for incl_scans, incl_targets in zip(include_scans, include_targets):
                 for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
                    print(vis,solint,mode)
