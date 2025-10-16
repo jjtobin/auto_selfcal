@@ -1,5 +1,5 @@
 from casatasks import applycal, flagmanager, clearcal, uvcontsub
-from .selfcal_helpers import sanitize_string, parse_contdotdat, get_spwnum_refvis,flagchannels_from_contdotdat,get_fitspw_dict
+from .selfcal_helpers import sanitize_string, parse_contdotdat, get_spwnum_refvis,flagchannels_from_contdotdat,get_fitspw_dict, get_telescope
 from casatools import msmetadata as msmdtool
 import casatasks
 import pickle
@@ -113,6 +113,14 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
         )
         return
 
+    # Load in the name of the telescope that the data is from.
+
+    for target in selfcal_library:
+        for band in selfcal_library[target]:
+            telescope = get_telescope(selfcal_library[target][band]['vislist'][0])
+            break
+        break
+
     # Do continuum subtraction of the original MS files.
 
     casaversion = casatasks.version()
@@ -129,7 +137,7 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
                 sani_target = sanitize_string(target)
                 for band in selfcal_library[target].keys():
                     contdotdat = parse_contdotdat("cont.dat", target)
-                    if len(contdotdat)['ranges'] == 0:
+                    if len(contdotdat['ranges']) == 0:
                         selfcal_library[target][band]["Found_contdotdat"] = False
 
                     spwvisref = get_spwnum_refvis(selfcal_library[target][band]["vislist"], target, contdotdat, 
@@ -180,12 +188,12 @@ def uvcontsub_orig_MSes(selfcal_library="selfcal_library.pickle", write_only=Tru
                 sani_target = sanitize_string(target)
                 for band in selfcal_library[target].keys():
                     contdotdat = parse_contdotdat("cont.dat", target)
-                    if len(contdotdat)['ranges'] == 0:
+                    if len(contdotdat['ranges']) == 0:
                         selfcal_library[target][band]["Found_contdotdat"] = False
 
                     spwvisref = get_spwnum_refvis(selfcal_library[target][band]["vislist"], target, contdotdat,
                         dict(zip(selfcal_library[target][band]["vislist"], [selfcal_library[target][band][vis]["spwsarray"]
-                                for vis in selfcal_library[target][band]["vislist"]])), , use_names=telescope in ['ALMA','ACA'])
+                                for vis in selfcal_library[target][band]["vislist"]])), use_names=telescope in ['ALMA','ACA'])
 
                     for vis in selfcal_library[target][band]["vislist"]:
                         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(selfcal_library[target][band]['original_vislist_map'][vis],
