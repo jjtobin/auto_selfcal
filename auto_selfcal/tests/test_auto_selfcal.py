@@ -115,6 +115,13 @@ def compare_values(list1, list2, tol=1e-3):
             return abs(list1 - list2) < abs(list1*tol)
 
 def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tolerance=1e-3):
+    if isinstance(dictionary1, str):
+        with open(dictionary1, 'rb') as handle:
+            dictionary1 = pickle.load(handle)
+    if isinstance(dictionary2, str):
+        with open(dictionary2, 'rb') as handle:
+            dictionary2 = pickle.load(handle)
+
     difference_count = 0
 
     all_keys = np.unique(list(dictionary1.keys()) + list(dictionary2.keys()))
