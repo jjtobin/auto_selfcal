@@ -254,8 +254,8 @@ def tclean_wrapper(selfcal_library, imagename, band, field_str, telescope='undef
             for field_id in selfcal_library['sub-fields-phasecenters']:
                 if 'VLA' in telescope:
                    fov=45.0e9/selfcal_library['meanfreq']*60.0*1.5*0.5
-                   if selfcal_library['meanfreq'] < 12.0e9:
-                      fov=fov*2.0
+                   #if selfcal_library['meanfreq'] < 12.0e9:
+                   #   fov=fov*2.0
                 if telescope=='ALMA':
                    fov=63.0*100.0e9/selfcal_library['meanfreq']*1.5*0.5*1.15
                 if telescope=='ACA':
@@ -968,7 +968,7 @@ def fetch_targets(vislist,telescope):
          if target not in bands_for_targets[band].keys():
             bands_for_targets[band]['targets'].remove(target)
             fields_superset.remove(target)
-            print('removing '+target+' as part of mosaic')
+            print('Removing '+target+' as indepdent target since it is part of a mosaic')
    return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields, bands_for_targets
 
 #tolerance in units of hpbw; 1.0 means limit to an optimally sampled mosaic
