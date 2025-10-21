@@ -37,6 +37,9 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
                  rms=tmp_RMS_NF, maskname="test.smoothed.truncated.mask", mosaic_sub_field=True)[0]
          os.system('rm -rf test*.mask')
 
+         flux_threshold=1.25
+         if 'VLA' in telescope:
+             flux_threshold=1.25
 
          if not checkmask(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
              print("Removing field "+str(fid)+" from gaincal because there is no signal within the primary beam.")
@@ -45,7 +48,8 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
                  solint not in ['inf_EB','scan_inf']:
              print("Removing field "+str(fid)+" from gaincal because the estimated solint snr is too low.")
              skip_reason = "Estimated SNR"
-         elif updated_intflux > 1.25 * original_intflux:
+         elif updated_intflux > flux_threshold * original_intflux and \
+                 solint not in ['inf_EB','scan_inf']:
              print("Removing field "+str(fid)+" from gaincal because there appears to be significant flux missing from the model.")
              print("Original Flux: ",original_intflux, "Per-field Flux: ",updated_intflux)
              skip_reason = "Missing flux"
