@@ -968,7 +968,7 @@ def fetch_targets(vislist,telescope):
          if target not in bands_for_targets[band].keys():
             bands_for_targets[band]['targets'].remove(target)
             fields_superset.remove(target)
-            print('Removing '+target+' as indepdent target since it is part of a mosaic')
+            print('Removing '+target+' as independent target since it is part of a mosaic')
    return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields, bands_for_targets
 
 #tolerance in units of hpbw; 1.0 means limit to an optimally sampled mosaic

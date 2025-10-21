@@ -47,6 +47,7 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
              skip_reason = "Estimated SNR"
          elif updated_intflux > 1.25 * original_intflux:
              print("Removing field "+str(fid)+" from gaincal because there appears to be significant flux missing from the model.")
+             print("Original Flux: ",original_intflux, "Per-field Flux: ",updated_intflux)
              skip_reason = "Missing flux"
          else:
              new_fields_to_selfcal.append(fid)
