@@ -207,13 +207,22 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             if selfcal_library['obstype'] == 'mosaic':
                 selfcal_library['sub-fields-to-gaincal'] = evaluate_subfields_to_gaincal(selfcal_library, target, band, 
                         solint, iteration, selfcal_plan['solmode'], selfcal_plan['solints'], selfcal_plan, minsnr_to_proceed,
-                        allow_gain_interpolation=allow_gain_interpolation)
+                        telescope, allow_gain_interpolation=allow_gain_interpolation)
 
                 if solint != 'inf_EB' and not allow_gain_interpolation:
                     selfcal_library['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
+
+                if len(selfcal_library['sub-fields-to-gaincal']) == 0:
+                    selfcal_library['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+                    for fid in selfcal_library['sub-fields-to-selfcal']:
+                        selfcal_library[fid]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+                    break
             else:
                selfcal_library['sub-fields-to-gaincal'] = selfcal_library['sub-fields-to-selfcal']
 
+
+
+         
             # Calculate the complex gains
             for vis in vislist:
                if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
@@ -232,7 +241,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             # selfcal'd because they have too much interpolation.
             if selfcal_library['obstype'] == 'mosaic':
                 selfcal_library['sub-fields-to-selfcal'] = evaluate_subfields_after_gaincal(selfcal_library, target, band, 
-                        solint, iteration, selfcal_plan['solmode'], allow_gain_interpolation=allow_gain_interpolation)
+                        solint, iteration, selfcal_plan['solmode'], telescope, allow_gain_interpolation=allow_gain_interpolation)
 
          ##
          ## Apply gain solutions per MS, target, solint, and band
