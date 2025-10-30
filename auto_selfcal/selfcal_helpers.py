@@ -963,14 +963,14 @@ def fetch_targets(vislist,telescope):
                 bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
                 bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
                 bands_for_targets[band][single_field]['obstype']='single-pointing'
-   if 'VLA' in telescope:
-        for band in band_list:
-          band_targets=copy.copy(bands_for_targets[band]['targets'])
-          for target in band_targets:
-             if target not in bands_for_targets[band].keys():
-                bands_for_targets[band]['targets'].remove(target)
-                fields_superset.remove(target)
-                print('Removing '+target+' as independent target since it is part of a mosaic')
+
+   for band in band_list:
+      band_targets=copy.copy(bands_for_targets[band]['targets'])
+      for target in band_targets:
+         if target not in bands_for_targets[band].keys():
+            bands_for_targets[band]['targets'].remove(target)
+            fields_superset.remove(target)
+            print('Removing '+target+' as independent target since it is part of a mosaic')
    return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields, bands_for_targets
 
 #tolerance in units of hpbw; 1.0 means limit to an optimally sampled mosaic
