@@ -947,28 +947,29 @@ def fetch_targets(vislist,telescope):
             if 'meanfreq' not in bands_for_targets[band].keys():
                 bands_for_targets[band]['meanfreq']=vis_for_targets[target][band]['meanfreq']
       bands_for_targets[band]['targets'].sort() 
-      mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'])
-      if len(mosaic_groups) > 0:
-         for m,mosaic_group in enumerate(mosaic_groups):
-            bands_for_targets[band][mosaic_group[0]]={}
-            bands_for_targets[band][mosaic_group[0]]['fieldnames']=mosaic_group
-            bands_for_targets[band][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
-            bands_for_targets[band][mosaic_group[0]]['field_str']=",".join([str(num) for num in mosaic_groups_ids[m]])
-            bands_for_targets[band][mosaic_group[0]]['obstype']='mosaic'
-      if len(single_fields) > 0:
-         for s,single_field in enumerate(single_fields):
-            bands_for_targets[band][single_field]={}
-            bands_for_targets[band][single_field]['fieldnames']=single_fields
-            bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
-            bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
-            bands_for_targets[band][single_field]['obstype']='single-pointing'
-   for band in band_list:
-      band_targets=copy.copy(bands_for_targets[band]['targets'])
-      for target in band_targets:
-         if target not in bands_for_targets[band].keys():
-            bands_for_targets[band]['targets'].remove(target)
-            fields_superset.remove(target)
-            print('Removing '+target+' as independent target since it is part of a mosaic')
+      if 'VLA' in telescope:
+          mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'])
+          if len(mosaic_groups) > 0:
+             for m,mosaic_group in enumerate(mosaic_groups):
+                bands_for_targets[band][mosaic_group[0]]={}
+                bands_for_targets[band][mosaic_group[0]]['fieldnames']=mosaic_group
+                bands_for_targets[band][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
+                bands_for_targets[band][mosaic_group[0]]['field_str']=",".join([str(num) for num in mosaic_groups_ids[m]])
+                bands_for_targets[band][mosaic_group[0]]['obstype']='mosaic'
+          if len(single_fields) > 0:
+             for s,single_field in enumerate(single_fields):
+                bands_for_targets[band][single_field]={}
+                bands_for_targets[band][single_field]['fieldnames']=single_fields
+                bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
+                bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
+                bands_for_targets[band][single_field]['obstype']='single-pointing'
+       for band in band_list:
+          band_targets=copy.copy(bands_for_targets[band]['targets'])
+          for target in band_targets:
+             if target not in bands_for_targets[band].keys():
+                bands_for_targets[band]['targets'].remove(target)
+                fields_superset.remove(target)
+                print('Removing '+target+' as independent target since it is part of a mosaic')
    return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields, bands_for_targets
 
 #tolerance in units of hpbw; 1.0 means limit to an optimally sampled mosaic
