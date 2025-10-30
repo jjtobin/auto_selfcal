@@ -963,7 +963,8 @@ def fetch_targets(vislist,telescope):
                 bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
                 bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
                 bands_for_targets[band][single_field]['obstype']='single-pointing'
-       for band in band_list:
+   if 'VLA' in telescope:
+        for band in band_list:
           band_targets=copy.copy(bands_for_targets[band]['targets'])
           for target in band_targets:
              if target not in bands_for_targets[band].keys():
