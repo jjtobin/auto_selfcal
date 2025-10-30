@@ -561,7 +561,7 @@ def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_propertie
          mosaic_field[vis][target]['field_ids']=[]
          mosaic_field[vis][target]['mosaic']=False
          # ID ALMA mosaics by multiple fields with same target name
-         if telescope=='ALMA':
+         if telescope=='ALMA' or telescope == 'ACA':
              mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target]).tolist()
              mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
          # ID VLA mosaics using pre-determined mosaic groupings from fetch_targets
@@ -947,23 +947,23 @@ def fetch_targets(vislist,telescope):
             if 'meanfreq' not in bands_for_targets[band].keys():
                 bands_for_targets[band]['meanfreq']=vis_for_targets[target][band]['meanfreq']
       bands_for_targets[band]['targets'].sort() 
-      if 'VLA' in telescope:
-          mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'])
-          if len(mosaic_groups) > 0:
-             for m,mosaic_group in enumerate(mosaic_groups):
-                bands_for_targets[band][mosaic_group[0]]={}
-                bands_for_targets[band][mosaic_group[0]]['fieldnames']=mosaic_group
-                bands_for_targets[band][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
-                bands_for_targets[band][mosaic_group[0]]['field_str']=",".join([str(num) for num in mosaic_groups_ids[m]])
-                bands_for_targets[band][mosaic_group[0]]['obstype']='mosaic'
-          if len(single_fields) > 0:
-             for s,single_field in enumerate(single_fields):
-                bands_for_targets[band][single_field]={}
-                bands_for_targets[band][single_field]['fieldnames']=single_fields
-                bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
-                bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
-                bands_for_targets[band][single_field]['obstype']='single-pointing'
 
+      mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'],telescope)
+      if len(mosaic_groups) > 0:
+       for m,mosaic_group in enumerate(mosaic_groups):
+          bands_for_targets[band][mosaic_group[0]]={}
+          bands_for_targets[band][mosaic_group[0]]['fieldnames']=mosaic_group
+          bands_for_targets[band][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
+          bands_for_targets[band][mosaic_group[0]]['field_str']=",".join([str(num) for num in mosaic_groups_ids[m]])
+          bands_for_targets[band][mosaic_group[0]]['obstype']='mosaic'
+      if len(single_fields) > 0:
+       for s,single_field in enumerate(single_fields):
+          bands_for_targets[band][single_field]={}
+          bands_for_targets[band][single_field]['fieldnames']=single_fields
+          bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
+          bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
+          bands_for_targets[band][single_field]['obstype']='single-pointing'
+      
    for band in band_list:
       band_targets=copy.copy(bands_for_targets[band]['targets'])
       for target in band_targets:
@@ -994,7 +994,51 @@ def create_mosaic_groups(ra_arr, dec_arr,names,ids,hpbw,overlap_tol=0.9):
          single_fields_ids.append(str(ids[indices[0][0]]))
     return mosaics,mosaics_ids,single_fields,single_fields_ids     
 
-def check_targets_for_mosaic(vislist,targets,freq):
+def check_targets_for_mosaic(vislist,targets,freq,telescope):
+    for vis in vislist:
+        msmd.open(vis)
+        fieldids=[]
+        for target in targets:
+            fieldids=fieldids+list(msmd.fieldsforname(target)) # convert to list from a numpy array that is returned
+
+        print(fieldids)
+        #mosaic_fields=ascii.read('mosaic_larger.reg',names=['field','ids','ra','dec'])
+        #print(mosaic_fields)
+        if 'VLA' in telescope:
+           ra=[]
+           dec=[]
+           for fid in fieldids:
+               phasecenter_dict=msmd.phasecenter(fieldid=fid)
+               ra.append(phasecenter_dict['m0']['value']*180.0/np.pi)
+               dec.append(phasecenter_dict['m1']['value']*180.0/np.pi)
+           hpbw=42.0e9/freq*60.0
+           if len(targets) > 1:    mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol=0.9)
+           else:
+               mosaic_groups=[]
+               mosaic_groups_ids=[]
+               single_fields=targets
+               single_fields_ids=fieldids
+        elif telescope == 'ALMA' or telescope == 'ACA':
+           mosaic_groups=[]
+           mosaic_groups_ids=[]
+           single_fields=[]
+           single_fields_ids=[]
+           for t,target in enumerate(targets):
+              field_arr = msmd.fieldsforname(target)
+              if len(field_arr) > 1:
+                 mosaic_groups.append(target)
+                 mosaic_groups_ids.append(list(field_arr))
+              else:
+                 single_fields.append(target)
+                 single_fields_ids.append(field_arr[0])
+    
+
+        print('Mosaics groupings: ',mosaic_groups)
+        print('Single Fields: ',single_fields)
+
+    return mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids
+
+def check_targets_for_mosaic_old(vislist,targets,freq):
     for vis in vislist:
         msmd.open(vis)
         fieldids=[]
@@ -1019,6 +1063,7 @@ def check_targets_for_mosaic(vislist,targets,freq):
         print('Mosaics groupings: ',mosaic_groups)
         print('Single Fields: ',single_fields)
     return mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids
+
 def checkmask(imagename):
    maskImage=imagename.replace('image','mask').replace('.tt0','')
    image_stats= imstat(maskImage)
@@ -2056,6 +2101,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    nterms=1
    if selfcal_library[target][band]['fracbw'] > 0.1:
       nterms=2
+   print(field_ids)
    reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
 
    if 'VLA' in telescope:
