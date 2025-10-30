@@ -216,7 +216,17 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     selfcal_library['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
                     for fid in selfcal_library['sub-fields-to-selfcal']:
                         selfcal_library[fid]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+
+                        for vis in vislist:
+                            selfcal_library[vis][solint]['Pass'] = False
+                            selfcal_library[vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+                            for fid in selfcal_library['sub-fields-to-selfcal']:
+                               selfcal_library[fid][vis][solint]['Pass'] = False
+                               selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+
                     break
+
+
             else:
                selfcal_library['sub-fields-to-gaincal'] = selfcal_library['sub-fields-to-selfcal']
 
