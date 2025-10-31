@@ -10,7 +10,9 @@ tb = tbtool()
 vislist = glob.glob('calibrated_final.ms')
 overwrite = True
 
+
 for vis in vislist:
+    print(vis)
     tb.open(vis)
     if "CORRECTED" in tb.colnames():
         datacolumn="corrected"
@@ -28,10 +30,13 @@ for vis in vislist:
             else:
                 print(f"{outputvis} already exists, skipping.")
                 continue
-
-        split(vis, outputvis=outputvis, observation=i, intent="*OBSERVE_TARGET*", \
+        try:
+           split(vis, outputvis=outputvis, observation=i, intent="*OBSERVE_TARGET*", \
                 spw=','.join(np.intersect1d(msmd.spwsforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i), \
                 np.concatenate((msmd.tdmspws(),msmd.fdmspws()))).astype(str)), \
                 antenna=','.join(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i).astype(str)), \
                 datacolumn=datacolumn)
+        except IndexError:
+            print(f"No target scans in {outputvis}, skipping.")
+            continue
     msmd.close()
