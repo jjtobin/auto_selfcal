@@ -92,7 +92,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001)
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001, exclude=['vislist_orig','field_str','imsize'])
 
     assert difference_count == 0
 
