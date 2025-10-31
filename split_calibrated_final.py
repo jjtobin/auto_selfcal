@@ -10,9 +10,7 @@ tb = tbtool()
 vislist = glob.glob('calibrated_final.ms')
 overwrite = True
 
-
 for vis in vislist:
-    print(vis)
     tb.open(vis)
     if "CORRECTED" in tb.colnames():
         datacolumn="corrected"
