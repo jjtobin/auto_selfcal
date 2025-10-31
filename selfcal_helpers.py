@@ -1876,7 +1876,7 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
                 chanwidth1 = msmd.chanwidths(spw1)[0]
                 chanfreq1 = ms.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=len(msmd.chanwidths(spw1)), 
                         start=0, outframe='LSRK')[0]
-                chanres1 = msmd.chanres(s, 'km/s', asvel=True).min()
+                chanres1 = msmd.chanres(spw1, 'km/s', asvel=True).min()
                 msmd.close()
                 ms.close()
 
