@@ -397,7 +397,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
                   if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
                      print('cont.dat does not contain all spws; falling back to total bandwidth')
                      for spw in spw_bandwidths_dict[vis].keys():
-                        if spw not in spw_effective_bandwidths[vis].keys():
+                        if spw not in spw_effective_bandwidths_dict[vis].keys():
                            spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths[spw]
                   for spw in selfcal_library[target][band][fid][vis]['spwlist']:
                      keylist=selfcal_library[target][band][fid][vis]['per_spw_stats'].keys()
