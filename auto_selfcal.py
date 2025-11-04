@@ -682,7 +682,7 @@ if casaversion[0]>6 or (casaversion[0]==6 and (casaversion[1]>5 or (casaversion[
                field_num_array=msmd.fieldsforname(target)
                msmd.close()
                for fieldnum in field_num_array:
-                  contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)]=get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],selfcal_library[target][band]['original_vislist_map'][spwvisref],contdotdat)
+                  contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)]=get_fitspw_dict(selfcal_library[target][band]['original_vislist_map'][vis],target,selfcal_library[target][band][vis]['spwsarray'],selfcal_library[target][band]['vislist'],selfcal_library[target][band]['original_vislist_map'][spwvisref],contdotdat, telescope)
                   print(contsub_dict[selfcal_library[target][band]['original_vislist_map'][vis]][str(fieldnum)])
       print(contsub_dict)
       uvcontsubOut=open('uvcontsub_orig_MSes.py','w')
