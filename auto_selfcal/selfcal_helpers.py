@@ -947,10 +947,11 @@ def fetch_targets(vislist,telescope):
             if 'meanfreq' not in bands_for_targets[band].keys():
                 bands_for_targets[band]['meanfreq']=vis_for_targets[target][band]['meanfreq']
       bands_for_targets[band]['targets'].sort() 
-
+      print(bands_for_targets)
       mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'],telescope)
+      print(mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids)
       if len(mosaic_groups) > 0:
-       for m,mosaic_group in enumerate(mosaic_groups):
+       for m,mosaic_group in enumerate(mosaic_groups): # mosaic_group should be a list, code below gives the mosaic the name of the first fieldname in the list
           bands_for_targets[band][mosaic_group[0]]={}
           bands_for_targets[band][mosaic_group[0]]['fieldnames']=mosaic_group
           bands_for_targets[band][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
@@ -963,7 +964,7 @@ def fetch_targets(vislist,telescope):
           bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
           bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
           bands_for_targets[band][single_field]['obstype']='single-pointing'
-      
+   print(bands_for_targets)
    for band in band_list:
       band_targets=copy.copy(bands_for_targets[band]['targets'])
       for target in band_targets:
@@ -1026,7 +1027,7 @@ def check_targets_for_mosaic(vislist,targets,freq,telescope):
            for t,target in enumerate(targets):
               field_arr = msmd.fieldsforname(target)
               if len(field_arr) > 1:
-                 mosaic_groups.append(target)
+                 mosaic_groups.append([target])
                  mosaic_groups_ids.append(list(field_arr))
               else:
                  single_fields.append(target)
@@ -2117,7 +2118,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    if mosaic:
        msmd.open(vislist[0])
        #get field IDs for VLA and and ALMA differently
-       if telescope == 'ALMA':
+       if telescope == 'ALMA' or telescope == 'ACA':
           fieldid=msmd.fieldsforname(target)
        elif 'VLA' in telescope:
           fieldid=np.array([],dtype=int)

@@ -129,7 +129,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 scans = scans[is_gaincalibrator]
 
                 msmd.open(vis)
-                if telescope == 'ALMA':
+                if telescope == 'ALMA' and telescope == 'ACA':
                     scan_ids_for_target = msmd.scansforfield(target)
                 elif 'VLA' in telescope:
                     scan_ids_for_target=np.array([],dtype=int)
@@ -190,7 +190,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                                 scan_group=''
 
                 #guess scan_inf combination by getting all the scans for targets and do a simple grouping
-                if telescope == 'ALMA':
+                if telescope == 'ALMA' or telescope == 'ACA':
                     scans = msmd.scansforfield(target)
 
                     for iscan in range(scans.size):
@@ -210,7 +210,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             else:
                 print("Not guessing where calibration scans are and justincluding all scans")
                 msmd.open(vis)
-                if telescope == 'ALMA':
+                if telescope == 'ALMA' or telescope == 'ACA':
                     include_scans = [str(scan) for scan in msmd.scansforfield(target)]
                 elif 'VLA' in telescope:
                     scans=np.array([],dtype=int)
