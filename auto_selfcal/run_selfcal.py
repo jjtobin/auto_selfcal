@@ -14,7 +14,7 @@ try:
 except:
    parallel=False
 
-def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, \
+def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, bands_for_targets, field_str, \
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False, \
@@ -160,7 +160,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and selfcal_library['usermask'] != '':
                 os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
              tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                         band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                         band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                          threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                          savemodel='none',parallel=parallel,
                          field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], resume=resume)
@@ -198,7 +198,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             # We need to redo saving the model now that we have potentially unflagged some data.
             if not do_fallback_calonly:
                 tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                            band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                            band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                             threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                             savemodel='modelcolumn',parallel=parallel,
                             field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], savemodel_only=True)
@@ -207,13 +207,35 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             if selfcal_library['obstype'] == 'mosaic':
                 selfcal_library['sub-fields-to-gaincal'] = evaluate_subfields_to_gaincal(selfcal_library, target, band, 
                         solint, iteration, selfcal_plan['solmode'], selfcal_plan['solints'], selfcal_plan, minsnr_to_proceed,
-                        allow_gain_interpolation=allow_gain_interpolation)
+                        telescope, allow_gain_interpolation=allow_gain_interpolation)
 
                 if solint != 'inf_EB' and not allow_gain_interpolation:
                     selfcal_library['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
+                print('Fields to gaincal: ',selfcal_library['sub-fields-to-gaincal'])
+                if len(selfcal_library['sub-fields-to-gaincal']) == 0:
+                    print('No fields to selfcal, exiting solution interval an selfcal for current target')
+                    selfcal_library['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+                    for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
+                        selfcal_library[fid]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+
+                    for vis in vislist:
+                        selfcal_library[vis][solint]['Pass'] = 'None'
+                        selfcal_library[vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+                        #for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                        for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
+                           if solint in selfcal_library[fid][vis].keys():
+                              selfcal_library[fid][vis][solint]['Pass'] = 'None'
+                              selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+
+                    break
+
+
             else:
                selfcal_library['sub-fields-to-gaincal'] = selfcal_library['sub-fields-to-selfcal']
 
+
+
+         
             # Calculate the complex gains
             for vis in vislist:
                if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
@@ -226,13 +248,13 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
                        allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction,
-                       guess_scan_combine=guess_scan_combine, do_fallback_calonly=do_fallback_calonly)
+                       do_fallback_calonly=do_fallback_calonly, guess_scan_combine=guess_scan_combine)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.
             if selfcal_library['obstype'] == 'mosaic':
                 selfcal_library['sub-fields-to-selfcal'] = evaluate_subfields_after_gaincal(selfcal_library, target, band, 
-                        solint, iteration, selfcal_plan['solmode'], allow_gain_interpolation=allow_gain_interpolation)
+                        solint, iteration, selfcal_plan['solmode'], telescope, allow_gain_interpolation=allow_gain_interpolation)
 
          ##
          ## Apply gain solutions per MS, target, solint, and band
@@ -248,7 +270,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
          os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
          tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                  band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                  band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                   threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                   savemodel='none',parallel=parallel,
                   field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'])
@@ -363,7 +385,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  os.system("mv "+f+" "+f.replace("_post","_post_intermediate"))
 
              tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                      band,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                      band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                       threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                       savemodel='none',parallel=parallel,
                       field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], 
