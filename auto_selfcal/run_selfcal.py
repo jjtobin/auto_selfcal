@@ -211,18 +211,21 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
                 if solint != 'inf_EB' and not allow_gain_interpolation:
                     selfcal_library['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
-
+                print('Fields to gaincal: ',selfcal_library['sub-fields-to-gaincal'])
                 if len(selfcal_library['sub-fields-to-gaincal']) == 0:
+                    print('No fields to selfcal, exiting solution interval an selfcal for current target')
                     selfcal_library['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
-                    for fid in selfcal_library['sub-fields-to-selfcal']:
+                    for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
                         selfcal_library[fid]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
 
-                        for vis in vislist:
-                            selfcal_library[vis][solint]['Pass'] = False
-                            selfcal_library[vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
-                            for fid in selfcal_library['sub-fields-to-selfcal']:
-                               selfcal_library[fid][vis][solint]['Pass'] = False
-                               selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+                    for vis in vislist:
+                        selfcal_library[vis][solint]['Pass'] = 'None'
+                        selfcal_library[vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+                        #for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                        for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
+                           if solint in selfcal_library[fid][vis].keys():
+                              selfcal_library[fid][vis][solint]['Pass'] = 'None'
+                              selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
 
                     break
 
