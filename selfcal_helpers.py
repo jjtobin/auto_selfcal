@@ -1286,9 +1286,9 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                for spw in selfcal_library['spw_map']:
                  if selfcal_library['vislist'][i] in selfcal_library['spw_map'][spw]:
                      SNR_self_EB_spw[selfcal_library['vislist'][i]][str(spw)]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['per_spw_stats'][selfcal_library['spw_map'][spw][selfcal_library['vislist'][i]]]['effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
-                 print(selfcal_library[vislist[i]]['baseband'])
+                 print(selfcal_library[selfcal_library['vislist'][i]]['baseband'])
                print('SNR_self_EB_spw: ',SNR_self_EB_spw)
-               for baseband in selfcal_library[vislist[i]]['baseband']:
+               for baseband in selfcal_library[selfcal_library['vislist'][i]]['baseband']:
                      SNR_self_EB_bb[selfcal_library['vislist'][i]][baseband]=(polscale)**-0.5*SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[selfcal_library['vislist'][i]]['TOS'])**0.5)*(selfcal_library[selfcal_library['vislist'][i]]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[selfcal_library['vislist'][i]]['total_effective_bandwidth'])**0.5
                print('SNR_self_EB_bb: ',SNR_self_EB_bb)
             for spw in selfcal_library['spw_map']:
@@ -1300,7 +1300,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
                      total_vis += 1
                mean_SNR_spw=mean_SNR_spw/total_vis
                solint_snr_per_spw[solint][str(spw)]=mean_SNR_spw
-            for baseband in selfcal_library[vislist[i]]['baseband']:
+            for baseband in selfcal_library[selfcal_library['vislist'][i]]['baseband']:
                mean_SNR_bb=0.0
                for j in range(len(selfcal_library['vislist'])):
                   if baseband in SNR_self_EB_bb[selfcal_library['vislist'][j]].keys():
@@ -1518,6 +1518,8 @@ def parse_contdotdat(contdotdat_file,target):
         lines.remove('\n')
 
     contdotdat = {}
+    contdotdat["names"] = {}
+    contdotdat["ranges"] = {}
     desiredTarget=False
     for i, line in enumerate(lines):
         if 'ALL' in line:
@@ -1539,22 +1541,23 @@ def parse_contdotdat(contdotdat_file,target):
               if len(splitline)==3:
                  spw = int(splitline[-2])
                  spwname=splitline[-1]
+                 contdotdat['names'][spw] = spwname
               else:
                  spw = int(splitline[-1])
                  spwname=''
-              contdotdat[spw] = []
+              contdotdat['ranges'][spw] = []
            else:
-              contdotdat[spw] += [line.split()[0].split("G")[0].split("~")]
+              contdotdat['ranges'][spw] += [line.split()[0].split("G")[0].split("~")]
 
-    for spw in contdotdat:
-        contdotdat[spw] = np.array(contdotdat[spw], dtype=float)
+    for spw in contdotdat['ranges']:
+        contdotdat['ranges'][spw] = np.array(contdotdat['ranges'][spw], dtype=float)
 
     return contdotdat
 
-def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
+def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict, use_names=True):
    # calculate a score for each visibility based on which one ends up with cont.dat freq ranges that correspond to 
    # channel limits; lowest score is chosen as the reference visibility file
-   spws=list(contdotdat.keys())
+   spws=list(contdotdat['ranges'].keys())
    score=np.zeros(len(vislist))
    for i in range(len(vislist)):
       for spw in spws:
@@ -1562,9 +1565,19 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
              score[i] += 1e8
              continue
 
+         if use_names and spw in contdotdat['names']:
+             msmd.open(vislist[i])
+             spwname=msmd.namesforspws(spw)[0]
+             msmd.close()
+
+             if spwname != contdotdat['names'][spw]:
+                 print(vislist[i], spw, "name doesn't match")
+                 score[i] += 1e8
+                 continue
+
          # The score is computed as the total distance of the top and bottom of the contdotdat range for this SPW to the
          # known edges of the SPW.
-         test = LSRKfreq_to_chan(vislist[i], target, spw, np.array([contdotdat[spw][0][0],contdotdat[spw][-1][1]]), \
+         test = LSRKfreq_to_chan(vislist[i], target, spw, np.array([contdotdat['ranges'][spw][0][0],contdotdat['ranges'][spw][-1][1]]), \
                  spwsarray_dict[vislist[i]], minmaxchans=True)
          score[i] += test.sum()
 
@@ -1575,7 +1588,7 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict):
    visref=vislist[np.argmin(score)]            
    return visref
 
-def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat,return_contfit_range=False):
+def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat,telescope,return_contfit_range=False):
     """
     Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
 
@@ -1592,27 +1605,13 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #moved out of function to not for each MS for efficiency
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
-    for j,spw in enumerate(contdotdat):
-        msmd.open(spwvisref)
-        spwname=msmd.namesforspws(spw)[0]
-        msmd.close()
-        msmd.open(vis)
-        spws=msmd.spwsfornames(spwname)
-        msmd.close()
-        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-        #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
-        trans_spw = -1
-        for check_spw in spws[spwname]:
-           matching_index=np.where(check_spw == spwsarray)
-           if len(matching_index[0]) == 0:
-              continue
-           else:
-              trans_spw=check_spw
-              break
+    for j,spw in enumerate(contdotdat['ranges']):
+        print("spwvisref = ", spwvisref)
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"] if telescope in ['ALMA', 'ACA'] else ['properties'], target=target)
+
         if trans_spw == -1:
-           print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
-           return ''
-        #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+           print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT FLAGGING FOR '+vis)
+           continue
 
         flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
@@ -1620,10 +1619,10 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
         tb.close()
 
         chans = np.array([])
-        for k in range(contdotdat[spw].shape[0]):
-            print(trans_spw, contdotdat[spw][k])
+        for k in range(contdotdat['ranges'][spw].shape[0]):
+            print(trans_spw, contdotdat['ranges'][spw][k])
 
-            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat[spw][k],spwsarray),chans))
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat['ranges'][spw][k],spwsarray),chans))
 
             """
             if flagchannels_string == '':
@@ -1649,7 +1648,7 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
        print("# Cont range string for %s in %s from cont.dat file: \'%s\'" % (target, vis, flagchannels_string))
     return flagchannels_string
 
-def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1):
+def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,telescope,fitorder=1):
     """
     Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
 
@@ -1666,26 +1665,12 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
     #moved out of function to not for each MS for efficiency
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
-    for j,spw in enumerate(contdotdat):
-        msmd.open(spwvisref)
-        spwname=msmd.namesforspws(spw)[0]
-        msmd.close()
-        msmd.open(vis)
-        spws=msmd.spwsfornames(spwname)
-        msmd.close()
-        # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-        #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
-        trans_spw = -1
-        for check_spw in spws[spwname]:
-           matching_index=np.where(check_spw == spwsarray)
-           if len(matching_index[0]) == 0:
-              continue
-           else:
-              trans_spw=check_spw
-              break
+    for j,spw in enumerate(contdotdat['ranges']):
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"] if telescope in ['ALMA', 'ACA'] else ['properties'], target=target)
+
         if trans_spw==-1:
-           print('COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT, PROCEEDING WITHOUT FLAGGING FOR '+vis)
-           return ''
+           print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT CONTINUUM SUBTRACTION FOR '+vis)
+           continue
         #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
         #flagchannels_string += '%d:' % (trans_spw)
         tb.open(vis+'/SPECTRAL_WINDOW')
@@ -1693,10 +1678,10 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
         tb.close()
 
         chans = np.array([])
-        for k in range(contdotdat[spw].shape[0]):
-            print(trans_spw, contdotdat[spw][k])
+        for k in range(contdotdat['ranges'][spw].shape[0]):
+            print(trans_spw, contdotdat['ranges'][spw][k])
 
-            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat[spw][k],spwsarray),chans))
+            chans = np.concatenate((LSRKfreq_to_chan(vis, target, trans_spw, contdotdat['ranges'][spw][k],spwsarray),chans))
 
             """
             if flagchannels_string == '':
@@ -1731,7 +1716,7 @@ def get_spw_chanwidths(vis,spwarray):
 
    return widtharray,bwarray,nchanarray
 
-def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
+def get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope):
    spwbws={}
    spwfreqs={}
    for spw in spwsarray_dict[vis]:
@@ -1743,38 +1728,33 @@ def get_spw_bandwidth(vis,spwsarray_dict,target,vislist):
       msmd.close()
    spweffbws=spwbws.copy()
    if os.path.exists("cont.dat"):
-      spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict)
+      spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope)
+
+      if len(spweffbws.keys()) != len(spwbws.keys()):
+         print(f'cont.dat does not contain all spws for {vis}')
+         for spw in spwbws.keys():
+            if spw not in spweffbws.keys():
+               print(f'    falling back to total bandwidth for {spw}')
+               spweffbws[spw]=spwbws[spw]
 
    return spwbws,spweffbws,spwfreqs
 
 
-def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict):
+def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope):
    spweffbws={}
    contdotdat=parse_contdotdat('cont.dat',target)
+   spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict, use_names=telescope in ['ALMA', 'ACA'])
+   for spw in spwsarray_dict[vis]:
+      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"] if telescope in ['ALMA', 'ACA'] else ['properties'], target=target)
 
-   spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict)
-   for key in contdotdat.keys():
-      msmd.open(spwvisref)
-      spwname=msmd.namesforspws(key)[0]
-      msmd.close()
-      msmd.open(vis)
-      spws=msmd.spwsfornames(spwname)
-      msmd.close()
-      trans_spw=-1
-      # must directly cast to int, otherwise the CASA tool call does not like numpy.uint64
-      #loop through returned spws to see which is in the spw array rather than assuming, because assumptions be damned
-      for check_spw in spws[spwname]:
-         matching_index=np.where(check_spw == spwsarray_dict[vis])
-         if len(matching_index[0]) == 0:
-              continue
-         else:
-              trans_spw=check_spw
-              break
-      #trans_spw=int(np.max(spws[spwname])) # assume higher number spw is the correct one, generally true with ALMA data structure
+      if trans_spw == -1:
+           print(f'COULD NOT DETERMINE SPW MAPPING FOR {spw} in CONT.DAT SPW, USING TOTAL BANDWIDTH FOR '+vis)
+           continue
       cumulat_bw=0.0
-      for i in range(len(contdotdat[key])):
-         cumulat_bw+=np.abs(contdotdat[key][i][1]-contdotdat[key][i][0])
-      spweffbws[trans_spw]=cumulat_bw+0.0
+      if trans_spw in contdotdat['ranges'].keys():
+          for i in range(len(contdotdat['ranges'][trans_spw])):
+             cumulat_bw+=np.abs(contdotdat['ranges'][trans_spw][i][1]-contdotdat['ranges'][trans_spw][i][0])
+          spweffbws[spw]=cumulat_bw+0.0
    return spweffbws
    
 
@@ -1795,9 +1775,9 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
 
 
 
-def get_spw_map(selfcal_library, target, band, telescope):
+def get_spw_map(selfcal_library, target, band, telescope, fid):
     # Get the list of EBs from the selfcal_library
-    vislist = selfcal_library[target][band]['vislist'].copy()
+    vislist = selfcal_library[target][band][fid]['vislist'].copy()
 
     # If we are looking at VLA data, find the EB with the maximum number of SPWs so that we have the fewest "odd man out" SPWs hanging out at the end as possible.
     if "VLA" in telescope:
@@ -1816,52 +1796,33 @@ def get_spw_map(selfcal_library, target, band, telescope):
     virtual_index = 0
     # This code is meant to be generic in order to prepare for cases where multiple EBs might have unique SPWs in them (e.g. inhomogeneous data),
     # but the criterea for which SPWs match will need to be updated for this to truly generalize.
+    print("Creating spw_map")
     for vis in vislist:
         reverse_spw_map[vis] = {}
         for spw in selfcal_library[target][band][vis]['spwsarray']:
+            print("Checking ", vis, "spw", spw, "for matches in existing map")
             found_match = False
-            for s in spw_map:
-                for v in spw_map[s].keys():
-                   if vis == v:
-                       continue
+            for v in reverse_spw_map.keys():
+               if vis == v:
+                   continue
 
-                   if telescope == "ALMA" or telescope == "ACA":
-                       # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
-                       msmd.open(vis)
-                       spwname=msmd.namesforspws(spw)[0]
-                       msmd.close()
+               print("Comparing to ", v, "spws", list(reverse_spw_map[v].keys()))
+               matched_spw = find_matching_spw(vis, spw, v, list(reverse_spw_map[v].keys()), 
+                       methods=['name','properties'] if (telescope == "ALMA" or telescope == "ACA") else ['properties'],
+                       fid1=selfcal_library[target][band]['sub-fields-fid_map'][vis][fid], fid2=selfcal_library[target][band]['sub-fields-fid_map'][v][fid])
+               print("matched_spw = ", matched_spw)
 
-                       msmd.open(v)
-                       sname = msmd.namesforspws(spw_map[s][v])[0]
-                       msmd.close()
-
-                       if spwname == sname:
-                           found_match = True
-                   elif 'VLA' in telescope:
-                       msmd.open(vis)
-                       bandwidth1 = msmd.bandwidths(spw)
-                       chanwidth1 = msmd.chanwidths(spw)[0]
-                       chanfreq1 = msmd.chanfreqs(spw)[0]
-                       msmd.close()
-
-                       msmd.open(v)
-                       bandwidth2 = msmd.bandwidths(spw_map[s][v])
-                       chanwidth2 = msmd.chanwidths(spw_map[s][v])[0]
-                       chanfreq2 = msmd.chanfreqs(spw_map[s][v])[0]
-                       msmd.close()
-
-                       if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and chanfreq1 == chanfreq2:
-                           found_match = True
-
-                   if found_match:
-                       spw_map[s][vis] = spw
-                       reverse_spw_map[vis][spw] = s
-                       break
-
-                if found_match:
-                    break
+               if matched_spw != -1:
+                   print("Found a match!")
+                   found_match = True
+                   s = reverse_spw_map[v][matched_spw]
+                   print("virtual_spw = ", s)
+                   spw_map[s][vis] = spw
+                   reverse_spw_map[vis][spw] = s
+                   break
 
             if not found_match:
+                print("Could not find a match, adding new virtual spw", virtual_index)
                 spw_map[virtual_index] = {}
                 spw_map[virtual_index][vis] = spw
                 reverse_spw_map[vis][spw] = virtual_index
@@ -1872,6 +1833,78 @@ def get_spw_map(selfcal_library, target, band, telescope):
     print("reverse_spw_map:")
     print(reverse_spw_map)
     return spw_map, reverse_spw_map
+
+
+def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properties'], fid1=0, fid2=0, target=None, max_tolerance=65.):
+    spw2 = -1
+
+    if target is not None:
+        msmd.open(vis1)
+        fid1 = msmd.fieldsforname(target)[0]
+        msmd.close()
+
+        msmd.open(vis2)
+        fid2 = msmd.fieldsforname(target)[0]
+        msmd.close()
+
+    for method in methods:
+        print("Attempting to match based on", method)
+
+        if method == "properties":
+            score = np.repeat(np.inf, len(vis2_spwarray))
+
+        for i, s in enumerate(vis2_spwarray):
+            if method == "name":
+                # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
+                msmd.open(vis1)
+                spwname=msmd.namesforspws(spw1)[0]
+                msmd.close()
+
+                msmd.open(vis2)
+                sname = msmd.namesforspws(s)[0]
+                msmd.close()
+
+                print("spw", s, spwname, sname)
+
+                if spwname == sname:
+                    spw2 = s
+                    break
+            elif method == "properties":
+                msmd.open(vis1)
+                ms.open(vis1)
+                bandwidth1 = msmd.bandwidths(spw1)
+                chanwidth1 = msmd.chanwidths(spw1)[0]
+                chanfreq1 = ms.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=len(msmd.chanwidths(spw1)), 
+                        start=0, outframe='LSRK')[0]
+                chanres1 = msmd.chanres(spw1, 'km/s', asvel=True).min()
+                msmd.close()
+                ms.close()
+
+                msmd.open(vis2)
+                ms.open(vis2)
+                bandwidth2 = msmd.bandwidths(s)
+                chanwidth2 = msmd.chanwidths(s)[0]
+                chanfreq2 = ms.cvelfreqs(spwids=[s], fieldids=[fid2], mode="channel", nchan=len(msmd.chanwidths(s)), 
+                        start=0, outframe='LSRK')[0]
+                chanres2 = msmd.chanres(s, 'km/s', asvel=True).min()
+                msmd.close()
+                ms.close()
+
+                if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < max_tolerance / chanres1:
+                    score[i] = abs(chanfreq1 - chanfreq2) / abs(chanwidth1)
+                    #spw2 = s
+                    #break
+
+                print("spw", s, "bandwidth", bandwidth1, bandwidth2, "chanwidth", chanwidth1, chanwidth2, "chanfreq", chanfreq1, chanfreq2, "score", score[i])
+
+        if method == "properties":
+            if np.any(np.isfinite(score)):
+                spw2 = vis2_spwarray[np.argmin(score)]
+
+        if spw2 != -1:
+            break
+
+    return spw2
 
 
 def largest_prime_factor(n):
@@ -2745,10 +2778,10 @@ def importdata(vislist,all_targets,telescope):
 
    return listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field_dict,gaincalibrator_dict,spectral_scan,spws_set_dict
 
-def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
+def flag_spectral_lines(vislist,all_targets,spwsarray_dict, telescope):
    print("# cont.dat file found, flagging lines identified by the pipeline.")
    contdotdat = parse_contdotdat('cont.dat',all_targets[0])
-   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict)
+   spwvisref=get_spwnum_refvis(vislist,all_targets[0],contdotdat,spwsarray_dict, use_names=telescope in ['ALMA', 'ACA'])
    for vis in vislist:
       if not os.path.exists(vis+".flagversions/flags.before_line_flags"):
          flagmanager(vis=vis, mode = 'save', versionname = 'before_line_flags', comment = 'Flag states at start of reduction')
@@ -2756,11 +2789,11 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict):
          flagmanager(vis=vis,mode='restore',versionname='before_line_flags')
       for target in all_targets:
          contdotdat = parse_contdotdat('cont.dat',target)
-         if len(contdotdat) == 0:
+         if len(contdotdat['ranges']) == 0:
              print("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.")
              print("No flagging will be done for target "+target)
              continue
-         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
+         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat, telescope)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
 
