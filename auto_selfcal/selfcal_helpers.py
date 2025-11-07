@@ -1588,7 +1588,7 @@ def get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict, use_names=True):
    visref=vislist[np.argmin(score)]            
    return visref
 
-def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat,return_contfit_range=False):
+def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotdat,telescope,return_contfit_range=False):
     """
     Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
 
@@ -1607,7 +1607,7 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
         print("spwvisref = ", spwvisref)
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], target=target)
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"] if telescope in ['ALMA', 'ACA'] else ['properties'], target=target)
 
         if trans_spw == -1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT FLAGGING FOR '+vis)
@@ -1648,7 +1648,7 @@ def flagchannels_from_contdotdat(vis,target,spwsarray,vislist,spwvisref,contdotd
        print("# Cont range string for %s in %s from cont.dat file: \'%s\'" % (target, vis, flagchannels_string))
     return flagchannels_string
 
-def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1):
+def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,telescope,fitorder=1):
     """
     Generates a string with the list of lines identified by the cont.dat file from the ALMA pipeline, that need to be flagged.
 
@@ -1666,7 +1666,7 @@ def get_fitspw_dict(vis,target,spwsarray,vislist,spwvisref,contdotdat,fitorder=1
     #contdotdat = parse_contdotdat('cont.dat',target)
     #spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray)
     for j,spw in enumerate(contdotdat['ranges']):
-        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"], target=target)
+        trans_spw = find_matching_spw(spwvisref, spw, vis, spwsarray, methods=["name","properties"] if telescope in ['ALMA', 'ACA'] else ['properties'], target=target)
 
         if trans_spw==-1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR CONT.DAT SPW {spw}, PROCEEDING WITHOUT CONTINUUM SUBTRACTION FOR '+vis)
@@ -1745,7 +1745,7 @@ def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope):
    contdotdat=parse_contdotdat('cont.dat',target)
    spwvisref=get_spwnum_refvis(vislist,target,contdotdat,spwsarray_dict, use_names=telescope in ['ALMA', 'ACA'])
    for spw in spwsarray_dict[vis]:
-      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"], target=target)
+      trans_spw = find_matching_spw(vis, spw, spwvisref, spwsarray_dict[spwvisref], methods=["name","properties"] if telescope in ['ALMA', 'ACA'] else ['properties'], target=target)
 
       if trans_spw == -1:
            print(f'COULD NOT DETERMINE SPW MAPPING FOR {spw} in CONT.DAT SPW, USING TOTAL BANDWIDTH FOR '+vis)
@@ -1876,7 +1876,7 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
                 chanwidth1 = msmd.chanwidths(spw1)[0]
                 chanfreq1 = ms.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=len(msmd.chanwidths(spw1)), 
                         start=0, outframe='LSRK')[0]
-                chanres1 = msmd.chanres(s, 'km/s', asvel=True).min()
+                chanres1 = msmd.chanres(spw1, 'km/s', asvel=True).min()
                 msmd.close()
                 ms.close()
 
@@ -2793,7 +2793,7 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict, telescope):
              print("WARNING: No cont.dat entry found for target "+target+", this likely indicates that hif_findcont was mitigated. We suggest you re-run findcont without mitigation.")
              print("No flagging will be done for target "+target)
              continue
-         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat)
+         contdot_dat_flagchannels_string = flagchannels_from_contdotdat(vis,target,spwsarray_dict[vis],vislist,spwvisref,contdotdat, telescope)
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
 
