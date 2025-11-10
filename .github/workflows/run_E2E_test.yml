@@ -46,7 +46,9 @@ jobs:
       with:
           name: auto_selfcal_products
           path: |
-              /tmp/pytest-of-runner/pytest-*/test_on_github_*/selfcal_library.pickle
+              /tmp/pytest-of-runner/pytest-*/test_on_github_*/selfcal_library*.pickle
+              /tmp/pytest-of-runner/pytest-*/test_on_github_*/weblog*
+              /tmp/pytest-of-runner/pytest-*/test_on_github-*/*.log
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5

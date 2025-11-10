@@ -76,8 +76,12 @@ def split_calibrated_final(vislist=[], overwrite=True):
 
             # Do the split
 
-            split(vis, outputvis=outputvis, observation=i, intent="*OBSERVE_TARGET*", spw=output_spw, antenna=output_antennas, \
-                    datacolumn=datacolumn)
+            try:
+                split(vis, outputvis=outputvis, observation=i, intent="*OBSERVE_TARGET*", spw=output_spw, antenna=output_antennas, \
+                        datacolumn=datacolumn)
+            except IndexError:
+                print(f"No target scans in {outputvis}, skipping.")
+                continue
 
         msmd.close()
 
