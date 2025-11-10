@@ -1,6 +1,7 @@
 from casatasks import applycal, flagmanager, clearcal, uvcontsub
 from .selfcal_helpers import sanitize_string, parse_contdotdat, get_spwnum_refvis,flagchannels_from_contdotdat,get_fitspw_dict, get_telescope
 from casatools import msmetadata as msmdtool
+import numpy as np
 import casatasks
 import pickle
 import os
@@ -40,6 +41,13 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
     applyCalOut=open('applycal_to_orig_MSes.py','w')
 
     # Clear any pre-existing calibrations in the original MS files.
+
+    vislist = []
+    for target in selfcal_library:
+        for band in selfcal_library[target]:
+            vislist += selfcal_library[target][band]['vislist']
+
+    vislist = np.unique(vislist)
 
     if not write_only:
         for vis in vislist:
