@@ -105,7 +105,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        dogrowprune = True
        minpercentchange = 1.0
        growiterations = 75
-       minbeamfrac = 0.3
+       minbeamfrac = 0.1
        #cyclefactor=1.0
 
     elif 'VLA' in telescope:
