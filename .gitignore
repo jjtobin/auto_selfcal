@@ -13,10 +13,17 @@ TempLattice*
 
 .*.swp
 
-applycal_to_orig_MSes.py
-
 oussid*
 pipeline*
 flux.csv
 cont.dat
 casacalls*
+
+build
+__pycache__
+
+*.egg-info
+
+_build
+
+docs/api/

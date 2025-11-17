@@ -1,8 +1,5 @@
 import numpy as np
-import sys
-#execfile('selfcal_helpers.py',globals())
-sys.path.append("./")
-from selfcal_helpers import *
+from .selfcal_helpers import *
 
 def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iteration, solmode, solints, selfcal_plan, 
         minsnr_to_proceed, allow_gain_interpolation=False):
