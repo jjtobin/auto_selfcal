@@ -31,6 +31,10 @@ import os
         pytest.param('apriori_flagged_spws', id='apriori_flagged_spws'),
         pytest.param('2022.1.00738.S', id='2022.1.00738.S'),
         pytest.param('2023.1.00905.S', id='2023.1.00905.S'),
+        pytest.param('2023.1.00455.S', id='2023.1.00455.S'), # tests mosaics with sub-fields missing from first EB
+        pytest.param('2023.1.01643.S', id='2023.1.01643.S'), # tests mosaics with hanging scans in scan_inf
+        pytest.param('disjoint_missing_spwfid_combo', id='disjoint_missing_spwfid_combo'), # tests spw-mapping, particularly in cases where spws and sub-fields are missing
+        pytest.param('EE11.1.00032.S', id='EE11.1.00032.S'), # tests a dataset with spw names crossing a naming scheme change
     ]
 )
 def test_benchmark(tmp_path, dataset):
