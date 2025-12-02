@@ -6,7 +6,7 @@
 auto_selfcal: Self-calibration, without the hassle!
 ===================================================
 
-auto_selfcal does automatic self-calibration of ALMA and VLA with (almost) no effort from you. It can handle most forms of data, including single pointing and ALMA mosaics (VLA mosaics coming soon), ephemeris data, spectral scans, and more. See below to give it a try, or check out our more extensive documentation at https://auto-selfcal.readthedocs.io/en/latest/running.html.
+auto_selfcal does automatic self-calibration of ALMA and VLA with (almost) no effort from you. It can handle most forms of data, including single pointing and ALMA mosaics (VLA mosaics coming soon), ephemeris data, spectral scans, and more. See below to give it a try, or check out our more extensive documentation at https://auto-selfcal.readthedocs.io.
 
 Quickstart
 ----------
