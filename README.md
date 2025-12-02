@@ -1,5 +1,7 @@
 ![build and test](https://github.com/psheehan/auto_selfcal/actions/workflows/run_E2E_test.yml/badge.svg)
 [![codecov](https://codecov.io/github/psheehan/auto_selfcal/graph/badge.svg?token=6PLBR79LWF)](https://codecov.io/github/psheehan/auto_selfcal)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17603062.svg)](https://doi.org/10.5281/zenodo.17603062)
+
 
 auto_selfcal: Self-calibration, without the hassle!
 ===================================================
@@ -24,10 +26,29 @@ git clone https://github.com/jjtobin/auto_selfcal.git
 cd auto_selfcal
 conda env create -f environment.yaml
 conda activate casa-6.6.5
+pip install .
 
 cd </path/to/pipeline/calibrated/*_targets.ms/files>
 
 auto_selfcal
+```
+
+Acknowledging auto_selfcal
+--------------------------
+
+Love auto_selfcal and want to cite it? Please use:
+
+```tex
+@software{auto_selfcal,
+  author       = {John J. Tobin and Patrick D. Sheehan and Rui Xue and Austen Fourkas},
+  title        = {jjtobin/auto\_selfcal: v1.3.1},
+  month        = nov,
+  year         = 2025,
+  publisher    = {Zenodo},
+  version      = {v1.3.1},
+  doi          = {10.5281/zenodo.17603063},
+  url          = {https://doi.org/10.5281/zenodo.17603063},
+}
 ```
 
 Acknowledgements:
