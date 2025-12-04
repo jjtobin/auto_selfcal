@@ -25,11 +25,7 @@ Or to install into an Anaconda environment and run from a directory where pipeli
 
 .. code-block:: bash
 
-   git clone https://github.com/jjtobin/auto_selfcal.git
-   cd auto_selfcal
-   conda env create -f environment.yaml
-   conda activate casa-6.6.5
-   pip install .
+   pip install auto_selfcal
 
    cd </path/to/pipeline/calibrated/*_targets.ms/files>
 

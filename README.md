@@ -15,18 +15,16 @@ To use auto_selfcal with an existing monolithic CASA distribution:
 
 ```bash
 git clone https://github.com/jjtobin/auto_selfcal.git
+
 cd </path/to/pipeline/calibrated/*_targets.ms/files>
+
 casa -c </path/to/auto_selfcal>/bin/auto_selfcal.py
 ```
 
-Or to install into an Anaconda environment and run from a directory where pipeline-calibrated *_targets.ms files exist::
+Or to install into an existing Python environment and run from a directory where pipeline-calibrated *_targets.ms files exist::
 
 ```bash
-git clone https://github.com/jjtobin/auto_selfcal.git
-cd auto_selfcal
-conda env create -f environment.yaml
-conda activate casa-6.6.5
-pip install .
+pip install auto_selfcal
 
 cd </path/to/pipeline/calibrated/*_targets.ms/files>
 
