@@ -21,7 +21,7 @@ cd </path/to/pipeline/calibrated/*_targets.ms/files>
 casa -c </path/to/auto_selfcal>/bin/auto_selfcal.py
 ```
 
-Or to install into an existing Python environment and run from a directory where pipeline-calibrated *_targets.ms files exist::
+Or to install into an existing Python environment (note that a Python version for which CASA is [available](https://casadocs.readthedocs.io/en/v6.7.0/notebooks/introduction.html#Compatibility) is required) and run from a directory where pipeline-calibrated *_targets.ms files exist:
 
 ```bash
 pip install auto_selfcal
