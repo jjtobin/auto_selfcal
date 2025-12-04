@@ -1,9 +1,5 @@
 import numpy as np
-import glob
-import sys
-#execfile('selfcal_helpers.py',globals())
-sys.path.append("./")
-from selfcal_helpers import *
+from .selfcal_helpers import *
 
 def prepare_selfcal(all_targets, bands, vislist, 
         spectral_average=True, 
