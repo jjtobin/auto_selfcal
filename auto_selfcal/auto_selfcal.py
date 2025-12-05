@@ -58,6 +58,7 @@ def auto_selfcal(
         debug=False, 
         parallel=False,
         weblog=True,
+        mos_field_drop_flux_thresh=None,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -224,6 +225,10 @@ def auto_selfcal(
     weblog : bool, optional
         If True, will create a weblog that provides information on how the 
         self-calibration process proceeded.
+   mos_field_drop_flux_thresh: float, optional
+        The flux difference ratio that will be used to determine if mosaic 
+        fields should be dropped from gaincal selection due to low flux.
+        Default for ALMA: 1.25, VLA: 1.5.
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -315,6 +320,15 @@ def auto_selfcal(
     ##
     ## Get all of the relevant data from the MS files
     ##
+
+    flux_threshold=1.0
+    if mos_field_drop_flux_thresh != None:
+        flux_threshold=mos_field_drop_flux_thresh
+    elif 'VLA' in telescope:
+        flux_threshold=1.5
+    elif 'ALMA' in telescope or 'ACA' in telescope:
+        flux_threshold=1.25
+
     selfcal_library, selfcal_plan, gaincalibrator_dict = {}, {}, {}
     for target in all_targets:
         selfcal_library[target], selfcal_plan[target] = {}, {}
@@ -327,6 +341,8 @@ def auto_selfcal(
 
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
+            selfcal_library[target][band]['flux_threshold']=flux_threshold
+            print(selfcal_library[target][band]['flux_threshold'])
             gaincalibrator_dict.update(target_gaincalibrator_dict)
 
     with open('selfcal_library.pickle', 'wb') as handle:
