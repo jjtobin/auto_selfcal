@@ -102,7 +102,6 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
             for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                 if solint == "scan_inf":
                     msmd.open(vis)
-                    scans_for_field = []
                     cals_for_scan = []
                     total_cals_for_scan = []
                     for incl_scan in selfcal_library[vis][solint]['include_scans']:
@@ -110,9 +109,11 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
                         fields_for_scans = msmd.fieldsforscans(scans_array)
 
                         if selfcal_library['sub-fields-fid_map'][vis][fid] in fields_for_scans:
-                            scans_for_field.append(np.intersect1d(scans_array, np.unique(scans)))
-                            cals_for_scan.append((scans == scans_for_field[-1]).sum() if scans_for_field[-1] in scans else 0.)
-                            #total_cals_for_scan.append(len(msmd.antennasforscan(scans_for_field[-1])))
+                            scans_for_field = np.intersect1d(scans_array, np.unique(scans))
+                            if scans_for_field.size == 0:
+                                cals_for_scan.append(0)
+                            else:
+                                cals_for_scan.append((scans == scans_for_field[-1]).sum())
                             total_cals_for_scan.append(len(msmd.antennanames()))
 
                     if sum(cals_for_scan) / sum(total_cals_for_scan) < 0.75:

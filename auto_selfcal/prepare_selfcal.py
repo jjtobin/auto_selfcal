@@ -28,7 +28,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
     ##
     if os.path.exists("cont.dat"):
        spwsarray_dict = dict(zip(vislist,[np.concatenate([band_properties[vis][band]['spwarray'] for band in bands]) for vis in vislist]))
-       flag_spectral_lines(vislist,all_targets,spwsarray_dict)
+       flag_spectral_lines(vislist,all_targets,spwsarray_dict,telescope)
 
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
@@ -340,7 +340,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
           vislist=selfcal_library[target][band]['vislist'].copy()
 
           selfcal_library[target][band]['spw_map'], selfcal_library[target][band]['reverse_spw_map'] = get_spw_map(selfcal_library, 
-                  target, band, telescope)
+                  target, band, telescope, 0)
 
           #code to work around some VLA data not having the same number of spws due to missing BlBPs
           #selects spwlist from the visibilities with the greates number of spws
@@ -351,16 +351,10 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
           for vis in selfcal_library[target][band]['vislist']:
              selfcal_library[target][band][vis]['per_spw_stats'] = {}
               
-             spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+             spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
 
              selfcal_library[target][band][vis]['total_bandwidth']=0.0
              selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
-             if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
-                print('cont.dat does not contain all spws; falling back to total bandwidth')
-                for spw in spw_bandwidths_dict[vis].keys():
-                   if spw not in spw_effective_bandwidths_dict[vis].keys():
-                      spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths_dict[vis][spw]
-
              for spw in selfcal_library[target][band][vis]['spwlist']:
                 keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
                 if spw not in keylist:
@@ -385,20 +379,15 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
                    selfcal_library[target][band][vis]['baseband'][baseband]['total_effective_bandwidth']+=spw_bandwidths_dict[vis][spw]
           for fid in selfcal_library[target][band]['sub-fields']:
               selfcal_library[target][band][fid]['per_spw_stats']={}
-              selfcal_library[target][band][fid]['spw_map'] = selfcal_library[target][band]['spw_map']
-              selfcal_library[target][band][fid]['reverse_spw_map'] = selfcal_library[target][band]['reverse_spw_map']
+              selfcal_library[target][band][fid]['spw_map'], selfcal_library[target][band][fid]['reverse_spw_map'] = get_spw_map(selfcal_library, target, band, telescope, fid)
               for vis in selfcal_library[target][band][fid]['vislist']:
                   selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
 
-                  spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist)
+                  spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
 
                   selfcal_library[target][band][fid][vis]['total_bandwidth']=0.0
                   selfcal_library[target][band][fid][vis]['total_effective_bandwidth']=0.0
-                  if len(spw_effective_bandwidths_dict[vis].keys()) != len(spw_bandwidths_dict[vis].keys()):
-                     print('cont.dat does not contain all spws; falling back to total bandwidth')
-                     for spw in spw_bandwidths_dict[vis].keys():
-                        if spw not in spw_effective_bandwidths_dict[vis].keys():
-                           spw_effective_bandwidths_dict[vis][spw]=spw_bandwidths_dict[int(spw)]
+
                   for spw in selfcal_library[target][band][fid][vis]['spwlist']:
                      keylist=selfcal_library[target][band][fid][vis]['per_spw_stats'].keys()
                      if spw not in keylist:

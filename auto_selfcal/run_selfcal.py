@@ -676,7 +676,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                             (selfcal_library[fid]['final_solint'] == 'inf_EB' and selfcal_library[fid]['inf_EB_SNR_decrease'])):
                        selfcal_library[fid]['SC_success']=False
                        selfcal_library[fid]['final_solint']='None'
-                       for vis in vislist:
+                       for vis in selfcal_library[fid]['vislist']:
                           selfcal_library[fid][vis]['inf_EB']['Pass']=False    #  remove the success from inf_EB
                           selfcal_library[fid][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
 
