@@ -1,14 +1,11 @@
 import numpy as np
-from scipy import stats
 import glob
 import sys
-#execfile('selfcal_helpers.py',globals())
-sys.path.append("./")
-from selfcal_helpers import *
-from gaincal_wrapper import gaincal_wrapper, generate_settings_for_combinespw_fallback
-from image_analysis_helpers import *
-from mosaic_helpers import *
-from applycal_wrapper import applycal_wrapper
+from .selfcal_helpers import *
+from .gaincal_wrapper import gaincal_wrapper, generate_settings_for_combinespw_fallback
+from .image_analysis_helpers import *
+from .mosaic_helpers import *
+from .applycal_wrapper import applycal_wrapper
 
 # Mac builds of CASA lack MPI and error without this try/except
 try:
@@ -228,8 +225,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
-                       allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction, 
-                       do_fallback_calonly=do_fallback_calonly, guess_scan_combine=guess_scan_combine)
+                       allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction,
+                       guess_scan_combine=guess_scan_combine, do_fallback_calonly=do_fallback_calonly)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.

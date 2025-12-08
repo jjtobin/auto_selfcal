@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto_selfcal"
+version = "2.0"
+authors = [
+  { name="John Tobin", email="jtobin@nrao.edu" },
+  { name="Patrick Sheehan", email="psheehan@nrao.edu" },
+]
+description = "Automated self-calibration of interferometric data"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "casatools",
+    "casatasks",
+    "casaplotms",
+    "casadata",
+    "casaviewer<=2.0.1",
+    "protobuf<=3.20.3",
+]
+
+[project.optional-dependencies]
+mpi = ["casampi","mpi4py<4.0.0"]
+test = ["pytest","pytest-xdist","submitit"]
+docs = ["sphinx","sphinx-automodapi","sphinx_book_theme","numpydoc"]
+
+[project.urls]
+Homepage = "https://github.com/jjtobin/auto_selfcal"
+Issues = "https://github.com/jjtobin/auto_selfcal/issues"
+
+[project.scripts]
+auto_selfcal = "auto_selfcal:__main__"
+
+[tool.pytest.ini_options]
+markers = [
+    "ghtest: fast tests to run on GitHub Actions.",
+    "benchmark: the auto_selfcal benchmark tests."
+]
