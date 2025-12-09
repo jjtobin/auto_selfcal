@@ -59,6 +59,7 @@ def auto_selfcal(
         parallel=False,
         weblog=True,
         mos_field_drop_flux_thresh=None,
+        overlap_tol=1.0,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -229,6 +230,12 @@ def auto_selfcal(
         The flux difference ratio that will be used to determine if mosaic 
         fields should be dropped from gaincal selection due to low flux.
         Default for ALMA: 1.25, VLA: 1.5.
+   overlap_tol: float, optional 
+        Field overlap tolerance for VLA mosaic identification in units of HPBW.
+        1.0 will require overlap at the estimated HPBW, < 1.0 requires more closely
+        spaced fields, > 1.0 will allow more distantly placed fields to be 
+        identified as a mosaic. 
+        Default: 1.0
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -278,7 +285,7 @@ def auto_selfcal(
     ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
     ##
     #all_targets=fetch_targets(vislist[0])
-    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged, bands_for_targets=fetch_targets(vislist, telescope)
+    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged, bands_for_targets=fetch_targets(vislist, telescope,overlap_tol)
 
     ##
     ## Global environment variables for control of selfcal
@@ -342,7 +349,7 @@ def auto_selfcal(
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
             selfcal_library[target][band]['flux_threshold']=flux_threshold
-            print(selfcal_library[target][band]['flux_threshold'])
+            selfcal_library[target][band]['overlap_tol']=overlap_tol
             gaincalibrator_dict.update(target_gaincalibrator_dict)
 
     with open('selfcal_library.pickle', 'wb') as handle:

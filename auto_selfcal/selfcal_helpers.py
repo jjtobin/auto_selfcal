@@ -872,7 +872,7 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
    return delta_ints_per_solint[min_index]
    
 
-def fetch_targets(vislist,telescope):
+def fetch_targets(vislist,telescope,overlap_tol=0.9):
    targets_vis={}
    targets_band_vis={}
    vis_for_targets={}
@@ -948,7 +948,7 @@ def fetch_targets(vislist,telescope):
                 bands_for_targets[band]['meanfreq']=vis_for_targets[target][band]['meanfreq']
       bands_for_targets[band]['targets'].sort() 
       print(bands_for_targets)
-      mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'],telescope)
+      mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'],telescope,overlap_tol)
       print(mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids)
       if len(mosaic_groups) > 0:
        for m,mosaic_group in enumerate(mosaic_groups): # mosaic_group should be a list, code below gives the mosaic the name of the first fieldname in the list
@@ -995,7 +995,7 @@ def create_mosaic_groups(ra_arr, dec_arr,names,ids,hpbw,overlap_tol=0.9):
          single_fields_ids.append(str(ids[indices[0][0]]))
     return mosaics,mosaics_ids,single_fields,single_fields_ids     
 
-def check_targets_for_mosaic(vislist,targets,freq,telescope):
+def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=0.9):
     for vis in vislist:
         msmd.open(vis)
         fieldids=[]
@@ -1013,7 +1013,7 @@ def check_targets_for_mosaic(vislist,targets,freq,telescope):
                ra.append(phasecenter_dict['m0']['value']*180.0/np.pi)
                dec.append(phasecenter_dict['m1']['value']*180.0/np.pi)
            hpbw=42.0e9/freq*60.0
-           if len(targets) > 1:    mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol=0.9)
+           if len(targets) > 1:    mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol)
            else:
                mosaic_groups=[]
                mosaic_groups_ids=[]
