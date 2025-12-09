@@ -872,7 +872,7 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
    return delta_ints_per_solint[min_index]
    
 
-def fetch_targets(vislist,telescope,overlap_tol=0.9):
+def fetch_targets(vislist,telescope,overlap_tol=1.0):
    targets_vis={}
    targets_band_vis={}
    vis_for_targets={}
@@ -976,7 +976,7 @@ def fetch_targets(vislist,telescope,overlap_tol=0.9):
 
 #tolerance in units of hpbw; 1.0 means limit to an optimally sampled mosaic
 # 2.0 limit means sparse, beam sampled mosaic
-def create_mosaic_groups(ra_arr, dec_arr,names,ids,hpbw,overlap_tol=0.9):
+def create_mosaic_groups(ra_arr, dec_arr,names,ids,hpbw,overlap_tol=1.0):
     pointings=np.vstack((ra_arr, dec_arr)).T
     Z=hc.linkage(pointings,method='single',optimal_ordering=True)
     clusters=hc.fcluster(Z, t=hpbw*overlap_tol/3600.0, criterion='distance')
@@ -995,7 +995,7 @@ def create_mosaic_groups(ra_arr, dec_arr,names,ids,hpbw,overlap_tol=0.9):
          single_fields_ids.append(str(ids[indices[0][0]]))
     return mosaics,mosaics_ids,single_fields,single_fields_ids     
 
-def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=0.9):
+def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=1.0):
     for vis in vislist:
         msmd.open(vis)
         fieldids=[]
@@ -1055,7 +1055,7 @@ def check_targets_for_mosaic_old(vislist,targets,freq):
         #mosaic_fields=ascii.read('mosaic_larger.reg',names=['field','ids','ra','dec'])
         #print(mosaic_fields)
         hpbw=42.0e9/freq*60.0
-        if len(targets) > 1:    mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol=0.9)
+        if len(targets) > 1:    mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol=1.0)
         else:
             mosaic_groups=[]
             mosaic_groups_ids=[]
