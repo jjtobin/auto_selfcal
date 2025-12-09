@@ -24,7 +24,7 @@ casa -c </path/to/auto_selfcal>/bin/auto_selfcal.py
 Or to install into an existing Python environment (note that a Python version for which CASA is [available](https://casadocs.readthedocs.io/en/v6.7.0/notebooks/introduction.html#Compatibility) is required) and run from a directory where pipeline-calibrated *_targets.ms files exist:
 
 ```bash
-pip install auto_selfcal
+pip install auto-selfcal
 
 cd </path/to/pipeline/calibrated/*_targets.ms/files>
 
@@ -38,14 +38,14 @@ Love auto_selfcal and want to cite it? Please use:
 
 ```tex
 @software{auto_selfcal,
-  author       = {John J. Tobin and Patrick D. Sheehan and Rui Xue and Austen Fourkas},
-  title        = {jjtobin/auto\_selfcal: v1.3.1},
-  month        = nov,
-  year         = 2025,
-  publisher    = {Zenodo},
-  version      = {v1.3.1},
-  doi          = {10.5281/zenodo.17603063},
-  url          = {https://doi.org/10.5281/zenodo.17603063},
+    author       = {Patrick Sheehan and John J. Tobin and Rui Xue and Austen Fourkas},
+    title        = {jjtobin/auto\_selfcal: v2.0.0},
+    month        = dec,
+    year         = 2025,
+    publisher    = {Zenodo},
+    version      = {v2.0.0},
+    doi          = {10.5281/zenodo.17871742},
+    url          = {https://doi.org/10.5281/zenodo.17871742},
 }
 ```
 
