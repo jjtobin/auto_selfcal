@@ -59,7 +59,7 @@ Love auto_selfcal and want to cite it in your paper? Please include the followin
 .. code-block:: bibtex
 
    @software{auto_selfcal,
-      author       = {Patrick Sheehan and John J. Tobin and Rui Xue and Austen Fourkas},
+      author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Austen Fourkas},
       title        = {jjtobin/auto\_selfcal: v2.0.0},
       month        = dec,
       year         = 2025,
