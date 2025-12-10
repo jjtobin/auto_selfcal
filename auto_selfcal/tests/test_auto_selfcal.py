@@ -75,6 +75,7 @@ def test_benchmark(tmp_path, dataset):
         pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/Ea8NGWjlNptNnyqg_62xxmcB0lk64IpB7Dd7AgfltnNkXQ?e=pATHrR&download=1', id="2018.1.01284.S_HOPS-384"),
         pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EScVSXH9JHRIt2P-9fwxVRYBsy70G94cKxv00HTv44Pdug?e=W1zfyP&download=1', id="Band8-7m-2"),
         pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EZP4KRsBbthPksh6_kKsNI4Bm3m4L-1QhF4zCUDXhO73Lg?e=tmcIMv&download=1', id="M82-C-conf-C-band_small"),
+        pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=bqVaJz&download=1', id='K-band-mini-mosaic')
     ]
 )
 def test_on_github(tmp_path, request, zip_file, link):
