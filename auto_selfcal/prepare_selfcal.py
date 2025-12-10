@@ -462,6 +462,7 @@ def prepare_selfcal(all_targets, bands, vislist,
                     scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
                     inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic', max_solint=max_solint)
              print(band,target,selfcal_plan[target][band]['solints'])
+             print(band,target,selfcal_plan[target][band]['solint_interval'])
              selfcal_plan[target][band]['applycal_mode']=[apply_cal_mode_default]*len(selfcal_plan[target][band]['solints'])
 
     ##
