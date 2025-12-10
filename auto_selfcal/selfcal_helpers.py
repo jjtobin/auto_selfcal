@@ -1299,8 +1299,8 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,solints_interv
             SNR_self_EB_spw={}
             SNR_self_EB_bb={}
             for i in range(len(selfcal_library['vislist'])):
-               if solint_interval[s] != 'inf':
-                   solint_float=float(solint_interval[s].replace('s',''))
+               if solints_interval[s] != 'inf':
+                   solint_float=float(solints_interval[s].replace('s',''))
                    #use length of EB for S/N if inf_EB solint
                    inf_EB_tint=solint_float
                    if solint_float > selfcal_library[selfcal_library['vislist'][i]]['TOS']:
