@@ -11,6 +11,7 @@ def prepare_selfcal(all_targets, bands, vislist,
         do_amp_selfcal=True,
         usermask={},
         usermodel={},
+        max_solint=4500.0,
         debug=False):
 
     n_ants=get_n_ants(vislist)
@@ -457,9 +458,9 @@ def prepare_selfcal(all_targets, bands, vislist,
           selfcal_plan[target][band] = {}
           if band in selfcal_library[target]:
              selfcal_plan[target][band]['solints'],selfcal_plan[target][band]['integration_time'],selfcal_plan[target][band]['gaincal_combine'], \
-                    selfcal_plan[target][band]['solmode']=get_solints_simple(selfcal_library[target][band]['vislist'],scantimesdict[band],
+                    selfcal_plan[target][band]['solmode'],selfcal_plan[target][band]['solint_interval']=get_solints_simple(selfcal_library[target][band]['vislist'],scantimesdict[band],\
                     scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
-                    inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic')
+                    inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic', max_solint=max_solint)
              print(band,target,selfcal_plan[target][band]['solints'])
              selfcal_plan[target][band]['applycal_mode']=[apply_cal_mode_default]*len(selfcal_plan[target][band]['solints'])
 

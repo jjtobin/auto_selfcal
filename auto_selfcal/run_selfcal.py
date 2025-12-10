@@ -70,8 +70,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
    print('Starting selfcal procedure on: '+target+' '+band)
    while iteration  < len(selfcal_plan['solints']):
 
-      print("Solving for solint="+selfcal_plan['solints'][iteration])
-
+      print("Solving for solint="+selfcal_plan['solints'][iteration]+' with interval '+selfcal_plan['solint_interval'][iteration])
+      
       # Set some cocal parameters.
       if selfcal_plan['solints'][iteration] in ["inf_EB_fb","inf_fb1"]:
           calculate_inf_EB_fb_anyways = True
@@ -113,6 +113,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          break
       else:
          solint=selfcal_plan['solints'][iteration]
+         solint_interval=selfcal_plan['solint_interval'][iteration]
          if iteration == 0:
             print('Starting with solint: '+solint)
          else:
@@ -220,7 +221,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                     continue
 
-               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, selfcal_plan['applycal_mode'][iteration], iteration, telescope, gaincal_minsnr, 
+               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, selfcal_plan['applycal_mode'][iteration], iteration, telescope, gaincal_minsnr, 
                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, rerank_refants=rerank_refants, \
                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
@@ -238,7 +239,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          ## Apply gain solutions per MS, target, solint, and band
          ##
          for vis in vislist:
-            applycal_wrapper(vis, target, band, solint, selfcal_library, 
+            applycal_wrapper(vis, target, band, solint, solint_interval, selfcal_library, 
                     current=lambda f: f in selfcal_library['sub-fields-to-selfcal'],
                     final=lambda f: f not in selfcal_library['sub-fields-to-selfcal'] and selfcal_library[f]['SC_success'],
                     restore_flags='fb_selfcal_starting_flags_'+sani_target+'_'+band if mode == "cocal" else None)
@@ -349,7 +350,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              field_by_field_success_dict = dict(zip(selfcal_library['sub-fields-to-selfcal'], field_by_field_success))
              print('****************Not all fields were successful, so re-applying and re-making _post image*************')
              for vis in vislist:
-                 applycal_wrapper(vis, target, band, solint, selfcal_library, 
+                 applycal_wrapper(vis, target, band, solint, solint_interval, selfcal_library, 
                          current=lambda f: f in field_by_field_success_dict and field_by_field_success_dict[f],
                          final=lambda f: (f not in field_by_field_success_dict or not field_by_field_success_dict[f]) and 
                              selfcal_library[f]['SC_success'],
@@ -510,7 +511,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              if iteration > 0: # reapply only the previous gain tables, to get rid of solutions from this selfcal round
                 print('****************Reapplying previous solint solutions*************')
                 for vis in vislist:
-                   applycal_wrapper(vis, target, band, solint, selfcal_library, 
+                   applycal_wrapper(vis, target, band, solint, solint_interval, selfcal_library, 
                            final=lambda f: selfcal_library[f]['SC_success'],
                            restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target+'_'+band)
              else:
@@ -659,7 +660,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                           selfcal_library[fid][vis]['inf_EB']['Fail_Reason']+=' with no successful solints later'    #  remove the success from inf_EB
 
              for vis in vislist:
-                 applycal_wrapper(vis, target, band, solint, selfcal_library, 
+                 applycal_wrapper(vis, target, band, solint, solint_interval, selfcal_library, 
                          final=lambda f: selfcal_library[f]['SC_success'],
                          clear=lambda f: not selfcal_library[f]['SC_success'], 
                          restore_flags=("fb_" if mode == "cocal" else "")+'selfcal_starting_flags_'+sani_target+'_'+band)
