@@ -1254,7 +1254,7 @@ def get_SNR_self(selfcal_library,selfcal_plan,n_ant,inf_EB_gaincal_combine,inf_E
           selfcal_plan[target][band][fid] = {}
           selfcal_plan[target][band][fid]['solint_snr_per_field'], selfcal_plan[target][band][fid]['solint_snr_per_field_per_spw'], selfcal_plan[target][band][fid]['solint_snr_per_field_per_bb'] = \
                   get_SNR_self_individual(selfcal_library[target][band]['vislist'], selfcal_library[target][band][fid], n_ant, 
-                  selfcal_plan[target][band]['solints'], selfcal_plan[target][band]['integration_time'], inf_EB_gaincal_combine, 
+                  selfcal_plan[target][band]['solints'], selfcal_plan[target][band]['solint_interval'], selfcal_plan[target][band]['integration_time'], inf_EB_gaincal_combine, 
                   inf_EB_gaintype)
 
           print('Estimated SNR per solint:')
