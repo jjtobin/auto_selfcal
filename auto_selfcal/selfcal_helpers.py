@@ -21,6 +21,122 @@ msmd = msmdtool()
 ia = image()
 im = imager()
 
+class msmdWrapper:
+    def __init__(self):
+        self.stored_values = {}
+        self.current_file = None
+
+    def open(self, filename):
+        if filename not in self.stored_values:
+            self.stored_values[filename] = {}
+
+        self.current_file = filename
+
+    def bandwidths(self, spw):
+        if "bandwidths" in self.stored_values[self.current_file]:
+            if spw not in self.stored_values[self.current_file]['bandwidths']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['bandwidths'][spw] = msmd.bandwidths(spw)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["bandwidths"] = {}
+            self.stored_values[self.current_file]['bandwidths'][spw] = msmd.bandwidths(spw)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['bandwidths'][spw]
+
+    def chanwidths(self, spw):
+        if "chanwidths" in self.stored_values[self.current_file]:
+            if spw not in self.stored_values[self.current_file]['chanwidths']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['chanwidths'][spw] = msmd.chanwidths(spw)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["chanwidths"] = {}
+            self.stored_values[self.current_file]['chanwidths'][spw] = msmd.chanwidths(spw)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['chanwidths'][spw]
+
+    def namesforspws(self, spw):
+        if "namesforspws" in self.stored_values[self.current_file]:
+            if spw not in self.stored_values[self.current_file]['namesforspws']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['namesforspws'][spw] = msmd.namesforspws(spw)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["namesforspws"] = {}
+            self.stored_values[self.current_file]['namesforspws'][spw] = msmd.namesforspws(spw)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['namesforspws'][spw]
+
+    def fieldsforname(self, target):
+        if "fieldsforname" in self.stored_values[self.current_file]:
+            if target not in self.stored_values[self.current_file]['fieldsforname']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['fieldsforname'][target] = msmd.fieldsforname(target)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["fieldsforname"] = {}
+            self.stored_values[self.current_file]['fieldsforname'][target] = msmd.fieldsforname(target)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['fieldsforname'][target]
+
+    def chanres(self, spw, units, asvel=True):
+        key = (spw, units, asvel)
+        if "chanres" in self.stored_values[self.current_file]:
+            if key not in self.stored_values[self.current_file]['chanres']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['chanres'][key] = msmd.chanres(spw, units, asvel=asvel)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["chanres"] = {}
+            self.stored_values[self.current_file]['chanres'][key] = msmd.chanres(spw, units, asvel=asvel)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['chanres'][key]
+
+    def cvelfreqs(self, spwids=None, fieldids=None, mode="channel", nchan=1, start=0, outframe='LSRK'):
+        key = (spwids[0], fieldids[0], mode, nchan, start, outframe)
+        if "cvelfreqs" in self.stored_values[self.current_file]:
+            if key not in self.stored_values[self.current_file]['cvelfreqs']:
+                ms.open(self.current_file)
+                self.stored_values[self.current_file]['cvelfreqs'][key] = ms.cvelfreqs(spwids=spwids, fieldids=fieldids, mode=mode,
+                        nchan=nchan, start=start, outframe=outframe)
+                ms.close()
+            else:
+                print("Using cached values...")
+        else:
+            ms.open(self.current_file)
+            self.stored_values[self.current_file]["cvelfreqs"] = {}
+            self.stored_values[self.current_file]['cvelfreqs'][key] = ms.cvelfreqs(spwids=spwids, fieldids=fieldids, mode=mode,
+                    nchan=nchan, start=start, outframe=outframe)
+            ms.close()
+
+        return self.stored_values[self.current_file]['cvelfreqs'][key]
+
+    def close(self):
+        self.current_file = None
+
+msmdw = msmdWrapper()
+
 def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
@@ -1839,13 +1955,13 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
     spw2 = -1
 
     if target is not None:
-        msmd.open(vis1)
-        fid1 = msmd.fieldsforname(target)[0]
-        msmd.close()
+        msmdw.open(vis1)
+        fid1 = msmdw.fieldsforname(target)[0]
+        msmdw.close()
 
-        msmd.open(vis2)
-        fid2 = msmd.fieldsforname(target)[0]
-        msmd.close()
+        msmdw.open(vis2)
+        fid2 = msmdw.fieldsforname(target)[0]
+        msmdw.close()
 
     for method in methods:
         print("Attempting to match based on", method)
@@ -1856,13 +1972,13 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
         for i, s in enumerate(vis2_spwarray):
             if method == "name":
                 # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
-                msmd.open(vis1)
-                spwname=msmd.namesforspws(spw1)[0]
-                msmd.close()
+                msmdw.open(vis1)
+                spwname=msmdw.namesforspws(spw1)[0]
+                msmdw.close()
 
-                msmd.open(vis2)
-                sname = msmd.namesforspws(s)[0]
-                msmd.close()
+                msmdw.open(vis2)
+                sname = msmdw.namesforspws(s)[0]
+                msmdw.close()
 
                 print("spw", s, spwname, sname)
 
@@ -1870,25 +1986,23 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
                     spw2 = s
                     break
             elif method == "properties":
-                msmd.open(vis1)
-                ms.open(vis1)
-                bandwidth1 = msmd.bandwidths(spw1)
-                chanwidth1 = msmd.chanwidths(spw1)[0]
-                chanfreq1 = ms.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=len(msmd.chanwidths(spw1)), 
+                msmdw.open(vis1)
+                bandwidth1 = msmdw.bandwidths(spw1)
+                chanwidth1 = msmdw.chanwidths(spw1)[0]
+                nchan1 = len(msmdw.chanwidths(spw1))
+                chanres1 = msmdw.chanres(spw1, 'km/s', asvel=True).min()
+                chanfreq1 = msmdw.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=nchan1, 
                         start=0, outframe='LSRK')[0]
-                chanres1 = msmd.chanres(spw1, 'km/s', asvel=True).min()
-                msmd.close()
-                ms.close()
+                msmdw.close()
 
-                msmd.open(vis2)
-                ms.open(vis2)
-                bandwidth2 = msmd.bandwidths(s)
-                chanwidth2 = msmd.chanwidths(s)[0]
-                chanfreq2 = ms.cvelfreqs(spwids=[s], fieldids=[fid2], mode="channel", nchan=len(msmd.chanwidths(s)), 
+                msmdw.open(vis2)
+                bandwidth2 = msmdw.bandwidths(s)
+                chanwidth2 = msmdw.chanwidths(s)[0]
+                nchan2 = len(msmdw.chanwidths(s))
+                chanres2 = msmdw.chanres(s, 'km/s', asvel=True).min()
+                chanfreq2 = msmdw.cvelfreqs(spwids=[s], fieldids=[fid2], mode="channel", nchan=nchan2, 
                         start=0, outframe='LSRK')[0]
-                chanres2 = msmd.chanres(s, 'km/s', asvel=True).min()
-                msmd.close()
-                ms.close()
+                msmdw.close()
 
                 if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < max_tolerance / chanres1:
                     score[i] = abs(chanfreq1 - chanfreq2) / abs(chanwidth1)
