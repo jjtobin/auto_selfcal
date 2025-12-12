@@ -257,6 +257,9 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
            allscannfields=np.array([])
            for vis in selfcal_library[target][band][fid]['vislist']:
               good = np.array([str(selfcal_library[target][band]['sub-fields-fid_map'][vis][fid]) in scan_fields for scan_fields in scanfieldsdict[band][vis][target]])
+              print('good fields')
+              print(good)
+              print(scanfieldsdict[band][vis][target])
               selfcal_library[target][band][fid][vis]['gaintable']=[]
               selfcal_library[target][band][fid][vis]['TOS']=np.sum(scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])
               selfcal_library[target][band][fid][vis]['Median_scan_time']=np.median(scantimesdict[band][vis][target][good]/scannfieldsdict[band][vis][target][good])

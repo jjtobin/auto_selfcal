@@ -549,7 +549,15 @@ def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_propertie
       scansdict[vis]={}
       msmd.open(vis)
       for target in targets:
-         scansforfield=msmd.scansforfield(target)
+         if 'VLA' in telescope:
+            scansforfield=np.array([])
+            for field_id in list(set(bands_for_targets['field_ids'])):
+                scans_temp=msmd.scansforfield(field_id)
+                scansforfield=np.append(scansforfield,np.array(scans_temp))
+            scansforfield.sort()
+            print('scans for field',scansforfield)
+         elif telescope =='ALMA' or telescope == 'ACA':
+            scansforfield=msmd.scansforfield(target)
          for spw in band_properties[vis][band]['spwarray']:
             scansforspw_temp=msmd.scansforspw(spw)
             scansforspw=np.append(scansforspw,np.array(scansforspw_temp,dtype=int))
