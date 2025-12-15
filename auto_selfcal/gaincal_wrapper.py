@@ -129,7 +129,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 scans = scans[is_gaincalibrator]
 
                 msmd.open(vis)
-                if telescope == 'ALMA' and telescope == 'ACA':
+                if telescope == 'ALMA' or telescope == 'ACA':
                     scan_ids_for_target = msmd.scansforfield(target)
                 elif 'VLA' in telescope:
                     scan_ids_for_target=np.array([],dtype=int)
