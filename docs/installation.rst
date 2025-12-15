@@ -12,7 +12,12 @@ Formal installation into monolithic CASA is not required, as we provide script v
 
 in a terminal. The core auto_selfcal scripts now exist in the ``auto_selfcal/bin`` directory.
 
-If you do, however, want to install into monolithic CASA, see below, under :ref:`Installing with pip`. If you opt for this route, be sure to use the ``pip`` installed with your monolithic CASA distribution (i.e. ``</path/to/monolithic/CASA>/bin/pip``).
+If you do, however, want to install into monolithic CASA, see below, under :ref:`Installing with pip`. If you opt for this route, be sure to use the ``pip`` installed with your monolithic CASA distribution (i.e. ``</path/to/monolithic/CASA>/bin/pip3``).
+With that done, you can also run the following command to properly set up the auto_selfcal command line tool:
+
+.. code-block:: bash
+
+    </path/to/monolithic/CASA/>/bin/casa -c "import auto_selfcal; auto_selfcal.setup_monolithic_CASA()"
 
 Installing with pip
 -------------------

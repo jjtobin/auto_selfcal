@@ -24,7 +24,7 @@ If a weblog was not generated at the time that auto_selfcal was run, e.g. ``webl
 
     casa -c <path/to/auto_selfcal>/bin/regenerate_weblog.py
 
-In modular CASA, this can be done either via the command line tool
+In modular CASA or monolithic CASA with auto_selfcal pip-installed, this can be done either via the command line tool
 
 .. code-block:: bash
 

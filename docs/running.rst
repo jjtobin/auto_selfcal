@@ -32,6 +32,23 @@ We also provide a tool to do continuum subtraction of the original MS files usin
 
 Note that with these scripts there is no support for command line arguments; to change these options, edit the bin/\*.py files directly. For details about the available parameters for each of these functions, see our :ref:`Top Level API`.
 
+Running when pip-installed into Monolithic CASA
+-----------------------------------------------
+
+If you pip install auto_selfcal into Monolithic CASA and properly setup the symbolic links (see :ref:`Installing into Monolithic CASA`) then the auto_selfcal command line tool should be available:
+
+.. code-block:: bash
+
+    </path/to/CASA>/bin/auto_selfcal --<command line option> <argument> ...
+
+or with mpicasa:
+
+.. code-block:: bash
+
+    </path/to/CASA>/bin/mpicasa -n <N> auto_selfcal --<command line option> <argument> ...
+
+Alternatively, auto_selfcal can be imported into an interactive CASA session as with any Python package. For further details on using the command line tool or Python interface, see below.
+
 Running in Modular CASA
 -----------------------
 
