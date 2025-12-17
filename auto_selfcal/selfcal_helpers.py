@@ -1047,32 +1047,6 @@ def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=1.0):
 
     return mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids
 
-def check_targets_for_mosaic_old(vislist,targets,freq):
-    for vis in vislist:
-        msmd.open(vis)
-        fieldids=[]
-        for target in targets:
-            fieldids=fieldids+list(msmd.fieldsforname(target)) # convert to list from a numpy array that is returned
-        ra=[]
-        dec=[]
-        for fid in fieldids:
-            phasecenter_dict=msmd.phasecenter(fieldid=fid)
-            ra.append(phasecenter_dict['m0']['value']*180.0/np.pi)
-            dec.append(phasecenter_dict['m1']['value']*180.0/np.pi)
-
-        #mosaic_fields=ascii.read('mosaic_larger.reg',names=['field','ids','ra','dec'])
-        #print(mosaic_fields)
-        hpbw=42.0e9/freq*60.0
-        if len(targets) > 1:    mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol=1.0)
-        else:
-            mosaic_groups=[]
-            mosaic_groups_ids=[]
-            single_fields=targets
-            single_fields_ids=fieldids
-        print('Mosaics groupings: ',mosaic_groups)
-        print('Single Fields: ',single_fields)
-    return mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids
-
 def checkmask(imagename):
    maskImage=imagename.replace('image','mask').replace('.tt0','')
    image_stats= imstat(maskImage)
@@ -1518,24 +1492,6 @@ def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_ne
 
    for baseband in selfcal_library[vis]['baseband']:
       selfcal_plan['solint_snr_per_bb'][solint_next][baseband]=selfcal_plan['solint_snr_per_bb'][solint_next][baseband]*SNR_ratio
-
-
-
-def get_SNR_self_update_old(selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
-
-    SNR = max(selfcal_library[selfcal_library['vislist'][0]][solint_curr]['SNR_post'],selfcal_library[selfcal_library['vislist'][0]][solint_curr]['intflux_post']/selfcal_library[selfcal_library['vislist'][0]][solint_curr]['e_intflux_post'])
-
-    if solint_next == 'inf' or solint_next == 'inf_ap':
-       selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
-       solint_snr[solint_next]=selfcal_library['per_scan_SNR']
-    elif solint_next == 'scan_inf':
-       selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
-       solint_snr[solint_next]=selfcal_library['per_scan_SNR']
-    elif solint_next == 'int':
-       solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
-    else:
-       solint_float=float(solint_next.replace('s','').replace('_ap',''))
-       solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
 
 
 def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=[1600,1600],robust=0.5,specmode='mfs',uvtaper=''):
@@ -2068,67 +2024,6 @@ def largest_prime_factor(n):
             n //= i
     return n
 
-
-def get_image_parameters_old(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
-   cells=np.zeros(len(vislist))
-   for i in range(len(vislist)):
-      #im.open(vislist[i])
-      im.selectvis(vis=vislist[i],spw=selfcal_library[target][band][vislist[i]]['spwsarray'])
-      adviseparams= im.advise() 
-      cells[i]=adviseparams[2]['value']/2.0
-      im.close()
-   cell=np.min(cells)
-   cellsize='{:0.3f}arcsec'.format(cell)
-   nterms=1
-   if selfcal_library[target][band]['fracbw'] > 0.1:
-      nterms=2
-   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
-
-   if 'VLA' in telescope:
-      fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
-      if selfcal_library[target][band]['meanfreq'] < 12.0e9:
-         fov=fov*2.0
-   if telescope=='ALMA':
-      fov=63.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
-   if telescope=='ACA':
-      fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
-   fov=fov*scale_fov
-   if mosaic:
-       msmd.open(vislist[0])
-       #get field IDs for VLA and and ALMA differently
-       if telescope == 'ALMA':
-          fieldid=msmd.fieldsforname(target)
-       elif 'VLA' in telescope:
-          fieldid=np.array([],dtype=int)
-          for fid in selfcal_library[target][band]['sub-fields']:
-             if fid in selfcal_library[target][band]['sub-fields-fid_map'][vislist[0]].keys():
-                field_id=selfcal_library[target][band]['sub-fields-fid_map'][vislist[0]][fid]
-                fieldid=np.append(fieldid,np.array([field_id]))
-
-       ra_phasecenter_arr=np.zeros(len(fieldid))
-       dec_phasecenter_arr=np.zeros(len(fieldid))
-       for i in range(len(fieldid)):
-          phasecenter=msmd.phasecenter(fieldid[i])
-          ra_phasecenter_arr[i]=phasecenter['m0']['value']
-          dec_phasecenter_arr[i]=phasecenter['m1']['value']
-       msmd.done()
-
-       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
-               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
-
-       fov += mosaic_size
-
-   npixels=int(np.ceil(fov/cell / 100.0)) * 100
-   if npixels > 16384:
-      if mosaic:
-          print("WARNING: Image size = "+str(npixels)+" is excessively large. It is not being trimmed because it is needed for the mosaic, but this may not be viable for your hardware.")
-      else:
-          npixels=16384
-
-   while largest_prime_factor(npixels) >= 7:
-       npixels += 2
-
-   return cellsize,npixels,nterms,reffreq
 
 def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
@@ -2733,22 +2628,32 @@ def plot_ants_flagging_colored_from_dict(filename,selfcal_library,selfcal_plan,s
    plt.close()
 
 
-def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
+def plot_image(filename,outname,min_val=None,max_val=None,zoom=1.0):
    import matplotlib
    matplotlib.use('Agg')
    import matplotlib.pyplot as plt
    header=imhead(filename)
    tb.open(filename)
-   image_data=np.rot90(tb.getcol('map').squeeze())   # rotate the image 90 degrees and get rid of degenerate axes
+   image_data=(np.rot90(tb.getcol('map').squeeze()))   # rotate the image 90 degrees and get rid of degenerate axes
    tb.close()
-   size=np.max(header['shape'])
+   size_x=header['shape'][0]
+   size_y=header['shape'][1]
    cell=header['incr'][1]*3600.0*180.0/3.14159        #get pixel size from header declination direction
-   halfsize_arcsec=size/zoom/2.0*cell
+   halfsize_arcsec_x=size_x/zoom/2.0*cell
+   halfsize_arcsec_y=size_y/zoom/2.0*cell
+   halfsize_pix_x=size_x/zoom/2.0
+   halfsize_pix_y=size_y/zoom/2.0
+
+   image_extent=[halfsize_arcsec_x,-halfsize_arcsec_x,-halfsize_arcsec_y,halfsize_arcsec_y]
+
    fig=plt.figure(figsize=(8.5,8))
    ax=fig.add_subplot(1,1,1)
 
-   ll=int(size/zoom-size/(zoom*2))
-   ul=int(size/zoom+size/(zoom*2))
+   llx=int(size_x/2.0-size_x/(zoom*2))
+   ulx=int(size_x/2.0+size_x/(zoom*2))
+   lly=int(size_y/2.0-size_y/(zoom*2))
+   uly=int(size_y/2.0+size_y/(zoom*2))
+   
 
    mask_exists=os.path.exists(filename.replace('image.tt0','mask'))
    if mask_exists: #if mask exists draw it as a contour, else don't use contours
@@ -2758,13 +2663,13 @@ def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
       tb.close()
 
    if min_val == None:
-      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+      img=ax.imshow(image_data[lly:uly,llx:ulx],extent=image_extent)
       if mask_exists:
-         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+         conts=ax.contour(mask_data[lly:uly,llx:ulx],levels=[0.5], colors='white', extent=image_extent)
    else:
-      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec],vmin=min_val,vmax=max_val)
+      img=ax.imshow(image_data[lly:uly,llx:ulx],extent=image_extent,vmin=min_val,vmax=max_val)
       if mask_exists:
-         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+         conts=ax.contour(mask_data[lly:uly,llx:ulx],levels=[0.5], colors='white', extent=image_extent)
 
    ax.set_xlabel('Offset (arcsec)',fontsize=18)
    ax.set_ylabel('Offset (arcsec)',fontsize=18)
@@ -3070,31 +2975,6 @@ def check_mosaic(vislist,target):
    else:
       mosaic=False
    return mosaic
-
-def get_phasecenter_old(vis,selfcal_library):
-   msmd.open(vis)
-   #fieldid=msmd.fieldsforname(field) # only works for ALMA mosaics
-
-   # should be more general
-   fieldid=np.array([],dtype=int)
-   for fid in selfcal_library['sub-fields']:
-      if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
-         field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
-         fieldid=np.append(fieldid,np.array([field_id]))
-
-   ra_phasecenter_arr=np.zeros(len(fieldid))
-   dec_phasecenter_arr=np.zeros(len(fieldid))
-   for i in range(len(fieldid)):
-      phasecenter=msmd.phasecenter(fieldid[i])
-      ra_phasecenter_arr[i]=phasecenter['m0']['value']
-      dec_phasecenter_arr[i]=phasecenter['m1']['value']
-
-   msmd.done()
-
-   ra_phasecenter=np.median(ra_phasecenter_arr)
-   dec_phasecenter=np.median(dec_phasecenter_arr)
-   phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
-   return phasecenter_string
 
 def get_phasecenter(vis,selfcal_library):
    msmd.open(vis)
