@@ -11,6 +11,7 @@ try:
             try:
                 import pytest
                 os.system(f'cd {casa_path}/bin; ln -s casa pytest')
+                os.system(f'{casa_path}/bin/pip3 install --upgrade pytest')
             except:
                 pass
 except:
