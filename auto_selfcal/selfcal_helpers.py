@@ -52,7 +52,8 @@ def tclean_wrapper(selfcal_library, imagename, band, field_str, telescope='undef
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
-
+    if 'VLA' in telescope and nfrms_multiplier != 1.0:
+        nfrms_multiplier = nfrms_multiplier*2.0
     baselineThresholdALMA = 400.0
 
     if mask == '':
@@ -2024,8 +2025,59 @@ def largest_prime_factor(n):
             n //= i
     return n
 
-
 def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
+   cells=np.zeros(len(vislist))
+   for i in range(len(vislist)):
+      #im.open(vislist[i])
+      im.selectvis(vis=vislist[i],spw=selfcal_library[target][band][vislist[i]]['spwsarray'])
+      adviseparams= im.advise() 
+      cells[i]=adviseparams[2]['value']/2.0
+      im.close()
+   cell=np.min(cells)
+   cellsize='{:0.3f}arcsec'.format(cell)
+   nterms=1
+   if selfcal_library[target][band]['fracbw'] > 0.1:
+      nterms=2
+   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
+
+   if 'VLA' in telescope:
+      fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
+      if selfcal_library[target][band]['meanfreq'] < 12.0e9:
+         fov=fov*2.0
+   if telescope=='ALMA':
+      fov=63.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
+   if telescope=='ACA':
+      fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
+   fov=fov*scale_fov
+   if mosaic:
+       msmd.open(vislist[0])
+       fieldid=msmd.fieldsforname(target)
+       ra_phasecenter_arr=np.zeros(len(fieldid))
+       dec_phasecenter_arr=np.zeros(len(fieldid))
+       for i in range(len(fieldid)):
+          phasecenter=msmd.phasecenter(fieldid[i])
+          ra_phasecenter_arr[i]=phasecenter['m0']['value']
+          dec_phasecenter_arr[i]=phasecenter['m1']['value']
+       msmd.done()
+
+       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
+               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
+
+       fov += mosaic_size
+
+   npixels=int(np.ceil(fov/cell / 100.0)) * 100
+   if npixels > 16384:
+      if mosaic:
+          print("WARNING: Image size = "+str(npixels)+" is excessively large. It is not being trimmed because it is needed for the mosaic, but this may not be viable for your hardware.")
+      else:
+          npixels=16384
+
+   while largest_prime_factor(npixels) >= 7:
+       npixels += 2
+
+   return cellsize,[npixels,npixels],nterms,reffreq
+
+def get_image_parameters_new(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -2999,6 +3051,10 @@ def get_phasecenter(vis,selfcal_library):
    ra_phasecenter=np.min(ra_phasecenter_arr)+(np.max(ra_phasecenter_arr)-np.min(ra_phasecenter_arr))/2.0
    dphi_dec=np.abs((np.max(dec_phasecenter_arr)-np.min(dec_phasecenter_arr))/2.0)
    dec_phasecenter=np.max(dec_phasecenter_arr)-dphi_dec
+
+   #switch back to old method until after VLA mosaics
+   ra_phasecenter=np.median(ra_phasecenter_arr)
+   dec_phasecenter=np.median(dec_phasecenter_arr)
 
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
