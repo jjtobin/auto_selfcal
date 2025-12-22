@@ -52,8 +52,8 @@ def tclean_wrapper(selfcal_library, imagename, band, field_str, telescope='undef
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
-    if 'VLA' in telescope and nfrms_multiplier != 1.0:
-        nfrms_multiplier = nfrms_multiplier*2.0
+    #if 'VLA' in telescope and nfrms_multiplier != 1.0:
+    #    nfrms_multiplier = nfrms_multiplier*2.0
     baselineThresholdALMA = 400.0
 
     if mask == '':
@@ -958,21 +958,23 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
       bands_for_targets[band]['targets'].sort() 
       print(bands_for_targets)
       mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'],telescope,overlap_tol)
-      print(mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids)
-      if len(mosaic_groups) > 0:
-       for m,mosaic_group in enumerate(mosaic_groups): # mosaic_group should be a list, code below gives the mosaic the name of the first fieldname in the list
-          bands_for_targets[band][mosaic_group[0]]={}
-          bands_for_targets[band][mosaic_group[0]]['fieldnames']=mosaic_group
-          bands_for_targets[band][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
-          bands_for_targets[band][mosaic_group[0]]['field_str']=",".join([str(num) for num in mosaic_groups_ids[m]])
-          bands_for_targets[band][mosaic_group[0]]['obstype']='mosaic'
-      if len(single_fields) > 0:
-       for s,single_field in enumerate(single_fields):
-          bands_for_targets[band][single_field]={}
-          bands_for_targets[band][single_field]['fieldnames']=single_fields
-          bands_for_targets[band][single_field]['field_ids']=[int(single_fields_ids[s])]
-          bands_for_targets[band][single_field]['field_str']=str(single_fields_ids[s])
-          bands_for_targets[band][single_field]['obstype']='single-pointing'
+      for vis in vislist:
+          print(mosaic_groups[vis],mosaic_groups_ids[vis],single_fields[vis],single_fields_ids[vis])
+          if len(mosaic_groups) > 0:
+           for m,mosaic_group in enumerate(mosaic_groups): # mosaic_group should be a list, code below gives the mosaic the name of the first fieldname in the list
+              bands_for_targets[band][vis][mosaic_group[0]]={}
+              bands_for_targets[band][vis][mosaic_group[0]]['fieldnames']=mosaic_group
+              bands_for_targets[band][vis][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
+              bands_for_targets[band][vis][mosaic_group[0]]['field_str']=",".join([str(num) for num in mosaic_groups_ids[m]])
+              bands_for_targets[band][vis][mosaic_group[0]]['obstype']='mosaic'
+          if len(single_fields) > 0:
+           for s,single_field in enumerate(single_fields):
+              bands_for_targets[band][vis][single_field]={}
+              bands_for_targets[band][vis][single_field]['fieldnames']=single_fields
+              bands_for_targets[band][vis][single_field]['field_ids']=[int(single_fields_ids[s])]
+              bands_for_targets[band][vis][single_field]['field_str']=str(single_fields_ids[s])
+              bands_for_targets[band][vis][single_field]['obstype']='single-pointing'
+
    print(bands_for_targets)
    for band in band_list:
       band_targets=copy.copy(bands_for_targets[band]['targets'])
@@ -1005,7 +1007,12 @@ def create_mosaic_groups(ra_arr, dec_arr,names,ids,hpbw,overlap_tol=1.0):
     return mosaics,mosaics_ids,single_fields,single_fields_ids     
 
 def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=1.0):
+    mosaic_groups={}
+    mosaic_groups_ids={}
+    single_fields={}
+    single_fields_ids={}
     for vis in vislist:
+
         msmd.open(vis)
         fieldids=[]
         for target in targets:
@@ -1022,29 +1029,29 @@ def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=1.0):
                ra.append(phasecenter_dict['m0']['value']*180.0/np.pi)
                dec.append(phasecenter_dict['m1']['value']*180.0/np.pi)
            hpbw=42.0e9/freq*60.0
-           if len(targets) > 1:    mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol)
+           if len(targets) > 1:    mosaic_groups[vis],mosaic_groups_ids[vis],single_fields[vis],single_fields_ids[vis]=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol)
            else:
-               mosaic_groups=[]
-               mosaic_groups_ids=[]
-               single_fields=targets
-               single_fields_ids=fieldids
+               mosaic_groups[vis]=[]
+               mosaic_groups_ids[vis]=[]
+               single_fields[vis]=targets
+               single_fields_ids[vis]=fieldids
         elif telescope == 'ALMA' or telescope == 'ACA':
-           mosaic_groups=[]
-           mosaic_groups_ids=[]
-           single_fields=[]
-           single_fields_ids=[]
+           mosaic_groups[vis]=[]
+           mosaic_groups_ids[vis]=[]
+           single_fields[vis]=[]
+           single_fields_ids[vis]=[]
            for t,target in enumerate(targets):
               field_arr = msmd.fieldsforname(target)
               if len(field_arr) > 1:
-                 mosaic_groups.append([target])
-                 mosaic_groups_ids.append(list(field_arr))
+                 mosaic_groups[vis].append([target])
+                 mosaic_groups_ids[vis].append(list(field_arr))
               else:
-                 single_fields.append(target)
-                 single_fields_ids.append(field_arr[0])
+                 single_fields[vis].append(target)
+                 single_fields_ids[vis].append(field_arr[0])
     
 
-        print('Mosaics groupings: ',mosaic_groups)
-        print('Single Fields: ',single_fields)
+        print('Mosaics groupings: ',mosaic_groups[vis])
+        print('Single Fields: ',single_fields[vis])
 
     return mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids
 
