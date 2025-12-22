@@ -22,7 +22,7 @@ msmd = msmdtool()
 ia = image()
 im = imager()
 
-def tclean_wrapper(selfcal_library, imagename, band, field_str, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
+def tclean_wrapper(selfcal_library, imagename, band, bands_for_targets, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
@@ -141,14 +141,17 @@ def tclean_wrapper(selfcal_library, imagename, band, field_str, telescope='undef
     else:
        if gridder !='wproject':
           gridder='standard' 
-
+    import pprint
+    pprint.pprint(bands_for_targets)
     if spw == 'all':
         vlist = selfcal_library['vislist']
         spws_per_vis = selfcal_library['spws_per_vis']
+        field_str = [bands_for_targets[vis]['field_str'] for vis in vlist]
         nterms = selfcal_library['nterms']
     else:
         vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
         spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
+        field_str = [bands_for_targets[vis]['field_str'] for vis in vlist]
         nterms = 1
 
     if nterms == 1:
@@ -360,13 +363,15 @@ def tclean_wrapper(selfcal_library, imagename, band, field_str, telescope='undef
     if not savemodel_only:
         return tclean_return
 
-def usermodel_wrapper(selfcal_library, imagename, band, field_str, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
+def usermodel_wrapper(selfcal_library, imagename, band, bands_for_targets, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
                    savemodel_only=False, resume=False):
     vlist = selfcal_library['vislist']
+    field_str = [bands_for_targets[vis]['field_str'] for vis in vlist]
+
     if type(selfcal_library['usermodel'])==list:
        nterms=len(selfcal_library['usermodel'])
        for i, image in enumerate(selfcal_library['usermodel']):
@@ -552,7 +557,7 @@ def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_propertie
       for target in targets:
          if 'VLA' in telescope:
             scansforfield=np.array([])
-            for field_id in list(set(bands_for_targets['field_ids'])):
+            for field_id in list(set(bands_for_targets[vis]['field_ids'])):
                 scans_temp=msmd.scansforfield(field_id)
                 scansforfield=np.append(scansforfield,np.array(scans_temp))
             scansforfield.sort()
@@ -575,7 +580,7 @@ def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_propertie
              mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
          # ID VLA mosaics using pre-determined mosaic groupings from fetch_targets
          elif 'VLA' in telescope:
-             mosaic_field[vis][target]['field_ids']=bands_for_targets['field_ids'] # need to make this have per vis information
+             mosaic_field[vis][target]['field_ids']=bands_for_targets[vis]['field_ids'] # need to make this have per vis information
              mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
              print('mosaic field ids', mosaic_field[vis][target]['field_ids'])
          mosaic_field[vis][target]['phasecenters'] = []
@@ -881,6 +886,7 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
    return delta_ints_per_solint[min_index]
    
 
+
 def fetch_targets(vislist,telescope,overlap_tol=1.0):
    targets_vis={}
    targets_band_vis={}
@@ -958,22 +964,39 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
       bands_for_targets[band]['targets'].sort() 
       print(bands_for_targets)
       mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'],telescope,overlap_tol)
+      from functools import reduce
+
+      #generate the superset of mosaic field names from all MS files and select a common fieldname as overall name
+      mosaic_group_names=[]
+      for vis in vislist:
+          if len(mosaic_groups[vis]) > 0:
+              for m,mosaic_group in enumerate(mosaic_groups[vis]):
+                grouplist=[]
+                grouplist.append(mosaic_group)
+                field_intersection=reduce(np.intersect1d,(grouplist[:]))
+                if len(field_intersection) > 0:
+                    groupname=field_intersection[0]
+                mosaic_group_names.append(groupname)
+
+
       for vis in vislist:
           print(mosaic_groups[vis],mosaic_groups_ids[vis],single_fields[vis],single_fields_ids[vis])
           if len(mosaic_groups) > 0:
-           for m,mosaic_group in enumerate(mosaic_groups): # mosaic_group should be a list, code below gives the mosaic the name of the first fieldname in the list
-              bands_for_targets[band][vis][mosaic_group[0]]={}
-              bands_for_targets[band][vis][mosaic_group[0]]['fieldnames']=mosaic_group
-              bands_for_targets[band][vis][mosaic_group[0]]['field_ids']=mosaic_groups_ids[m]
-              bands_for_targets[band][vis][mosaic_group[0]]['field_str']=",".join([str(num) for num in mosaic_groups_ids[m]])
-              bands_for_targets[band][vis][mosaic_group[0]]['obstype']='mosaic'
-          if len(single_fields) > 0:
-           for s,single_field in enumerate(single_fields):
-              bands_for_targets[band][vis][single_field]={}
-              bands_for_targets[band][vis][single_field]['fieldnames']=single_fields
-              bands_for_targets[band][vis][single_field]['field_ids']=[int(single_fields_ids[s])]
-              bands_for_targets[band][vis][single_field]['field_str']=str(single_fields_ids[s])
-              bands_for_targets[band][vis][single_field]['obstype']='single-pointing'
+           for m,mosaic_group in enumerate(mosaic_groups[vis]): # mosaic_group should be a list, code below gives the mosaic the name of the first fieldname in the list
+              bands_for_targets[band][mosaic_group_names[m]]={}              
+              bands_for_targets[band][mosaic_group_names[m]][vis]={}
+              bands_for_targets[band][mosaic_group_names[m]][vis]['fieldnames']=mosaic_group
+              bands_for_targets[band][mosaic_group_names[m]][vis]['field_ids']=mosaic_groups_ids[vis][m]
+              bands_for_targets[band][mosaic_group_names[m]][vis]['field_str']=",".join([str(num) for num in mosaic_groups_ids[vis][m]])
+              bands_for_targets[band][mosaic_group_names[m]]['obstype']='mosaic'
+          if len(single_fields[vis]) > 0:
+           for s,single_field in enumerate(single_fields[vis]):
+              bands_for_targets[band][single_field]={}
+              bands_for_targets[band][single_field][vis]={}
+              bands_for_targets[band][single_field][vis]['fieldnames']=single_fields[vis]
+              bands_for_targets[band][single_field][vis]['field_ids']=[int(single_fields_ids[vis][s])]
+              bands_for_targets[band][single_field][vis]['field_str']=str(single_fields_ids[vis][s])
+              bands_for_targets[band][single_field]['obstype']='single-pointing'
 
    print(bands_for_targets)
    for band in band_list:
@@ -3019,10 +3042,10 @@ def split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_avera
                 spwstring=band_properties[vis][band]['spwstring']+''
              else:
                 spwstring=spwstring+','+band_properties[vis][band]['spwstring']
-          mstransform(vis=vis,field=bands_for_targets['field_str'],chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=bands_for_targets[vis]['field_str'],chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
           initweights(vis=vis,wtmode='delwtsp') # remove channelized weights
        else:
-          mstransform(vis=vis,field=bands_for_targets['field_str'],outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=bands_for_targets[vis]['field_str'],outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
 
 
 def check_mosaic(vislist,target):

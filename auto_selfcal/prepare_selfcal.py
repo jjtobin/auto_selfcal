@@ -50,7 +50,12 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
     vislist_orig=vislist.copy()
 
     vislist=[sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace(".ms",".selfcal.ms") for vis in vislist]
+
     original_vislist_map = dict(zip(vislist, vislist_orig))
+    for vis in vislist:
+        bands_for_targets[vis]=bands_for_targets[original_vislist_map[vis]].copy()
+    print(bands_for_targets)
+
     print(vislist)
 
     listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
@@ -242,7 +247,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
        selfcal_library[target][band]['meanfreq']=band_properties[vislist[0]][band]['meanfreq']
        selfcal_library[target][band]['spectral_scan'] = spectral_scan
        selfcal_library[target][band]['spws_set'] = spws_set[band]
-       selfcal_library[target][band]['field_str'] = bands_for_targets['field_str']
+       #selfcal_library[target][band]['field_str'] = bands_for_targets['field_str']
        print(selfcal_library[target][band]['uvrange'])
 
        for fid in selfcal_library[target][band]['sub-fields']:

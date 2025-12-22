@@ -14,7 +14,7 @@ try:
 except:
    parallel=False
 
-def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, bands_for_targets, field_str, \
+def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, bands_for_targets, \
         gaincal_minsnr=2.0, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, delta_beam_thresh=0.05, do_amp_selfcal=True, inf_EB_gaincal_combine='scan', inf_EB_gaintype='G', \
         unflag_only_lbants=False, unflag_only_lbants_onlyap=False, calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         rerank_refants=False, mode="selfcal", calibrators="", calculate_inf_EB_fb_anyways=False, preapply_targets_own_inf_EB=False, \
@@ -160,7 +160,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and selfcal_library['usermask'] != '':
                 os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
              tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                         band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                         band,bands_for_targets,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                          threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                          savemodel='none',parallel=parallel,
                          field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], resume=resume)
@@ -198,7 +198,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             # We need to redo saving the model now that we have potentially unflagged some data.
             if not do_fallback_calonly:
                 tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                            band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                            band,bands_for_targets,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                             threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                             savemodel='modelcolumn',parallel=parallel,
                             field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], savemodel_only=True)
@@ -270,7 +270,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
          os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
          tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                  band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                  band,bands_for_targets,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                   threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                   savemodel='none',parallel=parallel,
                   field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'])
@@ -385,7 +385,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                  os.system("mv "+f+" "+f.replace("_post","_post_intermediate"))
 
              tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                      band,field_str,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                      band,bands_for_targets,telescope=telescope,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                       threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                       savemodel='none',parallel=parallel,
                       field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], 
