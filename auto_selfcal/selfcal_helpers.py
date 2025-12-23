@@ -988,6 +988,9 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
       for mosaic_group_name in mosaic_group_names: # define dictionary with each mosaic group name
         bands_for_targets[band][mosaic_group_name]={}
 
+      for single_field_name in single_field_names:
+          bands_for_targets[band][single_field_name]={}
+
       for vis in vislist:
           print(mosaic_groups[vis],mosaic_groups_ids[vis],single_fields[vis],single_fields_ids[vis])
           if len(mosaic_groups) > 0:
@@ -999,9 +1002,8 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
               bands_for_targets[band][mosaic_group_names[m]]['obstype']='mosaic'
           if len(single_fields[vis]) > 0:
            for s,single_field in enumerate(single_fields[vis]):
-              bands_for_targets[band][single_field]={}
               bands_for_targets[band][single_field][vis]={}
-              bands_for_targets[band][single_field][vis]['fieldnames']=single_fields[vis]
+              bands_for_targets[band][single_field][vis]['fieldnames']=single_fields[vis][s]
               bands_for_targets[band][single_field][vis]['field_ids']=[int(single_fields_ids[vis][s])]
               bands_for_targets[band][single_field][vis]['field_str']=str(single_fields_ids[vis][s])
               bands_for_targets[band][single_field]['obstype']='single-pointing'
