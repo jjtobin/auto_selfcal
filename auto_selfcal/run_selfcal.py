@@ -242,7 +242,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                     continue
 
-               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, selfcal_plan['applycal_mode'][iteration], iteration, telescope, gaincal_minsnr, 
+               gaincal_wrapper(selfcal_library, selfcal_plan, bands_for_targets, target, band, vis, solint, selfcal_plan['applycal_mode'][iteration], \
+                       iteration, telescope, gaincal_minsnr, \
                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, rerank_refants=rerank_refants, \
                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \

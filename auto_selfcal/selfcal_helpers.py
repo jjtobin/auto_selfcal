@@ -580,7 +580,7 @@ def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_propertie
              mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
          # ID VLA mosaics using pre-determined mosaic groupings from fetch_targets
          elif 'VLA' in telescope:
-             mosaic_field[vis][target]['field_ids']=bands_for_targets[vis]['field_ids'] # need to make this have per vis information
+             mosaic_field[vis][target]['field_ids']=bands_for_targets[vis]['field_ids'] 
              mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
              print('mosaic field ids', mosaic_field[vis][target]['field_ids'])
          mosaic_field[vis][target]['phasecenters'] = []
@@ -951,6 +951,8 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
                vis_for_targets[target][band]['vislist'].remove(vis)
    #Determine the mosiacs and single fields per bands incase of multi-band mosaics
    band_list=list(set(band_list))
+   single_field_names=[]
+   mosaic_group_names=[]
    for band in band_list:
       bands_for_targets[band]={}
       bands_for_targets[band]['targets']=[]
@@ -967,7 +969,7 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
       from functools import reduce
 
       #generate the superset of mosaic field names from all MS files and select a common fieldname as overall name
-      mosaic_group_names=[]
+
       for vis in vislist:
           if len(mosaic_groups[vis]) > 0:
               for m,mosaic_group in enumerate(mosaic_groups[vis]):
@@ -980,10 +982,16 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
 
 
       for vis in vislist:
+          if len(single_fields[vis]) > 0:
+              for s,single_field in enumerate(single_fields[vis]):
+                single_field_names.append(single_field)
+      for mosaic_group_name in mosaic_group_names: # define dictionary with each mosaic group name
+        bands_for_targets[band][mosaic_group_name]={}
+
+      for vis in vislist:
           print(mosaic_groups[vis],mosaic_groups_ids[vis],single_fields[vis],single_fields_ids[vis])
           if len(mosaic_groups) > 0:
-           for m,mosaic_group in enumerate(mosaic_groups[vis]): # mosaic_group should be a list, code below gives the mosaic the name of the first fieldname in the list
-              bands_for_targets[band][mosaic_group_names[m]]={}              
+           for m,mosaic_group in enumerate(mosaic_groups[vis]): # fill crucial per vis information for each mosaic group
               bands_for_targets[band][mosaic_group_names[m]][vis]={}
               bands_for_targets[band][mosaic_group_names[m]][vis]['fieldnames']=mosaic_group
               bands_for_targets[band][mosaic_group_names[m]][vis]['field_ids']=mosaic_groups_ids[vis][m]
