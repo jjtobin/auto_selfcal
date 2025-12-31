@@ -58,6 +58,7 @@ def auto_selfcal(
         debug=False, 
         parallel=False,
         weblog=True,
+        max_solint=4500.0,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -224,6 +225,11 @@ def auto_selfcal(
     weblog : bool, optional
         If True, will create a weblog that provides information on how the 
         self-calibration process proceeded.
+    max_solint : float, optional
+        Preference for longest allowable solint for inf_EB, default avoids making
+        solints that are so long that long-timescale phase offset corrections
+        are not smeared out 
+        default : 4500.0
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -322,7 +328,7 @@ def auto_selfcal(
             target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], vis_for_targets[target][band]['vislist'], 
                     spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
                     inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-                    usermask=usermask, usermodel=usermodel,debug=debug)
+                    usermask=usermask, usermodel=usermodel,max_solint=max_solint,debug=debug)
 
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
