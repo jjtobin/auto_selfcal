@@ -302,6 +302,12 @@ def auto_selfcal(
                 import pipeline
                 pipeline.initcli()
 
+            # pipeline.initcli() does load the functions into the casa environment, but those are not
+            # passed into the python namespace, even if moved outside of the if block above
+            # explicitly import into namespace to avoid NameError Exceptions for findcont implementation
+            from pipeline.h.cli import h_init
+            from pipeline.hifa.cli import hifa_importdata
+            from pipeline.hif.cli import hif_checkproductsize, hif_makeimlist, hif_findcont
             print("Running findcont")
             h_init()
             hifa_importdata(vis=vislist, dbservice=False)
