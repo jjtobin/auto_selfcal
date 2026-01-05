@@ -47,7 +47,7 @@ def tclean_wrapper(selfcal_library, imagename, band, bands_for_targets, telescop
        phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(selfcal_library['vislist'][0],selfcal_library)
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],selfcal_library,telescope)
 
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
@@ -396,7 +396,7 @@ def usermodel_wrapper(selfcal_library, imagename, band, bands_for_targets, teles
        phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field,telescope)
 
     if nterms == 1:
        reffreq = ''
@@ -3073,16 +3073,17 @@ def check_mosaic(vislist,target):
       mosaic=False
    return mosaic
 
-def get_phasecenter(vis,selfcal_library):
+def get_phasecenter(vis,selfcal_library,telescope):
    msmd.open(vis)
-   #fieldid=msmd.fieldsforname(field) # only works for ALMA mosaics
-
-   # should be more general
-   fieldid=np.array([],dtype=int)
-   for fid in selfcal_library['sub-fields']:
-      if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
-         field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
-         fieldid=np.append(fieldid,np.array([field_id]))
+   if telescope == 'ALMA' or telescope == 'VLA': # put in to reproduce benchmark; actually incorrect since phantom fields will impact defined phase center
+       fieldid=msmd.fieldsforname(field) # only works for ALMA mosaics
+   else:
+       # should be more general
+       fieldid=np.array([],dtype=int)
+       for fid in selfcal_library['sub-fields']:
+          if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
+             field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
+             fieldid=np.append(fieldid,np.array([field_id]))
 
    ra_phasecenter_arr=np.zeros(len(fieldid))
    dec_phasecenter_arr=np.zeros(len(fieldid))
