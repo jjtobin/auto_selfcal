@@ -47,7 +47,7 @@ def tclean_wrapper(selfcal_library, imagename, band, bands_for_targets, telescop
        phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(selfcal_library['vislist'][0],selfcal_library,telescope)
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],selfcal_library,field,telescope)
 
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
@@ -3073,7 +3073,7 @@ def check_mosaic(vislist,target):
       mosaic=False
    return mosaic
 
-def get_phasecenter(vis,selfcal_library,telescope):
+def get_phasecenter(vis,selfcal_library,field,telescope):
    msmd.open(vis)
    if telescope == 'ALMA' or telescope == 'ACA': # put in to reproduce benchmark; actually incorrect since phantom fields will impact defined phase center
        fieldid=msmd.fieldsforname(field) # only works for ALMA mosaics
