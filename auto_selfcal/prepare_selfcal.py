@@ -33,7 +33,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
     ##
     ## spectrally average ALMA or VLA data with telescope/frequency specific averaging properties
     ##
-    split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average,bands_for_targets)
+    split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average,bands_for_targets,telescope)
 
     ##
     ## put flagging back at original state for originally input ms for when they are used next time
