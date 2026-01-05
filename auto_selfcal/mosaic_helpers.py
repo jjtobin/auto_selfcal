@@ -2,7 +2,7 @@ import numpy as np
 from .selfcal_helpers import *
 
 def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iteration, solmode, solints, selfcal_plan, 
-        minsnr_to_proceed, allow_gain_interpolation=False):
+        minsnr_to_proceed, telescope, allow_gain_interpolation=False,):
 
      sani_target=sanitize_string(target)
 
@@ -37,7 +37,7 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
                  rms=tmp_RMS_NF, maskname="test.smoothed.truncated.mask", mosaic_sub_field=True)[0]
          os.system('rm -rf test*.mask')
 
-
+         print('Checking with flux threshold {:0.2f}'.format(selfcal_library['flux_threshold']))
          if not checkmask(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
              print("Removing field "+str(fid)+" from gaincal because there is no signal within the primary beam.")
              skip_reason = "No signal"
@@ -45,8 +45,9 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
                  solint not in ['inf_EB','scan_inf']:
              print("Removing field "+str(fid)+" from gaincal because the estimated solint snr is too low.")
              skip_reason = "Estimated SNR"
-         elif updated_intflux > 1.25 * original_intflux:
+         elif updated_intflux > selfcal_library['flux_threshold'] * original_intflux:
              print("Removing field "+str(fid)+" from gaincal because there appears to be significant flux missing from the model.")
+             print("Original Flux: ",original_intflux, "Per-field Flux: ",updated_intflux)
              skip_reason = "Missing flux"
          else:
              new_fields_to_selfcal.append(fid)
@@ -64,7 +65,7 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
 
 
 
-def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iteration, solmode, allow_gain_interpolation=False):
+def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iteration, solmode, telescope, allow_gain_interpolation=False):
 
      new_fields_to_selfcal = selfcal_library['sub-fields-to-selfcal'].copy()
 
