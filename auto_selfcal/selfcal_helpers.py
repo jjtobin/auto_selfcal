@@ -1074,7 +1074,8 @@ def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=1.0):
            single_fields[vis]=[]
            single_fields_ids[vis]=[]
            for t,target in enumerate(targets):
-              field_arr = msmd.fieldsforname(target)
+              scans_numbers=msmd.scansforfield(target)
+              field_arr = msmd.fieldsforscans(scans=scans_numbers)
               if len(field_arr) > 1:
                  mosaic_groups[vis].append([target])
                  mosaic_groups_ids[vis].append(list(field_arr))
