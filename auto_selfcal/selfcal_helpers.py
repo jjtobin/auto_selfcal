@@ -3075,7 +3075,7 @@ def check_mosaic(vislist,target):
 
 def get_phasecenter(vis,selfcal_library,telescope):
    msmd.open(vis)
-   if telescope == 'ALMA' or telescope == 'VLA': # put in to reproduce benchmark; actually incorrect since phantom fields will impact defined phase center
+   if telescope == 'ALMA' or telescope == 'ACA': # put in to reproduce benchmark; actually incorrect since phantom fields will impact defined phase center
        fieldid=msmd.fieldsforname(field) # only works for ALMA mosaics
    else:
        # should be more general
