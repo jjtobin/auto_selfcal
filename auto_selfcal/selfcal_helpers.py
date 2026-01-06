@@ -1736,9 +1736,9 @@ def get_spw_chanwidths(vis,spwarray):
    nchanarray=np.zeros(len(spwarray))
    for i in range(len(spwarray)):
       tb.open(vis+'/SPECTRAL_WINDOW')
-      widtharray[i]=np.abs(np.unique(tb.getcol('CHAN_WIDTH', startrow = spwarray[i], nrow = 1)))
-      bwarray[i]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spwarray[i], nrow = 1)))
-      nchanarray[i]=np.abs(np.unique(tb.getcol('NUM_CHAN', startrow = spwarray[i], nrow = 1)))
+      widtharray[i]=np.abs(np.unique(tb.getcol('CHAN_WIDTH', startrow = spwarray[i], nrow = 1))[0])
+      bwarray[i]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spwarray[i], nrow = 1))[0])
+      nchanarray[i]=np.abs(np.unique(tb.getcol('NUM_CHAN', startrow = spwarray[i], nrow = 1))[0])
       tb.close()
 
    return widtharray,bwarray,nchanarray
