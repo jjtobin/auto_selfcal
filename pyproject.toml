@@ -30,7 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mpi = ["casampi","mpi4py<4.0.0"]
-test = ["pytest","pytest-xdist","submitit"]
+test = ["pytest","pytest-cov","pytest-xdist","submitit"]
 docs = ["sphinx","sphinx-automodapi","sphinx_book_theme","numpydoc"]
 
 [project.urls]
