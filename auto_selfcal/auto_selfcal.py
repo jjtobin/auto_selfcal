@@ -58,6 +58,8 @@ def auto_selfcal(
         debug=False, 
         parallel=False,
         weblog=True,
+        mos_field_drop_flux_thresh=None,
+        overlap_tol=1.0,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -224,6 +226,16 @@ def auto_selfcal(
     weblog : bool, optional
         If True, will create a weblog that provides information on how the 
         self-calibration process proceeded.
+   mos_field_drop_flux_thresh: float, optional
+        The flux difference ratio that will be used to determine if mosaic 
+        fields should be dropped from gaincal selection due to low flux.
+        Default for ALMA: 1.25, VLA: 1.5.
+   overlap_tol: float, optional 
+        Field overlap tolerance for VLA mosaic identification in units of HPBW.
+        1.0 will require overlap at the estimated HPBW, < 1.0 requires more closely
+        spaced fields, > 1.0 will allow more distantly placed fields to be 
+        identified as a mosaic. 
+        Default: 1.0
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -273,7 +285,7 @@ def auto_selfcal(
     ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
     ##
     #all_targets=fetch_targets(vislist[0])
-    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist, telescope)
+    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged, bands_for_targets=fetch_targets(vislist, telescope,overlap_tol)
 
     ##
     ## Global environment variables for control of selfcal
@@ -318,25 +330,37 @@ def auto_selfcal(
     ##
     ## Get all of the relevant data from the MS files
     ##
+
+    flux_threshold=1.0
+    if mos_field_drop_flux_thresh != None:
+        flux_threshold=mos_field_drop_flux_thresh
+    elif 'VLA' in telescope:
+        flux_threshold=1.5
+    elif 'ALMA' in telescope or 'ACA' in telescope:
+        flux_threshold=1.25
+
     selfcal_library, selfcal_plan, gaincalibrator_dict = {}, {}, {}
     for target in all_targets:
         selfcal_library[target], selfcal_plan[target] = {}, {}
         for band in vis_for_targets[target]['Bands']:
-            target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], vis_for_targets[target][band]['vislist'], 
+            target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], bands_for_targets[band][target], 
+                    vis_for_targets[target][band]['vislist'], 
                     spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
                     inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-                    usermask=usermask, usermodel=usermodel,debug=debug)
+                    usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,debug=debug)
 
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
+            selfcal_library[target][band]['flux_threshold']=flux_threshold
+            selfcal_library[target][band]['overlap_tol']=overlap_tol
             gaincalibrator_dict.update(target_gaincalibrator_dict)
 
     with open('selfcal_library.pickle', 'wb') as handle:
         pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
     with open('selfcal_plan.pickle', 'wb') as handle:
         pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
+    print('############## bands for targets after prepare selfcal #####################')
+    print(bands_for_targets)
     ###################################################################################################
     ############################# Start Actual important stuff for selfcal ############################
     ###################################################################################################
@@ -357,7 +381,7 @@ def auto_selfcal(
        # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
        # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
        tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_dirty',
-                      band,telescope=telescope,nsigma=4.0, scales=[0],
+                      band,bands_for_targets[band][target],telescope=telescope,nsigma=4.0, scales=[0],
                       threshold='0.0Jy',niter=1, gain=0.00001,
                       savemodel='none',parallel=parallel,
                       field=target)
@@ -377,7 +401,7 @@ def auto_selfcal(
                    mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
        tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_initial',
-                      band,telescope=telescope,nsigma=4.0, scales=[0],
+                      band,bands_for_targets[band][target],telescope=telescope,nsigma=4.0, scales=[0],
                       threshold='theoretical_with_drmod',
                       savemodel='none',parallel=parallel,
                       field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS,store_threshold='orig')
@@ -446,7 +470,7 @@ def auto_selfcal(
                 if spw not in keylist:
                    selfcal_library[target][band]['per_spw_stats'][spw]={}
                 tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_dirty',
-                      band,telescope=telescope,nsigma=4.0, scales=[0],
+                      band,bands_for_targets[band][target],telescope=telescope,nsigma=4.0, scales=[0],
                       threshold='0.0Jy',niter=1,gain=0.00001,
                       savemodel='none',parallel=parallel,
                       field=target,spw=spw)
@@ -456,7 +480,7 @@ def auto_selfcal(
                         (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty', spw=spw)
 
                 tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_initial',\
-                           band,telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
+                           band,bands_for_targets[band][target],telescope=telescope,nsigma=4.0, threshold='theoretical_with_drmod',scales=[0],\
                            savemodel='none',parallel=parallel,\
                            field=target,datacolumn='corrected',\
                            spw=spw,nfrms_multiplier=dirty_per_spw_NF_RMS/dirty_RMS)
@@ -502,7 +526,7 @@ def auto_selfcal(
     ##
     for target in selfcal_library:
      for band in selfcal_library[target].keys():
-       run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, \
+       run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, bands_for_targets[band][target], \
                gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
                inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
                unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
@@ -626,7 +650,7 @@ def auto_selfcal(
            if target not in fallback_fields[band]:
                continue
         
-           run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, \
+           run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band,  telescope, n_ants, bands_for_targets[band][target], \
                    gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
                    inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
                    unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
@@ -653,7 +677,7 @@ def auto_selfcal(
        if selfcal_library[target][band]['clean_threshold_orig'] < selfcal_library[target][band]['RMS_NF_curr']*3.0:
            print("WARNING: The clean threshold used for the initial image was less than 3*RMS_NF_curr, using that for the final image threshold instead.")
        tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_final',\
-                   band,telescope=telescope,nsigma=3.0, threshold=str(clean_threshold)+'Jy',scales=[0],\
+                   band,bands_for_targets[band][target],telescope=telescope,nsigma=3.0, threshold=str(clean_threshold)+'Jy',scales=[0],\
                    savemodel='none',parallel=parallel,
                    field=target,datacolumn='corrected',\
                    nfrms_multiplier=nfsnr_modifier)
@@ -710,7 +734,7 @@ def auto_selfcal(
                    nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
 
                    tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+str(spw)+'_final',\
-                              band,telescope=telescope,nsigma=4.0, threshold='theoretical',scales=[0],\
+                              band,bands_for_targets[band][target],telescope=telescope,nsigma=4.0, threshold='theoretical',scales=[0],\
                               savemodel='none',parallel=parallel,\
                               field=target,datacolumn='corrected',\
                               spw=spw,nfrms_multiplier=nfsnr_modifier)
