@@ -523,7 +523,7 @@ def auto_selfcal(
     ##
     for target in selfcal_library:
      for band in selfcal_library[target].keys():
-       run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, bands_for_targets[band][target], \
+       run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, \
                gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
                inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
                unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
