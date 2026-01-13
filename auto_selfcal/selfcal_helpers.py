@@ -142,7 +142,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        if gridder !='wproject':
           gridder='standard' 
     import pprint
-    pprint.pprint(selfcal_library['bands_for_targets')
+
     if spw == 'all':
         vlist = selfcal_library['vislist']
         spws_per_vis = selfcal_library['spws_per_vis']

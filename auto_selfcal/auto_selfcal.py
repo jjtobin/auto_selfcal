@@ -7,6 +7,7 @@
 import numpy as np
 import sys
 import pickle
+import pprint
 
 from .selfcal_helpers import *
 from .run_selfcal import run_selfcal
@@ -357,7 +358,7 @@ def auto_selfcal(
     with open('selfcal_plan.pickle', 'wb') as handle:
         pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print('############## bands for targets after prepare selfcal #####################')
-    print(bands_for_targets)
+    pprint.pprint(bands_for_targets)
     ###################################################################################################
     ############################# Start Actual important stuff for selfcal ############################
     ###################################################################################################

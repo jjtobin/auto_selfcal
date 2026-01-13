@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import pprint
 from .selfcal_helpers import *
 
 def prepare_selfcal(all_targets, bands, bands_for_targets, vislist, 
@@ -62,6 +63,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
     listdict,bands,band_properties,scantimesdict,scanfieldsdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationsdict,\
     integrationtimesdict,spwslist_dict,spwstring_dict,spwsarray_dict,mosaic_field,gaincalibrator_dict,spectral_scan,spws_set=importdata(vislist,all_targets,bands_for_targets,telescope)
 
+    pprint.pprint(selfcal_library['bands_for_targets')
     ##
     ## Save/restore starting flags
     ##
