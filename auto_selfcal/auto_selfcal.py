@@ -364,7 +364,6 @@ def auto_selfcal(
     ###################################################################################################
 
 
-
     ##
     ## create initial images for each target to evaluate SNR and beam
     ## replicates what a preceding hif_makeimages would do
