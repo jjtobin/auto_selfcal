@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from .selfcal_helpers import *
 
 def prepare_selfcal(all_targets, bands, bands_for_targets, vislist, 
@@ -110,6 +111,11 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
           else:
               selfcal_library[target][band]['usermodel'] = ''
 
+
+          # Put crucial bands_for_targets info here
+
+          selfcal_library[target][band]['bands_for_targets'] = bands_for_targets.copy()
+ 
           # Make sure the fields get mapped properly, in case the order in which they are observed changes from EB to EB.
 
           selfcal_library[target][band]['sub-fields-fid_map'] = {}
