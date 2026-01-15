@@ -22,7 +22,7 @@ msmd = msmdtool()
 ia = image()
 im = imager()
 
-def tclean_wrapper(selfcal_library, imagename, band, bands_for_targets, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
+def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
@@ -142,16 +142,16 @@ def tclean_wrapper(selfcal_library, imagename, band, bands_for_targets, telescop
        if gridder !='wproject':
           gridder='standard' 
     import pprint
-    pprint.pprint(bands_for_targets)
+
     if spw == 'all':
         vlist = selfcal_library['vislist']
         spws_per_vis = selfcal_library['spws_per_vis']
-        field_str = [bands_for_targets[vis]['field_str'] for vis in vlist]
+        field_str = [selfcal_library['bands_for_targets'][vis]['field_str'] for vis in vlist]
         nterms = selfcal_library['nterms']
     else:
         vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
         spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
-        field_str = [bands_for_targets[vis]['field_str'] for vis in vlist]
+        field_str = [selfcal_library['bands_for_targets'][vis]['field_str'] for vis in vlist]
         nterms = 1
 
     if nterms == 1:
@@ -363,14 +363,14 @@ def tclean_wrapper(selfcal_library, imagename, band, bands_for_targets, telescop
     if not savemodel_only:
         return tclean_return
 
-def usermodel_wrapper(selfcal_library, imagename, band, bands_for_targets, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
+def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
                    savemodel_only=False, resume=False):
     vlist = selfcal_library['vislist']
-    field_str = [bands_for_targets[vis]['field_str'] for vis in vlist]
+    field_str = [selfcal_library['bands_for_targets'][vis]['field_str'] for vis in vlist]
 
     if type(selfcal_library['usermodel'])==list:
        nterms=len(selfcal_library['usermodel'])

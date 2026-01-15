@@ -1,7 +1,7 @@
 import numpy as np
 from .selfcal_helpers import *
 
-def gaincal_wrapper(selfcal_library, selfcal_plan, bands_for_targets, target, band, vis, solint, applymode, iteration, telescope, 
+def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, 
         calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3,
@@ -104,7 +104,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, bands_for_targets, target, ba
             include_targets, include_scans = triage_calibrators(vis, target, targets)
         else:
             #include_targets = str(selfcal_library['sub-fields-fid_map'][vis][0])
-            include_targets = bands_for_targets[vis]['field_str']
+            include_targets = selfcal_library['bands_for_targets'][vis]['field_str']
             include_scans = ""
 
         if solint == "scan_inf":
