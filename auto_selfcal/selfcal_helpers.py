@@ -2066,7 +2066,7 @@ def largest_prime_factor(n):
             n //= i
     return n
 
-def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
+def get_image_parameters_old(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -2118,7 +2118,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
 
    return cellsize,[npixels,npixels],nterms,reffreq
 
-def get_image_parameters_new(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
+def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -3075,15 +3075,11 @@ def check_mosaic(vislist,target):
 
 def get_phasecenter(vis,selfcal_library,field,telescope):
    msmd.open(vis)
-   if telescope == 'ALMA' or telescope == 'ACA': # put in to reproduce benchmark; actually incorrect since phantom fields will impact defined phase center
-       fieldid=msmd.fieldsforname(field) # only works for ALMA mosaics
-   else:
-       # should be more general
-       fieldid=np.array([],dtype=int)
-       for fid in selfcal_library['sub-fields']:
-          if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
-             field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
-             fieldid=np.append(fieldid,np.array([field_id]))
+   fieldid=np.array([],dtype=int)
+   for fid in selfcal_library['sub-fields']:
+      if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
+         field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
+         fieldid=np.append(fieldid,np.array([field_id]))
 
    ra_phasecenter_arr=np.zeros(len(fieldid))
    dec_phasecenter_arr=np.zeros(len(fieldid))
@@ -3097,10 +3093,6 @@ def get_phasecenter(vis,selfcal_library,field,telescope):
    ra_phasecenter=np.min(ra_phasecenter_arr)+(np.max(ra_phasecenter_arr)-np.min(ra_phasecenter_arr))/2.0
    dphi_dec=np.abs((np.max(dec_phasecenter_arr)-np.min(dec_phasecenter_arr))/2.0)
    dec_phasecenter=np.max(dec_phasecenter_arr)-dphi_dec
-
-   #switch back to old method until after VLA mosaics
-   ra_phasecenter=np.median(ra_phasecenter_arr)
-   dec_phasecenter=np.median(dec_phasecenter_arr)
 
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
