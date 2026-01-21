@@ -5,9 +5,9 @@ name: E2E Tests
 
 on:
   push:
-    branches: [ "make_pip_installable", "make_pip_installable_VLA_mosaics" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "make_pip_installable", "make_pip_installable_VLA_mosaics" ]
+    branches: [ "main" ]
 
 jobs:
   build:

@@ -1,12 +1,14 @@
 from casatasks import applycal, flagmanager, clearcal, uvcontsub
 from .selfcal_helpers import sanitize_string, parse_contdotdat, get_spwnum_refvis,flagchannels_from_contdotdat,get_fitspw_dict, get_telescope
 from casatools import msmetadata as msmdtool
+from casatools import table as tbtool
 import numpy as np
 import casatasks
 import pickle
 import os
 
 msmd = msmdtool()
+tb = tbtool()
 
 def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=True):
     """
@@ -51,7 +53,7 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
 
     if not write_only:
         for vis in vislist:
-            tb.open(vis,nomodify=Flase)
+            tb.open(vis,nomodify=False)
             cols=tb.colnames()
             if 'CORRECTED_DATA' in cols:
                 tb.removecols('CORRECTED_DATA')
@@ -97,7 +99,7 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
                    applycal(vis=selfcal_library[target][band]['original_vislist_map'][vis],\
                         gaintable=selfcal_library[target][band][vis]['gaintable_final'],\
                         interp=selfcal_library[target][band][vis]['applycal_interpolate_final'], 
-                        calwt=False,spwmap=[selfcal_library[target][band][vis]['spwmap_final']],\
+                        calwt=False,spwmap=selfcal_library[target][band][vis]['spwmap_final'],\
                         applymode=selfcal_library[target][band][vis]['applycal_mode_final'],
                         field=target,spw=selfcal_library[target][band][vis]['spws_orig'])
 

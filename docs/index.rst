@@ -27,7 +27,7 @@ Or to install into an existing Python environment (note that a Python version fo
 
 .. code-block:: bash
 
-   pip install auto_selfcal
+   pip install auto-selfcal
 
    cd </path/to/pipeline/calibrated/*_targets.ms/files>
 
@@ -59,14 +59,14 @@ Love auto_selfcal and want to cite it in your paper? Please include the followin
 .. code-block:: bibtex
 
    @software{auto_selfcal,
-      author       = {Patrick D. Sheehan and John J. Tobin and Rui Xue and Austen Fourkas},
-      title        = {jjtobin/auto\_selfcal: v1.3.1},
-      month        = nov,
+      author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Austen Fourkas},
+      title        = {jjtobin/auto\_selfcal: v2.0.0},
+      month        = dec,
       year         = 2025,
       publisher    = {Zenodo},
-      version      = {v1.3.1},
-      doi          = {10.5281/zenodo.17603063},
-      url          = {https://doi.org/10.5281/zenodo.17603063},
+      version      = {v2.0.0},
+      doi          = {10.5281/zenodo.17871742},
+      url          = {https://doi.org/10.5281/zenodo.17871742},
    }
 
 Contributing and/or Bugs
