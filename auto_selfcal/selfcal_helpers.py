@@ -2179,12 +2179,12 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
        fov_y = fov+mosaic_size_y
        approx_npixels=np.max([fov_x/cell,fov_y/cell])
        buffer_pix=int(np.ceil(approx_npixels/10.0))
-       npixels_x = int(np.ceil(fov_x/cell / buffer_pix)) * buffer_pix
-       npixels_y = int(np.ceil(fov_y/cell / buffer_pix)) * buffer_pix
+       npixels_x = int(np.ceil(fov_x/cell / buffer_pix)) * buffer_pix + buffer_pix
+       npixels_y = int(np.ceil(fov_y/cell / buffer_pix)) * buffer_pix + buffer_pix
        npixels=[npixels_x,npixels_y]
    else:
        buffer_pix=int(np.ceil(fov/cell/10.0))
-       pixels=int(np.ceil(fov/cell / buffer_pix)) * buffer_pix
+       pixels=int(np.ceil(fov/cell / buffer_pix)) * buffer_pix + buffer_pix
        npixels=[pixels,pixels]
    if np.max(npixels) > 16384:
       if mosaic:
