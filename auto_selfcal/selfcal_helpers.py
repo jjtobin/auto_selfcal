@@ -2145,16 +2145,24 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    fov=fov*scale_fov
 
    if mosaic:
-       msmd.open(vislist[0])
+       max_fields=0
+       index_max_fields=0
+       for v,vis in enumerate(vislist):
+          n_fields_vis=len(selfcal_library[target][band]['sub-fields-fid_map'][vislist[v]].keys())
+          if n_fields_vis > max_fields:
+              max_fields=n_fields_vis+0
+              index_max_fields=v+0
+
+       msmd.open(vislist[index_max_fields])
        #get field IDs for VLA and and ALMA differently
-       if telescope == 'ALMA' or telescope == 'ACA':
-          fieldid=msmd.fieldsforname(target)
-       elif 'VLA' in telescope:
-          fieldid=np.array([],dtype=int)
-          for fid in selfcal_library[target][band]['sub-fields']:
-             if fid in selfcal_library[target][band]['sub-fields-fid_map'][vislist[0]].keys():
-                field_id=selfcal_library[target][band]['sub-fields-fid_map'][vislist[0]][fid]
-                fieldid=np.append(fieldid,np.array([field_id]))
+       #if telescope == 'ALMA' or telescope == 'ACA':
+       #   fieldid=msmd.fieldsforname(target)
+       #elif 'VLA' in telescope:
+       fieldid=np.array([],dtype=int)
+       for fid in selfcal_library[target][band]['sub-fields']:
+         if fid in selfcal_library[target][band]['sub-fields-fid_map'][vislist[index_max_fields]].keys():
+            field_id=selfcal_library[target][band]['sub-fields-fid_map'][vislist[index_max_fields]][fid]
+            fieldid=np.append(fieldid,np.array([field_id]))
 
        ra_phasecenter_arr=np.zeros(len(fieldid))
        dec_phasecenter_arr=np.zeros(len(fieldid))
@@ -2163,19 +2171,20 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
           ra_phasecenter_arr[i]=phasecenter['m0']['value']
           dec_phasecenter_arr[i]=phasecenter['m1']['value']
        msmd.done()
-
-       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
-               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
-       mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600.
+       median_dec=np.median(dec_phasecenter_arr)
+       mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600. *np.cos(median_dec)
        mosaic_size_y=(dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
 
        fov_x = fov+mosaic_size_x
        fov_y = fov+mosaic_size_y
-       npixels_x = int(np.ceil(fov_x/cell / 100.0)) * 100
-       npixels_y = int(np.ceil(fov_y/cell / 100.0)) * 100
+       approx_npixels=np.max([fov_x/cell,fov_y/cell])
+       buffer_pix=int(np.ceil(approx_npixels/10.0))
+       npixels_x = int(np.ceil(fov_x/cell / buffer_pix)) * buffer_pix
+       npixels_y = int(np.ceil(fov_y/cell / buffer_pix)) * buffer_pix
        npixels=[npixels_x,npixels_y]
    else:
-       pixels=int(np.ceil(fov/cell / 100.0)) * 100
+       buffer_pix=int(np.ceil(fov/cell/10.0))
+       pixels=int(np.ceil(fov/cell / buffer_pix)) * buffer_pix
        npixels=[pixels,pixels]
    if np.max(npixels) > 16384:
       if mosaic:
