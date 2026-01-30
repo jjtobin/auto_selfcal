@@ -2174,6 +2174,10 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
        median_dec=np.median(dec_phasecenter_arr)
        mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600. *np.cos(median_dec)
        mosaic_size_y=(dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
+       def check_even(number):
+           if number % 2 != 0:  #even number will not have a remainder
+               number += 1     
+           return number
 
        fov_x = fov+mosaic_size_x
        fov_y = fov+mosaic_size_y
@@ -2181,10 +2185,13 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
        buffer_pix=int(np.ceil(approx_npixels/10.0))
        npixels_x = int(np.ceil(fov_x/cell / buffer_pix)) * buffer_pix + buffer_pix
        npixels_y = int(np.ceil(fov_y/cell / buffer_pix)) * buffer_pix + buffer_pix
+       npixels_x = check_even(npixels_x)
+       npixels_y = check_even(npixels_y)
        npixels=[npixels_x,npixels_y]
    else:
        buffer_pix=int(np.ceil(fov/cell/10.0))
        pixels=int(np.ceil(fov/cell / buffer_pix)) * buffer_pix + buffer_pix
+       pixels=check_even(pixels)
        npixels=[pixels,pixels]
    if np.max(npixels) > 16384:
       if mosaic:
