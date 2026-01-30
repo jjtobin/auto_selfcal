@@ -2119,6 +2119,10 @@ def get_image_parameters_old(vislist,telescope,target,field_ids,band,selfcal_lib
    return cellsize,[npixels,npixels],nterms,reffreq
 
 def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
+   def check_even(number):
+       if number % 2 != 0:  #even number will not have a remainder
+           number += 1     
+       return number
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -2174,10 +2178,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
        median_dec=np.median(dec_phasecenter_arr)
        mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600. *np.cos(median_dec)
        mosaic_size_y=(dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
-       def check_even(number):
-           if number % 2 != 0:  #even number will not have a remainder
-               number += 1     
-           return number
+
 
        fov_x = fov+mosaic_size_x
        fov_y = fov+mosaic_size_y
