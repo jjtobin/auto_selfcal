@@ -2149,32 +2149,15 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    fov=fov*scale_fov
 
    if mosaic:
-       max_fields=0
-       index_max_fields=0
-       for v,vis in enumerate(vislist):
-          n_fields_vis=len(selfcal_library[target][band]['sub-fields-fid_map'][vislist[v]].keys())
-          if n_fields_vis > max_fields:
-              max_fields=n_fields_vis+0
-              index_max_fields=v+0
-
-       msmd.open(vislist[index_max_fields])
-       #get field IDs for VLA and and ALMA differently
-       #if telescope == 'ALMA' or telescope == 'ACA':
-       #   fieldid=msmd.fieldsforname(target)
-       #elif 'VLA' in telescope:
-       fieldid=np.array([],dtype=int)
-       for fid in selfcal_library[target][band]['sub-fields']:
-         if fid in selfcal_library[target][band]['sub-fields-fid_map'][vislist[index_max_fields]].keys():
-            field_id=selfcal_library[target][band]['sub-fields-fid_map'][vislist[index_max_fields]][fid]
-            fieldid=np.append(fieldid,np.array([field_id]))
+       fieldid=selfcal_library[target][band]['sub-fields-phasecenters'].keys()
 
        ra_phasecenter_arr=np.zeros(len(fieldid))
        dec_phasecenter_arr=np.zeros(len(fieldid))
-       for i in range(len(fieldid)):
-          phasecenter=msmd.phasecenter(fieldid[i])
-          ra_phasecenter_arr[i]=phasecenter['m0']['value']
-          dec_phasecenter_arr[i]=phasecenter['m1']['value']
-       msmd.done()
+
+       for k, key in enumerate(fieldid):
+          ra_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][0]
+          dec_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][1]
+
        median_dec=np.median(dec_phasecenter_arr)
        mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600. *np.cos(median_dec)
        mosaic_size_y=(dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
@@ -3091,21 +3074,15 @@ def check_mosaic(vislist,target):
    return mosaic
 
 def get_phasecenter(vis,selfcal_library,field,telescope):
-   msmd.open(vis)
-   fieldid=np.array([],dtype=int)
-   for fid in selfcal_library['sub-fields']:
-      if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
-         field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
-         fieldid=np.append(fieldid,np.array([field_id]))
+   fieldid=selfcal_library[target][band]['sub-fields-phasecenters'].keys()
 
    ra_phasecenter_arr=np.zeros(len(fieldid))
    dec_phasecenter_arr=np.zeros(len(fieldid))
-   for i in range(len(fieldid)):
-      phasecenter=msmd.phasecenter(fieldid[i])
-      ra_phasecenter_arr[i]=phasecenter['m0']['value']
-      dec_phasecenter_arr[i]=phasecenter['m1']['value']
 
-   msmd.done()
+   for k, key in enumerate(fieldid):
+      ra_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][0]
+      dec_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][1]
+
    #RA center = Min + delta ra
    ra_phasecenter=np.min(ra_phasecenter_arr)+(np.max(ra_phasecenter_arr)-np.min(ra_phasecenter_arr))/2.0
    dphi_dec=np.abs((np.max(dec_phasecenter_arr)-np.min(dec_phasecenter_arr))/2.0)
