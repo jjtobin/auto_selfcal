@@ -2149,15 +2149,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    fov=fov*scale_fov
 
    if mosaic:
-       fieldid=selfcal_library[target][band]['sub-fields-phasecenters'].keys()
-
-       ra_phasecenter_arr=np.zeros(len(fieldid))
-       dec_phasecenter_arr=np.zeros(len(fieldid))
-
-       for k, key in enumerate(fieldid):
-          ra_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][0]
-          dec_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][1]
-
+       ra_phasecenter_arr, dec_phasecenter_arr = get_phasecenter_arrays(selfcal_library[target][band])
        median_dec=np.median(dec_phasecenter_arr)
        mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600. *np.cos(median_dec)
        mosaic_size_y=(dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
@@ -3073,16 +3065,8 @@ def check_mosaic(vislist,target):
       mosaic=False
    return mosaic
 
-def get_phasecenter(vis,selfcal_library,field,telescope):
-   fieldid=selfcal_library[target][band]['sub-fields-phasecenters'].keys()
-
-   ra_phasecenter_arr=np.zeros(len(fieldid))
-   dec_phasecenter_arr=np.zeros(len(fieldid))
-
-   for k, key in enumerate(fieldid):
-      ra_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][0]
-      dec_phasecenter_arr[i]=selfcal_library[target][band]['sub-fields-phasecenters'][key][1]
-
+def get_phasecenter(vis,selfcal_library,target,telescope):
+   ra_phasecenter_arr, dec_phasecenter_arr = get_phasecenter_arrays(selfcal_library)
    #RA center = Min + delta ra
    ra_phasecenter=np.min(ra_phasecenter_arr)+(np.max(ra_phasecenter_arr)-np.min(ra_phasecenter_arr))/2.0
    dphi_dec=np.abs((np.max(dec_phasecenter_arr)-np.min(dec_phasecenter_arr))/2.0)
@@ -3090,6 +3074,18 @@ def get_phasecenter(vis,selfcal_library,field,telescope):
 
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
+
+def get_phasecenter_arrays(selfcal_library):
+   fieldid=selfcal_library['sub-fields-phasecenters'].keys()
+   ra_phasecenter_arr=np.zeros(len(fieldid))
+   dec_phasecenter_arr=np.zeros(len(fieldid))
+
+   for k, key in enumerate(fieldid):
+      ra_phasecenter_arr[k]=selfcal_library['sub-fields-phasecenters'][key][0]
+      dec_phasecenter_arr[k]=selfcal_library['sub-fields-phasecenters'][key][1]
+
+   return ra_phasecenter_arr, dec_phasecenter_arr
+
 
 def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
      # Get the antenna names and offsets.
