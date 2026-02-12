@@ -14,7 +14,13 @@ from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
 from casatools import ms as mstool
+from casatools import image as iatool
 from PIL import Image
+
+from . import casa_tools
+
+import traceback
+import shutil
 
 ms = mstool()
 tb = tbtool()
@@ -1314,19 +1320,19 @@ def estimate_SNR(
             snr = 0.0
 
         if verbose:
-            LOG.info('Image name: %s', imagename)
-            LOG.info(
-                'Beam %.3f arcsec x %.3f arcsec (%.2f deg)',
-                beammajor,
+            print('Image name: %s' % imagename)
+            print(
+                'Beam %.3f arcsec x %.3f arcsec (%.2f deg)' %
+                (beammajor,
                 beamminor,
-                beampa,
+                beampa)
             )
-            LOG.info('Peak intensity of source: %.2f mJy/beam', peak_intensity * 1000)
-            LOG.info('rms: %.2e mJy/beam', rms * 1000)
-            LOG.info('Peak SNR: %.2f', snr)
+            print('Peak intensity of source: %.2f mJy/beam' % (peak_intensity * 1000,))
+            print('rms: %.2e mJy/beam' % (rms * 1000,))
+            print('Peak SNR: %.2f' % (snr,))
 
     except Exception:
-        LOG.error('Error in estimate_SNR: %s', traceback.format_exc())
+        print('Error in estimate_SNR: %s' % traceback.format_exc())
         return np.float64(-99.0), np.float64(-99.0)
 
     return snr, rms
@@ -1365,7 +1371,7 @@ def estimate_near_field_SNR(
         mask_image = maskname
 
     if not os.path.exists(mask_image):
-        LOG.info('mask file %s does not exist', mask_image)
+        print('mask file %s does not exist' % mask_image)
         return np.float64(-99.0), np.float64(-99.0)
 
     mad_to_rms = 1.4826
@@ -1409,7 +1415,7 @@ def estimate_near_field_SNR(
 
         good_mask = checkmask(mask_image)
         if not good_mask:
-            LOG.info('The mask file %s is empty.', mask_image)
+            print('The mask file %s is empty.' % mask_image)
             return np.float64(-99.0), np.float64(-99.0)
 
         # 1. Smooth Mask (Small)
@@ -1461,11 +1467,11 @@ def estimate_near_field_SNR(
                 max_dist_sq = np.max(dx**2 + dy**2)
                 beam_extent_size = np.sqrt(max_dist_sq) * pixel_scale
 
-        LOG.info(
-            'beammajor*5 = %f, LAS = %f, beam_extent = %f',
-            beammajor * 5,
+        print(
+            'beammajor*5 = %f, LAS = %f, beam_extent = %f' %
+            (beammajor * 5,
             5 * las if las else 0.0,
-            beam_extent_size,
+            beam_extent_size)
         )
         outer_major = max(beammajor * 5, beam_extent_size, 5 * las if las is not None else 0.0)
 
@@ -1504,9 +1510,9 @@ def estimate_near_field_SNR(
         # 5. Calculate SNR & RMS in Annulus
         annulus_stats = ia_annulus.statistics()
         if annulus_stats['min'][0] >= 0.99:
-            LOG.info('Near field annulus is empty/fully masked.')
+            print('Near field annulus is empty/fully masked.')
         else:
-            with casa_tools.ImageReader(imagename) as ia_im:
+            with casatools.ImageReader(imagename) as ia_im:
                 # Use LEL mask expression: valid where annulus mask image value < 0.5
                 mask_expr = f"'{ia_annulus.name()}' < 0.5"
                 try:
@@ -1516,22 +1522,22 @@ def estimate_near_field_SNR(
                         if rms > 0:
                             snr = peak_intensity / rms
                 except Exception as e:
-                    LOG.warning('Error calculating stats: %s', e)
+                    print('Error calculating stats: %s' % e)
 
             if verbose and rms > 0:
-                LOG.info('Image Name: %s', imagename)
-                LOG.info(
-                    'Beam: %.3f arcsec x %.3f arcsec (%.2f deg)',
-                    beammajor,
+                print('Image Name: %s' % imagename)
+                print(
+                    'Beam: %.3f arcsec x %.3f arcsec (%.2f deg)' %
+                    (beammajor,
                     beamminor,
-                    beampa,
+                    beampa)
                 )
-                LOG.info('Peak intensity of source: %.2f mJy/beam', peak_intensity * 1000)
-                LOG.info('Near Field rms: %.2e mJy/beam', rms * 1000)
-                LOG.info('Peak Near Field SNR: %.2f', snr)
+                print('Peak intensity of source: %.2f mJy/beam' % (peak_intensity * 1000,))
+                print('Near Field rms: %.2e mJy/beam' % (rms * 1000,))
+                print('Peak Near Field SNR: %.2f' % (snr,))
 
     except Exception:
-        LOG.error('Error in estimate_near_field_SNR: %s', traceback.format_exc())
+        print('Error in estimate_near_field_SNR: %s' % traceback.format_exc())
         return np.float64(-99.0), np.float64(-99.0)
     finally:
         # Cleanup transient tools
