@@ -1214,11 +1214,11 @@ def checkmask(imagename):
       return True
 
 def estimate_SNR(
-    imagename: str,
-    maskname: str | None = None,
-    verbose: bool = True,
-    mosaic_sub_field: bool = False,
-) -> tuple[float, float]:
+    imagename,
+    maskname=None,
+    verbose=True,
+    mosaic_sub_field=False,
+):
     """Estimate the Signal-to-Noise Ratio (SNR) of an image.
 
     This function calculates the SNR by determining the peak intensity (considering
@@ -1333,13 +1333,13 @@ def estimate_SNR(
 
 
 def estimate_near_field_SNR(
-    imagename: str,
-    las: float | None = None,
-    maskname: str | None = None,
-    verbose: bool = True,
-    mosaic_sub_field: bool = False,
-    save_near_field_mask: bool = True,
-) -> tuple[float, float]:
+    imagename,
+    las=None,
+    maskname=None,
+    verbose=True,
+    mosaic_sub_field=False,
+    save_near_field_mask=True,
+):
     """Estimate the near-field SNR using in-memory CASA tool operations.
 
     This function avoids writing temporary images to disk and minimizes large numpy array
