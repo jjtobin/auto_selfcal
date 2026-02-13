@@ -2197,58 +2197,10 @@ def largest_prime_factor(n):
     return n
 
 def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
-   cells=np.zeros(len(vislist))
-   for i in range(len(vislist)):
-      #im.open(vislist[i])
-      im.selectvis(vis=vislist[i],spw=selfcal_library[target][band][vislist[i]]['spwsarray'])
-      adviseparams= im.advise() 
-      cells[i]=adviseparams[2]['value']/2.0
-      im.close()
-   cell=np.min(cells)
-   cellsize='{:0.3f}arcsec'.format(cell)
-   nterms=1
-   if selfcal_library[target][band]['fracbw'] > 0.1:
-      nterms=2
-   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
-
-   if 'VLA' in telescope:
-      fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
-      if selfcal_library[target][band]['meanfreq'] < 12.0e9:
-         fov=fov*2.0
-   if telescope=='ALMA':
-      fov=63.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
-   if telescope=='ACA':
-      fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
-   fov=fov*scale_fov
-   if mosaic:
-       msmd.open(vislist[0])
-       fieldid=msmd.fieldsforname(target)
-       ra_phasecenter_arr=np.zeros(len(fieldid))
-       dec_phasecenter_arr=np.zeros(len(fieldid))
-       for i in range(len(fieldid)):
-          phasecenter=msmd.phasecenter(fieldid[i])
-          ra_phasecenter_arr[i]=phasecenter['m0']['value']
-          dec_phasecenter_arr[i]=phasecenter['m1']['value']
-       msmd.done()
-
-       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
-               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
-
-       fov += mosaic_size
-
-   npixels=int(np.ceil(fov/cell / 100.0)) * 100
-   if npixels > 16384:
-      if mosaic:
-          print("WARNING: Image size = "+str(npixels)+" is excessively large. It is not being trimmed because it is needed for the mosaic, but this may not be viable for your hardware.")
-      else:
-          npixels=16384
-
-   while largest_prime_factor(npixels) >= 7:
-       npixels += 2
-
-   return cellsize,[npixels,npixels],nterms,reffreq
-
-def get_image_parameters_new(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
+   def check_even(number):
+       if number % 2 != 0:  #even number will not have a remainder
+           number += 1     
+       return number
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -2275,37 +2227,25 @@ def get_image_parameters_new(vislist,telescope,target,field_ids,band,selfcal_lib
    fov=fov*scale_fov
 
    if mosaic:
-       msmd.open(vislist[0])
-       #get field IDs for VLA and and ALMA differently
-       if telescope == 'ALMA' or telescope == 'ACA':
-          fieldid=msmd.fieldsforname(target)
-       elif 'VLA' in telescope:
-          fieldid=np.array([],dtype=int)
-          for fid in selfcal_library[target][band]['sub-fields']:
-             if fid in selfcal_library[target][band]['sub-fields-fid_map'][vislist[0]].keys():
-                field_id=selfcal_library[target][band]['sub-fields-fid_map'][vislist[0]][fid]
-                fieldid=np.append(fieldid,np.array([field_id]))
-
-       ra_phasecenter_arr=np.zeros(len(fieldid))
-       dec_phasecenter_arr=np.zeros(len(fieldid))
-       for i in range(len(fieldid)):
-          phasecenter=msmd.phasecenter(fieldid[i])
-          ra_phasecenter_arr[i]=phasecenter['m0']['value']
-          dec_phasecenter_arr[i]=phasecenter['m1']['value']
-       msmd.done()
-
-       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
-               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
-       mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600.
+       ra_phasecenter_arr, dec_phasecenter_arr = get_phasecenter_arrays(selfcal_library[target][band])
+       median_dec=np.median(dec_phasecenter_arr)
+       mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600. *np.cos(median_dec)
        mosaic_size_y=(dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
+
 
        fov_x = fov+mosaic_size_x
        fov_y = fov+mosaic_size_y
-       npixels_x = int(np.ceil(fov_x/cell / 100.0)) * 100
-       npixels_y = int(np.ceil(fov_y/cell / 100.0)) * 100
+       approx_npixels=np.max([fov_x/cell,fov_y/cell])
+       buffer_pix=int(np.ceil(approx_npixels/10.0))
+       npixels_x = int(np.ceil(fov_x/cell / buffer_pix)) * buffer_pix + buffer_pix
+       npixels_y = int(np.ceil(fov_y/cell / buffer_pix)) * buffer_pix + buffer_pix
+       npixels_x = check_even(npixels_x)
+       npixels_y = check_even(npixels_y)
        npixels=[npixels_x,npixels_y]
    else:
-       pixels=int(np.ceil(fov/cell / 100.0)) * 100
+       buffer_pix=int(np.ceil(fov/cell/10.0))
+       pixels=int(np.ceil(fov/cell / buffer_pix)) * buffer_pix + buffer_pix
+       pixels=check_even(pixels)
        npixels=[pixels,pixels]
    if np.max(npixels) > 16384:
       if mosaic:
@@ -3203,37 +3143,27 @@ def check_mosaic(vislist,target):
       mosaic=False
    return mosaic
 
-def get_phasecenter(vis,selfcal_library,field,telescope):
-   msmd.open(vis)
-   if telescope == 'ALMA' or telescope == 'ACA': # put in to reproduce benchmark; actually incorrect since phantom fields will impact defined phase center
-       fieldid=msmd.fieldsforname(field) # only works for ALMA mosaics
-   else:
-       # should be more general
-       fieldid=np.array([],dtype=int)
-       for fid in selfcal_library['sub-fields']:
-          if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
-             field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
-             fieldid=np.append(fieldid,np.array([field_id]))
-
-   ra_phasecenter_arr=np.zeros(len(fieldid))
-   dec_phasecenter_arr=np.zeros(len(fieldid))
-   for i in range(len(fieldid)):
-      phasecenter=msmd.phasecenter(fieldid[i])
-      ra_phasecenter_arr[i]=phasecenter['m0']['value']
-      dec_phasecenter_arr[i]=phasecenter['m1']['value']
-
-   msmd.done()
+def get_phasecenter(vis,selfcal_library,target,telescope):
+   ra_phasecenter_arr, dec_phasecenter_arr = get_phasecenter_arrays(selfcal_library)
    #RA center = Min + delta ra
    ra_phasecenter=np.min(ra_phasecenter_arr)+(np.max(ra_phasecenter_arr)-np.min(ra_phasecenter_arr))/2.0
    dphi_dec=np.abs((np.max(dec_phasecenter_arr)-np.min(dec_phasecenter_arr))/2.0)
    dec_phasecenter=np.max(dec_phasecenter_arr)-dphi_dec
 
-   #switch back to old method until after VLA mosaics
-   ra_phasecenter=np.median(ra_phasecenter_arr)
-   dec_phasecenter=np.median(dec_phasecenter_arr)
-
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
+
+def get_phasecenter_arrays(selfcal_library):
+   fieldid=selfcal_library['sub-fields-phasecenters'].keys()
+   ra_phasecenter_arr=np.zeros(len(fieldid))
+   dec_phasecenter_arr=np.zeros(len(fieldid))
+
+   for k, key in enumerate(fieldid):
+      ra_phasecenter_arr[k]=selfcal_library['sub-fields-phasecenters'][key][0]
+      dec_phasecenter_arr[k]=selfcal_library['sub-fields-phasecenters'][key][1]
+
+   return ra_phasecenter_arr, dec_phasecenter_arr
+
 
 def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
      # Get the antenna names and offsets.
