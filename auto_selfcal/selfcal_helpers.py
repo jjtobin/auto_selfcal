@@ -2180,58 +2180,6 @@ def largest_prime_factor(n):
             n //= i
     return n
 
-def get_image_parameters_old(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
-   cells=np.zeros(len(vislist))
-   for i in range(len(vislist)):
-      #im.open(vislist[i])
-      im.selectvis(vis=vislist[i],spw=selfcal_library[target][band][vislist[i]]['spwsarray'])
-      adviseparams= im.advise() 
-      cells[i]=adviseparams[2]['value']/2.0
-      im.close()
-   cell=np.min(cells)
-   cellsize='{:0.3f}arcsec'.format(cell)
-   nterms=1
-   if selfcal_library[target][band]['fracbw'] > 0.1:
-      nterms=2
-   reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
-
-   if 'VLA' in telescope:
-      fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
-      if selfcal_library[target][band]['meanfreq'] < 12.0e9:
-         fov=fov*2.0
-   if telescope=='ALMA':
-      fov=63.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
-   if telescope=='ACA':
-      fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
-   fov=fov*scale_fov
-   if mosaic:
-       msmd.open(vislist[0])
-       fieldid=msmd.fieldsforname(target)
-       ra_phasecenter_arr=np.zeros(len(fieldid))
-       dec_phasecenter_arr=np.zeros(len(fieldid))
-       for i in range(len(fieldid)):
-          phasecenter=msmd.phasecenter(fieldid[i])
-          ra_phasecenter_arr[i]=phasecenter['m0']['value']
-          dec_phasecenter_arr[i]=phasecenter['m1']['value']
-       msmd.done()
-
-       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
-               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
-
-       fov += mosaic_size
-
-   npixels=int(np.ceil(fov/cell / 100.0)) * 100
-   if npixels > 16384:
-      if mosaic:
-          print("WARNING: Image size = "+str(npixels)+" is excessively large. It is not being trimmed because it is needed for the mosaic, but this may not be viable for your hardware.")
-      else:
-          npixels=16384
-
-   while largest_prime_factor(npixels) >= 7:
-       npixels += 2
-
-   return cellsize,[npixels,npixels],nterms,reffreq
-
 def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
    def check_even(number):
        if number % 2 != 0:  #even number will not have a remainder
