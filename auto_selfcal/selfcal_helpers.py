@@ -242,9 +242,9 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        
     #override automatic automasking parameters with user-defined values  
     if selfcal_library['am_noisethreshold'] != None:
-        noisethreshold = selfcal_library['am_noisethreshold']
+        noisethreshold = selfcal_library['am_noisethreshold']*nfrms_multiplier
     if selfcal_library['am_lownoisethreshold'] != None:
-        lownoisethreshold = selfcal_library['am_lownoisethreshold']
+        lownoisethreshold = selfcal_library['am_lownoisethreshold']*nfrms_multiplier
     if selfcal_library['am_smoothfactor'] != None:
         smoothfactor = selfcal_library['am_smoothfactor']
     if selfcal_library['am_growiterations'] != None:
