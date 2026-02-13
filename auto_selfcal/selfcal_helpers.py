@@ -1512,7 +1512,7 @@ def estimate_near_field_SNR(
         if annulus_stats['min'][0] >= 0.99:
             print('Near field annulus is empty/fully masked.')
         else:
-            with casatools.ImageReader(imagename) as ia_im:
+            with casa_tools.ImageReader(imagename) as ia_im:
                 # Use LEL mask expression: valid where annulus mask image value < 0.5
                 mask_expr = f"'{ia_annulus.name()}' < 0.5"
                 try:
