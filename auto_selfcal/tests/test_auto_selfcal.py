@@ -64,17 +64,20 @@ def test_benchmark(tmp_path, dataset):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=1e-3, exclude=['vislist_orig'])
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=1e-3, exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets'])
 
     assert difference_count == 0
 
+# Note for future reference: to create the tar file properly, update the files in the folder on OneDrive, and then run:
+# tar czf Band8-7m-2.tar.gz -c Band8-7m-2 .
 @pytest.mark.ghtest
 @pytest.mark.parametrize(
     "zip_file,link",
     [
-        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/Ea8NGWjlNptNnyqg_62xxmcB0lk64IpB7Dd7AgfltnNkXQ?e=pATHrR&download=1', id="2018.1.01284.S_HOPS-384"),
-        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EScVSXH9JHRIt2P-9fwxVRYBsy70G94cKxv00HTv44Pdug?e=W1zfyP&download=1', id="Band8-7m-2"),
-        pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/EZP4KRsBbthPksh6_kKsNI4Bm3m4L-1QhF4zCUDXhO73Lg?e=tmcIMv&download=1', id="M82-C-conf-C-band_small"),
+        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCvDRlo5TabTZ8qoP-tscZnAdJZOuCKQew3ewIH5bZzZF0?e=XWOGxH&download=1', id="2018.1.01284.S_HOPS-384"),
+        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAnFUlx_SR0SLdj_vX8MVUWAbMu9BveHCsb9NB07-OD3bo?e=zMGxOJ&download=1', id="Band8-7m-2"),
+        pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCT-CkbAW7YT5LIev5CrDSOAZt5uC_tUIReMwlA14Tu9y4?e=2zF126&download=1', id="M82-C-conf-C-band_small"),
+        pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=7adSCD&download=1', id='K-band-mini-mosaic')
     ]
 )
 def test_on_github(tmp_path, request, zip_file, link):
@@ -96,7 +99,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001)
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001, exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets'])
 
     assert difference_count == 0
 

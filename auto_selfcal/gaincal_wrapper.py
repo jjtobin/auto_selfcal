@@ -103,11 +103,13 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 
             include_targets, include_scans = triage_calibrators(vis, target, targets)
         else:
-            include_targets = str(selfcal_library['sub-fields-fid_map'][vis][0])
+            #include_targets = str(selfcal_library['sub-fields-fid_map'][vis][0])
+            include_targets = selfcal_library['bands_for_targets'][vis]['field_str']
             include_scans = ""
 
         if solint == "scan_inf":
             if len(gaincalibrator_dict[vis]) > 0:
+                print("Determining scan_inf from calibrator scans in full MS")
                 scans = []
                 intents = []
                 times = []
@@ -127,7 +129,16 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                 scans = scans[is_gaincalibrator]
 
                 msmd.open(vis)
-                scan_ids_for_target = msmd.scansforfield(target)
+                if telescope == 'ALMA' or telescope == 'ACA':
+                    scan_ids_for_target = msmd.scansforfield(target)
+                elif 'VLA' in telescope:
+                    scan_ids_for_target=np.array([],dtype=int)
+                    for fid in selfcal_library['sub-fields']:
+                        if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
+                            field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
+                            scan_ids_for_target=np.append(scan_ids_for_target,msmd.scansforfield(field_id))
+
+                    scan_ids_for_target.sort() # sort scans since they will be out of order
                 include_scans = []
                 for iscan in range(scans.size-1):
                     scan_group = np.intersect1d(scan_ids_for_target, 
@@ -144,28 +155,72 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                         include_scans.append(','.join(extra_scans.astype(str)))
                 msmd.close()
             elif guess_scan_combine:
+                print("Determining scan_inf from guessing where the calibrator scans were")
                 msmd.open(vis)
-                
-                scans = msmd.scansforfield(target)
-
                 include_scans = []
-                for iscan in range(scans.size):
-                    if len(include_scans) > 0:
-                        if str(scans[iscan]) in include_scans[-1]:
-                            continue
 
-                    scan_group = str(scans[iscan])
+                #to guess at scan_inf combination for VLA look for breaks in the consecutive
+                #scan numbers and assume that the break is due to a calibrator scan
+                #Fetch scans for scan inf by collecting the field ids and running msmd.scansforfield
+                if 'VLA' in telescope:
+                    scans=np.array([],dtype=int)
+                    for fid in selfcal_library['sub-fields']:
+                        if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
+                            field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
+                            scans=np.append(scans,msmd.scansforfield(field_id))
 
-                    if iscan < scans.size-1:
-                        if msmd.fieldsforscan(scans[iscan+1]).size < msmd.fieldsforscan(scans[iscan]).size/3:
-                            scan_group += ","+str(scans[iscan+1])
+                    scans.sort() # sort scans since they will be out of order
+                    scan_group=''
+                    for iscan in range(scans.size):
+                        if len(include_scans) > 0:
+                            if str(scans[iscan]) in include_scans[-1]:
+                                continue
+                        if scan_group == '':
+                            scan_group = str(int(scans[iscan]))
 
-                    include_scans.append(scan_group)
+                        if iscan < scans.size-1:
+                            if scans[iscan+1] == scans[iscan]+1:
+                                scan_group += ","+str(int(scans[iscan+1]))
+                            else:
+                                include_scans.append(scan_group)
+                                scan_group=''
+                        else: #write out the last scan group to include_scans
+                            if scan_group != '':
+                                include_scans.append(scan_group)
+                                scan_group=''
+
+                #guess scan_inf combination by getting all the scans for targets and do a simple grouping
+                if telescope == 'ALMA' or telescope == 'ACA':
+                    scans = msmd.scansforfield(target)
+
+                    for iscan in range(scans.size):
+                        if len(include_scans) > 0:
+                            if str(scans[iscan]) in include_scans[-1]:
+                                continue
+
+                        scan_group = str(scans[iscan])
+
+                        if iscan < scans.size-1:
+                            if msmd.fieldsforscan(scans[iscan+1]).size < msmd.fieldsforscan(scans[iscan]).size/3:
+                                scan_group += ","+str(scans[iscan+1])
+
+                        include_scans.append(scan_group)
 
                 msmd.close()
             else:
+                print("Not guessing where calibration scans are and justincluding all scans")
                 msmd.open(vis)
-                include_scans = [str(scan) for scan in msmd.scansforfield(target)]
+                if telescope == 'ALMA' or telescope == 'ACA':
+                    include_scans = [str(scan) for scan in msmd.scansforfield(target)]
+                elif 'VLA' in telescope:
+                    scans=np.array([],dtype=int)
+                    for fid in selfcal_library['sub-fields']:
+                        if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
+                            field_id=selfcal_library['sub-fields-fid_map'][vis][fid]
+                            scans=np.append(scans,msmd.scansforfield(field_id))
+
+                    scans.sort() # sort scans since they will be out of order      
+                    include_scans = [str(scan) for scan in scans]             
                 msmd.close()
         else:
             include_scans = [include_scans]
@@ -249,7 +304,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 
             selfcal_library[vis][solint]["include_scans"] = include_scans
             selfcal_library[vis][solint]["include_targets"] = include_targets
-
+            print(solint,'Include scans: ', include_scans)
+            print(solint,'Include targets: ', include_targets)
             for incl_scans, incl_targets in zip(include_scans, include_targets):
                 for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
                    print(vis,solint,mode)

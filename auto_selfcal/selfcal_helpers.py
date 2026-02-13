@@ -4,7 +4,8 @@ import scipy.stats
 import scipy.signal
 import math
 import os
-
+import scipy.cluster.hierarchy as hc
+import copy
 
 import casatools
 from casaplotms import plotms
@@ -20,6 +21,122 @@ tb = tbtool()
 msmd = msmdtool()
 ia = image()
 im = imager()
+
+class msmdWrapper:
+    def __init__(self):
+        self.stored_values = {}
+        self.current_file = None
+
+    def open(self, filename):
+        if filename not in self.stored_values:
+            self.stored_values[filename] = {}
+
+        self.current_file = filename
+
+    def bandwidths(self, spw):
+        if "bandwidths" in self.stored_values[self.current_file]:
+            if spw not in self.stored_values[self.current_file]['bandwidths']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['bandwidths'][spw] = msmd.bandwidths(spw)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["bandwidths"] = {}
+            self.stored_values[self.current_file]['bandwidths'][spw] = msmd.bandwidths(spw)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['bandwidths'][spw]
+
+    def chanwidths(self, spw):
+        if "chanwidths" in self.stored_values[self.current_file]:
+            if spw not in self.stored_values[self.current_file]['chanwidths']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['chanwidths'][spw] = msmd.chanwidths(spw)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["chanwidths"] = {}
+            self.stored_values[self.current_file]['chanwidths'][spw] = msmd.chanwidths(spw)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['chanwidths'][spw]
+
+    def namesforspws(self, spw):
+        if "namesforspws" in self.stored_values[self.current_file]:
+            if spw not in self.stored_values[self.current_file]['namesforspws']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['namesforspws'][spw] = msmd.namesforspws(spw)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["namesforspws"] = {}
+            self.stored_values[self.current_file]['namesforspws'][spw] = msmd.namesforspws(spw)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['namesforspws'][spw]
+
+    def fieldsforname(self, target):
+        if "fieldsforname" in self.stored_values[self.current_file]:
+            if target not in self.stored_values[self.current_file]['fieldsforname']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['fieldsforname'][target] = msmd.fieldsforname(target)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["fieldsforname"] = {}
+            self.stored_values[self.current_file]['fieldsforname'][target] = msmd.fieldsforname(target)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['fieldsforname'][target]
+
+    def chanres(self, spw, units, asvel=True):
+        key = (spw, units, asvel)
+        if "chanres" in self.stored_values[self.current_file]:
+            if key not in self.stored_values[self.current_file]['chanres']:
+                msmd.open(self.current_file)
+                self.stored_values[self.current_file]['chanres'][key] = msmd.chanres(spw, units, asvel=asvel)
+                msmd.close()
+            else:
+                print("Using cached values...")
+        else:
+            msmd.open(self.current_file)
+            self.stored_values[self.current_file]["chanres"] = {}
+            self.stored_values[self.current_file]['chanres'][key] = msmd.chanres(spw, units, asvel=asvel)
+            msmd.close()
+
+        return self.stored_values[self.current_file]['chanres'][key]
+
+    def cvelfreqs(self, spwids=None, fieldids=None, mode="channel", nchan=1, start=0, outframe='LSRK'):
+        key = (spwids[0], fieldids[0], mode, nchan, start, outframe)
+        if "cvelfreqs" in self.stored_values[self.current_file]:
+            if key not in self.stored_values[self.current_file]['cvelfreqs']:
+                ms.open(self.current_file)
+                self.stored_values[self.current_file]['cvelfreqs'][key] = ms.cvelfreqs(spwids=spwids, fieldids=fieldids, mode=mode,
+                        nchan=nchan, start=start, outframe=outframe)
+                ms.close()
+            else:
+                print("Using cached values...")
+        else:
+            ms.open(self.current_file)
+            self.stored_values[self.current_file]["cvelfreqs"] = {}
+            self.stored_values[self.current_file]['cvelfreqs'][key] = ms.cvelfreqs(spwids=spwids, fieldids=fieldids, mode=mode,
+                    nchan=nchan, start=start, outframe=outframe)
+            ms.close()
+
+        return self.stored_values[self.current_file]['cvelfreqs'][key]
+
+    def close(self):
+        self.current_file = None
+
+msmdw = msmdWrapper()
 
 def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
@@ -46,12 +163,13 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],selfcal_library,field,telescope)
 
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
     nfrms_multiplier = max(nfrms_multiplier, 1.0)
-
+    #if 'VLA' in telescope and nfrms_multiplier != 1.0:
+    #    nfrms_multiplier = nfrms_multiplier*2.0
     baselineThresholdALMA = 400.0
 
     if mask == '':
@@ -111,7 +229,8 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
-       pblimit=-0.1
+       if selfcal_library['obstype']!='mosaic':
+           pblimit=-0.1
        cycleniter=-1
        negativethreshold = 0.0
        dogrowprune = True
@@ -138,14 +257,17 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     else:
        if gridder !='wproject':
           gridder='standard' 
+    import pprint
 
     if spw == 'all':
         vlist = selfcal_library['vislist']
         spws_per_vis = selfcal_library['spws_per_vis']
+        field_str = [selfcal_library['bands_for_targets'][vis]['field_str'] for vis in vlist]
         nterms = selfcal_library['nterms']
     else:
         vlist = [vis for vis in selfcal_library['vislist'] if vis in selfcal_library['spw_map'][spw]]
         spws_per_vis = [str(selfcal_library['spw_map'][spw][vis]) for vis in vlist]
+        field_str = [selfcal_library['bands_for_targets'][vis]['field_str'] for vis in vlist]
         nterms = 1
 
     if nterms == 1:
@@ -201,7 +323,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
                 os.system('rm -rf '+ imagename + ext)
         tclean_return = tclean(vis=vlist, 
                imagename = imagename, 
-               field=field,
+               field=field_str,
                specmode = 'mfs', 
                deconvolver = 'mtmfs',
                scales = scales, 
@@ -252,8 +374,8 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
             for field_id in selfcal_library['sub-fields-phasecenters']:
                 if 'VLA' in telescope:
                    fov=45.0e9/selfcal_library['meanfreq']*60.0*1.5*0.5
-                   if selfcal_library['meanfreq'] < 12.0e9:
-                      fov=fov*2.0
+                   #if selfcal_library['meanfreq'] < 12.0e9:
+                   #   fov=fov*2.0
                 if telescope=='ALMA':
                    fov=63.0*100.0e9/selfcal_library['meanfreq']*1.5*0.5*1.15
                 if telescope=='ACA':
@@ -310,7 +432,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
           print("Running tclean a second time to save the model...")
           tclean(vis= vlist, 
                  imagename = imagename, 
-                 field=field,
+                 field=field_str,
                  specmode = 'mfs', 
                  deconvolver = 'mtmfs',
                  scales = scales, 
@@ -364,6 +486,8 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
                    savemodel_only=False, resume=False):
     vlist = selfcal_library['vislist']
+    field_str = [selfcal_library['bands_for_targets'][vis]['field_str'] for vis in vlist]
+
     if type(selfcal_library['usermodel'])==list:
        nterms=len(selfcal_library['usermodel'])
        for i, image in enumerate(selfcal_library['usermodel']):
@@ -388,7 +512,7 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
        phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
-       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
+       phasecenter=get_phasecenter(selfcal_library['vislist'][0],field,telescope)
 
     if nterms == 1:
        reffreq = ''
@@ -433,7 +557,7 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
            os.system('rm -rf '+ imagename+'_usermodel_prep' + ext)
     tclean(vis= vlist, 
                imagename = imagename+'_usermodel_prep', 
-               field=field,
+               field=field_str,
                specmode = 'mfs', 
                deconvolver = 'mtmfs',
                scales = scales, 
@@ -472,7 +596,7 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
           print("Running tclean a second time to save the model...")
           tclean(vis= vlist, 
                  imagename = imagename+'_usermodel_prep', 
-                 field=field,
+                 field=field_str,
                  specmode = 'mfs', 
                  deconvolver = 'mtmfs',
                  scales = scales, 
@@ -508,13 +632,15 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
                  phasecenter=phasecenter,spw=spw,wprojplanes=wprojplanes)
  
 
+ 
+
 def collect_listobs_per_vis(vislist):
    listdict={}
    for vis in vislist:
       listdict[vis]=listobs(vis)
    return listdict
 
-def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
+def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_properties,band,telescope):
    scantimesdict={}
    scanfieldsdict={}
    scannfieldsdict={}
@@ -545,7 +671,15 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
       scansdict[vis]={}
       msmd.open(vis)
       for target in targets:
-         scansforfield=msmd.scansforfield(target)
+         if 'VLA' in telescope:
+            scansforfield=np.array([])
+            for field_id in list(set(bands_for_targets[vis]['field_ids'])):
+                scans_temp=msmd.scansforfield(field_id)
+                scansforfield=np.append(scansforfield,np.array(scans_temp))
+            scansforfield.sort()
+            print('scans for field',scansforfield)
+         elif telescope =='ALMA' or telescope == 'ACA':
+            scansforfield=msmd.scansforfield(target)
          for spw in band_properties[vis][band]['spwarray']:
             scansforspw_temp=msmd.scansforspw(spw)
             scansforspw=np.append(scansforspw,np.array(scansforspw_temp,dtype=int))
@@ -556,10 +690,15 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
          mosaic_field[vis][target]={}
          mosaic_field[vis][target]['field_ids']=[]
          mosaic_field[vis][target]['mosaic']=False
-
-         mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target]).tolist()
-         mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
-
+         # ID ALMA mosaics by multiple fields with same target name
+         if telescope=='ALMA' or telescope == 'ACA':
+             mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target]).tolist()
+             mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
+         # ID VLA mosaics using pre-determined mosaic groupings from fetch_targets
+         elif 'VLA' in telescope:
+             mosaic_field[vis][target]['field_ids']=bands_for_targets[vis]['field_ids'] 
+             mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
+             print('mosaic field ids', mosaic_field[vis][target]['field_ids'])
          mosaic_field[vis][target]['phasecenters'] = []
          for fid in mosaic_field[vis][target]['field_ids']:
              tb.open(vis+'/FIELD')
@@ -568,6 +707,7 @@ def fetch_scan_times_band_aware(vislist,targets,band_properties,band):
 
          if len(mosaic_field[vis][target]['field_ids']) > 1:
             mosaic_field[vis][target]['mosaic']=True
+         print('mosaic field', mosaic_field[vis][target])
          scantimes=np.array([])
          scanfields=np.array([])
          scannfields=np.array([])
@@ -657,7 +797,7 @@ def fetch_spws(vislist,targets):
 
 #actual routine used for getting solints
 def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationtimes,\
-                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,n_solints=4.0,do_amp_selfcal=False, mosaic=False,max_solint=4500.0):
+                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,n_solints=4.0,do_amp_selfcal=False, mosaic=False,do_scan_inf=True, max_solint=4500.0):
    all_integrations=np.array([])
    all_nscans_per_obs=np.array([])
    all_time_between_scans=np.array([])
@@ -791,7 +931,7 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
 
 
    # Insert scan_inf_EB if this is a mosaic.
-   if mosaic and median_scans_per_obs > 1:
+   if mosaic and median_scans_per_obs > 1 and do_scan_inf:
        solints_list.append('scan_inf')
        solint_interval.append('inf')
        if spwcombine:
@@ -880,15 +1020,18 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
    return delta_ints_per_solint[min_index]
    
 
-def fetch_targets(vislist,telescope):
+
+def fetch_targets(vislist,telescope,overlap_tol=1.0):
    targets_vis={}
    targets_band_vis={}
    vis_for_targets={}
+   bands_for_targets={}
    nfields=0
    maxfieldsvis=''
    fields_superset=[]
    vis_missing_fields=[]
    vis_overflagged_fields=[]
+   band_list=[]
    for vis in vislist:
       targets_vis[vis]={}
       fields=[]
@@ -911,7 +1054,8 @@ def fetch_targets(vislist,telescope):
       vis_for_targets[target]={}
       for vis in vislist:
          if target in targets_vis[vis]['fields']:
-            bands,band_properties=get_bands([vis],[target],telescope)  
+            bands,band_properties=get_bands([vis],[target],telescope)
+            band_list=band_list+bands  
             if 'Bands' not in vis_for_targets[target].keys():
                vis_for_targets[target]['Bands']=bands.copy()
             for band in bands:
@@ -922,7 +1066,8 @@ def fetch_targets(vislist,telescope):
                vis_for_targets[target][band]['vislist']+=[vis]
                vis_for_targets[target][band][vis]={}
                vis_for_targets[target][band][vis]['spwarray']=band_properties[vis][band]['spwarray'].copy()
-               vis_for_targets[target][band][vis]['spwstring']=band_properties[vis][band]['spwstring']+''      
+               vis_for_targets[target][band][vis]['spwstring']=band_properties[vis][band]['spwstring']+''
+               vis_for_targets[target][band]['meanfreq']=band_properties[vis][band]['meanfreq']
    flagging_dict={}
    for vis in vislist:
       flagging_dict[vis]=flagdata(vis=vis,mode='summary') 
@@ -938,8 +1083,145 @@ def fetch_targets(vislist,telescope):
             if vis_for_targets[target][band][vis]['flagging']['frac'] >= 0.99:
                vis_overflagged_fields+=[vis]
                vis_for_targets[target][band]['vislist'].remove(vis)
-                  
-   return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields
+   #Determine the mosiacs and single fields per bands incase of multi-band mosaics
+   band_list=list(set(band_list))
+   single_field_names=[]
+   mosaic_group_names=[]
+   for band in band_list:
+      bands_for_targets[band]={}
+      bands_for_targets[band]['targets']=[]
+
+      for target in vis_for_targets.keys():
+
+         if band in vis_for_targets[target].keys():
+            bands_for_targets[band]['targets'].append(target)
+            if 'meanfreq' not in bands_for_targets[band].keys():
+                bands_for_targets[band]['meanfreq']=vis_for_targets[target][band]['meanfreq']
+      bands_for_targets[band]['targets'].sort() 
+      print(bands_for_targets)
+      mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids=check_targets_for_mosaic(vislist,bands_for_targets[band]['targets'],bands_for_targets[band]['meanfreq'],telescope,overlap_tol)
+      from functools import reduce
+
+      #generate the superset of mosaic field names from all MS files and select a common fieldname as overall name
+
+      for vis in vislist:
+          if len(mosaic_groups[vis]) > 0:
+              for m,mosaic_group in enumerate(mosaic_groups[vis]):
+                grouplist=[]
+                grouplist.append(mosaic_group)
+                field_intersection=reduce(np.intersect1d,(grouplist[:]))
+                if len(field_intersection) > 0:
+                    groupname=field_intersection[0]
+                mosaic_group_names.append(groupname)
+
+
+      for vis in vislist:
+          if len(single_fields[vis]) > 0:
+              for s,single_field in enumerate(single_fields[vis]):
+                single_field_names.append(single_field)
+      for mosaic_group_name in mosaic_group_names: # define dictionary with each mosaic group name
+        bands_for_targets[band][mosaic_group_name]={}
+
+      for single_field_name in single_field_names:
+          bands_for_targets[band][single_field_name]={}
+
+      for vis in vislist:
+          print(mosaic_groups[vis],mosaic_groups_ids[vis],single_fields[vis],single_fields_ids[vis])
+          if len(mosaic_groups) > 0:
+           for m,mosaic_group in enumerate(mosaic_groups[vis]): # fill crucial per vis information for each mosaic group
+              bands_for_targets[band][mosaic_group_names[m]][vis]={}
+              bands_for_targets[band][mosaic_group_names[m]][vis]['fieldnames']=mosaic_group
+              bands_for_targets[band][mosaic_group_names[m]][vis]['field_ids']=mosaic_groups_ids[vis][m]
+              bands_for_targets[band][mosaic_group_names[m]][vis]['field_str']=",".join([str(num) for num in mosaic_groups_ids[vis][m]])
+              bands_for_targets[band][mosaic_group_names[m]]['obstype']='mosaic'
+          if len(single_fields[vis]) > 0:
+           for s,single_field in enumerate(single_fields[vis]):
+              bands_for_targets[band][single_field][vis]={}
+              bands_for_targets[band][single_field][vis]['fieldnames']=single_fields[vis][s]
+              bands_for_targets[band][single_field][vis]['field_ids']=[int(single_fields_ids[vis][s])]
+              bands_for_targets[band][single_field][vis]['field_str']=str(single_fields_ids[vis][s])
+              bands_for_targets[band][single_field]['obstype']='single-pointing'
+
+   print(bands_for_targets)
+   for band in band_list:
+      band_targets=copy.copy(bands_for_targets[band]['targets'])
+      for target in band_targets:
+         if target not in bands_for_targets[band].keys():
+            bands_for_targets[band]['targets'].remove(target)
+            fields_superset.remove(target)
+            print('Removing '+target+' as independent target since it is part of a mosaic')
+   return fields_superset, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged_fields, bands_for_targets
+
+#tolerance in units of hpbw; 1.0 means limit to an optimally sampled mosaic
+# 2.0 limit means sparse, beam sampled mosaic
+def create_mosaic_groups(ra_arr, dec_arr,names,ids,hpbw,overlap_tol=1.0):
+    pointings=np.vstack((ra_arr, dec_arr)).T
+    Z=hc.linkage(pointings,method='single',optimal_ordering=True)
+    clusters=hc.fcluster(Z, t=hpbw*overlap_tol/3600.0, criterion='distance')
+    unique_groups=np.unique(clusters)
+    single_fields=[]
+    single_fields_ids=[]
+    mosaics=[]
+    mosaics_ids=[]
+    for group in unique_groups:
+      indices=np.where(clusters==group)
+      if len(indices[0]) > 1:
+         mosaics.append(names[indices[0]].tolist())
+         mosaics_ids.append(ids[indices[0]].tolist())
+      else:
+         single_fields.append(str(names[indices[0][0]]))
+         single_fields_ids.append(str(ids[indices[0][0]]))
+    return mosaics,mosaics_ids,single_fields,single_fields_ids     
+
+def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=1.0):
+    mosaic_groups={}
+    mosaic_groups_ids={}
+    single_fields={}
+    single_fields_ids={}
+    for vis in vislist:
+
+        msmd.open(vis)
+        fieldids=[]
+        for target in targets:
+            fieldids=fieldids+list(msmd.fieldsforname(target)) # convert to list from a numpy array that is returned
+
+        print(fieldids)
+        #mosaic_fields=ascii.read('mosaic_larger.reg',names=['field','ids','ra','dec'])
+        #print(mosaic_fields)
+        if 'VLA' in telescope:
+           ra=[]
+           dec=[]
+           for fid in fieldids:
+               phasecenter_dict=msmd.phasecenter(fieldid=fid)
+               ra.append(phasecenter_dict['m0']['value']*180.0/np.pi)
+               dec.append(phasecenter_dict['m1']['value']*180.0/np.pi)
+           hpbw=42.0e9/freq*60.0
+           if len(targets) > 1:    mosaic_groups[vis],mosaic_groups_ids[vis],single_fields[vis],single_fields_ids[vis]=create_mosaic_groups(np.array(ra),np.array(dec),np.array(targets),np.array(fieldids),hpbw,overlap_tol)
+           else:
+               mosaic_groups[vis]=[]
+               mosaic_groups_ids[vis]=[]
+               single_fields[vis]=targets
+               single_fields_ids[vis]=fieldids
+        elif telescope == 'ALMA' or telescope == 'ACA':
+           mosaic_groups[vis]=[]
+           mosaic_groups_ids[vis]=[]
+           single_fields[vis]=[]
+           single_fields_ids[vis]=[]
+           for t,target in enumerate(targets):
+              scans_numbers=msmd.scansforfield(target)
+              field_arr = msmd.fieldsforscans(scans=scans_numbers)
+              if len(field_arr) > 1:
+                 mosaic_groups[vis].append([target])
+                 mosaic_groups_ids[vis].append(list(field_arr))
+              else:
+                 single_fields[vis].append(target)
+                 single_fields_ids[vis].append(field_arr[0])
+    
+
+        print('Mosaics groupings: ',mosaic_groups[vis])
+        print('Single Fields: ',single_fields[vis])
+
+    return mosaic_groups,mosaic_groups_ids,single_fields,single_fields_ids
 
 def checkmask(imagename):
    maskImage=imagename.replace('image','mask').replace('.tt0','')
@@ -1397,32 +1679,14 @@ def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_ne
       selfcal_plan['solint_snr_per_bb'][solint_next][baseband]=selfcal_plan['solint_snr_per_bb'][solint_next][baseband]*SNR_ratio
 
 
-
-def get_SNR_self_update_old(selfcal_library,n_ant,solint_curr,solint_next,integration_time,solint_snr):
-
-    SNR = max(selfcal_library[selfcal_library['vislist'][0]][solint_curr]['SNR_post'],selfcal_library[selfcal_library['vislist'][0]][solint_curr]['intflux_post']/selfcal_library[selfcal_library['vislist'][0]][solint_curr]['e_intflux_post'])
-
-    if solint_next == 'inf' or solint_next == 'inf_ap':
-       selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
-       solint_snr[solint_next]=selfcal_library['per_scan_SNR']
-    elif solint_next == 'scan_inf':
-       selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)
-       solint_snr[solint_next]=selfcal_library['per_scan_SNR']
-    elif solint_next == 'int':
-       solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
-    else:
-       solint_float=float(solint_next.replace('s','').replace('_ap',''))
-       solint_snr[solint_next]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/solint_float)**0.5)
-
-
-def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=1600,robust=0.5,specmode='mfs',uvtaper=''):
+def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=[1600,1600],robust=0.5,specmode='mfs',uvtaper=''):
    for vis in vislist:
       if virtual_spw == 'all':
           im.selectvis(vis=vis,field=selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]],spw=selfcal_library[vis]['spws'])
       else:
           im.selectvis(vis=vis,field=selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]],spw=selfcal_library['spw_map'][virtual_spw][vis])
 
-   im.defineimage(mode=specmode,stokes='I',spw=[0],cellx=cellsize,celly=cellsize,nx=imsize,ny=imsize)  
+   im.defineimage(mode=specmode,stokes='I',spw=[0],cellx=cellsize,celly=cellsize,nx=imsize[0],ny=imsize[1])  
    im.weight(type='briggs',robust=robust)  
    if uvtaper != '':
       if 'klambda' in uvtaper:
@@ -1802,6 +2066,7 @@ def get_spw_chanavg(vis,widtharray,bwarray,chanarray,desiredWidth=15.625e6):
 
 
 
+
 def get_spw_map(selfcal_library, target, band, telescope, fid):
     # Get the list of EBs from the selfcal_library
     vislist = selfcal_library[target][band][fid]['vislist'].copy()
@@ -1859,6 +2124,7 @@ def get_spw_map(selfcal_library, target, band, telescope, fid):
     print(spw_map)
     print("reverse_spw_map:")
     print(reverse_spw_map)
+    print('get spwmap end')
     return spw_map, reverse_spw_map
 
 
@@ -1866,13 +2132,13 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
     spw2 = -1
 
     if target is not None:
-        msmd.open(vis1)
-        fid1 = msmd.fieldsforname(target)[0]
-        msmd.close()
+        msmdw.open(vis1)
+        fid1 = msmdw.fieldsforname(target)[0]
+        msmdw.close()
 
-        msmd.open(vis2)
-        fid2 = msmd.fieldsforname(target)[0]
-        msmd.close()
+        msmdw.open(vis2)
+        fid2 = msmdw.fieldsforname(target)[0]
+        msmdw.close()
 
     for method in methods:
         print("Attempting to match based on", method)
@@ -1883,13 +2149,13 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
         for i, s in enumerate(vis2_spwarray):
             if method == "name":
                 # NOTE: This assumes that matching based on SPW name is ok. Fine for now... but will need to update this for inhomogeneous data.
-                msmd.open(vis1)
-                spwname=msmd.namesforspws(spw1)[0]
-                msmd.close()
+                msmdw.open(vis1)
+                spwname=msmdw.namesforspws(spw1)[0]
+                msmdw.close()
 
-                msmd.open(vis2)
-                sname = msmd.namesforspws(s)[0]
-                msmd.close()
+                msmdw.open(vis2)
+                sname = msmdw.namesforspws(s)[0]
+                msmdw.close()
 
                 print("spw", s, spwname, sname)
 
@@ -1897,25 +2163,23 @@ def find_matching_spw(vis1, spw1, vis2, vis2_spwarray, methods=['name','properti
                     spw2 = s
                     break
             elif method == "properties":
-                msmd.open(vis1)
-                ms.open(vis1)
-                bandwidth1 = msmd.bandwidths(spw1)
-                chanwidth1 = msmd.chanwidths(spw1)[0]
-                chanfreq1 = ms.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=len(msmd.chanwidths(spw1)), 
+                msmdw.open(vis1)
+                bandwidth1 = msmdw.bandwidths(spw1)
+                chanwidth1 = msmdw.chanwidths(spw1)[0]
+                nchan1 = len(msmdw.chanwidths(spw1))
+                chanres1 = msmdw.chanres(spw1, 'km/s', asvel=True).min()
+                chanfreq1 = msmdw.cvelfreqs(spwids=[spw1], fieldids=[fid1], mode="channel", nchan=nchan1, 
                         start=0, outframe='LSRK')[0]
-                chanres1 = msmd.chanres(spw1, 'km/s', asvel=True).min()
-                msmd.close()
-                ms.close()
+                msmdw.close()
 
-                msmd.open(vis2)
-                ms.open(vis2)
-                bandwidth2 = msmd.bandwidths(s)
-                chanwidth2 = msmd.chanwidths(s)[0]
-                chanfreq2 = ms.cvelfreqs(spwids=[s], fieldids=[fid2], mode="channel", nchan=len(msmd.chanwidths(s)), 
+                msmdw.open(vis2)
+                bandwidth2 = msmdw.bandwidths(s)
+                chanwidth2 = msmdw.chanwidths(s)[0]
+                nchan2 = len(msmdw.chanwidths(s))
+                chanres2 = msmdw.chanres(s, 'km/s', asvel=True).min()
+                chanfreq2 = msmdw.cvelfreqs(spwids=[s], fieldids=[fid2], mode="channel", nchan=nchan2, 
                         start=0, outframe='LSRK')[0]
-                chanres2 = msmd.chanres(s, 'km/s', asvel=True).min()
-                msmd.close()
-                ms.close()
+                msmdw.close()
 
                 if bandwidth1 == bandwidth2 and chanwidth1 == chanwidth2 and abs(chanfreq1 - chanfreq2) / abs(chanwidth1) < max_tolerance / chanres1:
                     score[i] = abs(chanfreq1 - chanfreq2) / abs(chanwidth1)
@@ -1943,8 +2207,11 @@ def largest_prime_factor(n):
             n //= i
     return n
 
-
 def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library,scale_fov=1.0,mosaic=False):
+   def check_even(number):
+       if number % 2 != 0:  #even number will not have a remainder
+           number += 1     
+       return number
    cells=np.zeros(len(vislist))
    for i in range(len(vislist)):
       #im.open(vislist[i])
@@ -1957,6 +2224,7 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    nterms=1
    if selfcal_library[target][band]['fracbw'] > 0.1:
       nterms=2
+   print(field_ids)
    reffreq = get_reffreq(vislist,field_ids,dict(zip(vislist,[selfcal_library[target][band][vis]['spwsarray'] for vis in vislist])), telescope)
 
    if 'VLA' in telescope:
@@ -1968,31 +2236,38 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
    if telescope=='ACA':
       fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
    fov=fov*scale_fov
+
    if mosaic:
-       msmd.open(vislist[0])
-       fieldid=msmd.fieldsforname(target)
-       ra_phasecenter_arr=np.zeros(len(fieldid))
-       dec_phasecenter_arr=np.zeros(len(fieldid))
-       for i in range(len(fieldid)):
-          phasecenter=msmd.phasecenter(fieldid[i])
-          ra_phasecenter_arr[i]=phasecenter['m0']['value']
-          dec_phasecenter_arr[i]=phasecenter['m1']['value']
-       msmd.done()
+       ra_phasecenter_arr, dec_phasecenter_arr = get_phasecenter_arrays(selfcal_library[target][band])
+       median_dec=np.median(dec_phasecenter_arr)
+       mosaic_size_x=(ra_phasecenter_arr.max() - ra_phasecenter_arr.min()) * 180./np.pi * 3600. *np.cos(median_dec)
+       mosaic_size_y=(dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
 
-       mosaic_size = max(ra_phasecenter_arr.max() - ra_phasecenter_arr.min(), 
-               dec_phasecenter_arr.max() - dec_phasecenter_arr.min()) * 180./np.pi * 3600.
 
-       fov += mosaic_size
-
-   npixels=int(np.ceil(fov/cell / 100.0)) * 100
-   if npixels > 16384:
+       fov_x = fov+mosaic_size_x
+       fov_y = fov+mosaic_size_y
+       approx_npixels=np.max([fov_x/cell,fov_y/cell])
+       buffer_pix=int(np.ceil(approx_npixels/10.0))
+       npixels_x = int(np.ceil(fov_x/cell / buffer_pix)) * buffer_pix + buffer_pix
+       npixels_y = int(np.ceil(fov_y/cell / buffer_pix)) * buffer_pix + buffer_pix
+       npixels_x = check_even(npixels_x)
+       npixels_y = check_even(npixels_y)
+       npixels=[npixels_x,npixels_y]
+   else:
+       buffer_pix=int(np.ceil(fov/cell/10.0))
+       pixels=int(np.ceil(fov/cell / buffer_pix)) * buffer_pix + buffer_pix
+       pixels=check_even(pixels)
+       npixels=[pixels,pixels]
+   if np.max(npixels) > 16384:
       if mosaic:
-          print("WARNING: Image size = "+str(npixels)+" is excessively large. It is not being trimmed because it is needed for the mosaic, but this may not be viable for your hardware.")
+          print("WARNING: Image size = "+str(npixels[0])+","+str(npixels[1])+" is excessively large. It is not being trimmed because it is needed for the mosaic, but this may not be viable for your hardware.")
       else:
-          npixels=16384
+          npixels=[16384,16384]
 
-   while largest_prime_factor(npixels) >= 7:
-       npixels += 2
+   while largest_prime_factor(npixels[0]) >= 7:
+       npixels[0] += 2
+   while largest_prime_factor(npixels[1]) >= 7:
+       npixels[1] += 2
 
    return cellsize,npixels,nterms,reffreq
 
@@ -2527,22 +2802,32 @@ def plot_ants_flagging_colored_from_dict(filename,selfcal_library,selfcal_plan,s
    plt.close()
 
 
-def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
+def plot_image(filename,outname,min_val=None,max_val=None,zoom=1.0):
    import matplotlib
    matplotlib.use('Agg')
    import matplotlib.pyplot as plt
    header=imhead(filename)
    tb.open(filename)
-   image_data=np.rot90(tb.getcol('map').squeeze())   # rotate the image 90 degrees and get rid of degenerate axes
+   image_data=(np.rot90(tb.getcol('map').squeeze()))   # rotate the image 90 degrees and get rid of degenerate axes
    tb.close()
-   size=np.max(header['shape'])
+   size_x=header['shape'][0]
+   size_y=header['shape'][1]
    cell=header['incr'][1]*3600.0*180.0/3.14159        #get pixel size from header declination direction
-   halfsize_arcsec=size/zoom/2.0*cell
+   halfsize_arcsec_x=size_x/zoom/2.0*cell
+   halfsize_arcsec_y=size_y/zoom/2.0*cell
+   halfsize_pix_x=size_x/zoom/2.0
+   halfsize_pix_y=size_y/zoom/2.0
+
+   image_extent=[halfsize_arcsec_x,-halfsize_arcsec_x,-halfsize_arcsec_y,halfsize_arcsec_y]
+
    fig=plt.figure(figsize=(8.5,8))
    ax=fig.add_subplot(1,1,1)
 
-   ll=int(size/zoom-size/(zoom*2))
-   ul=int(size/zoom+size/(zoom*2))
+   llx=int(size_x/2.0-size_x/(zoom*2))
+   ulx=int(size_x/2.0+size_x/(zoom*2))
+   lly=int(size_y/2.0-size_y/(zoom*2))
+   uly=int(size_y/2.0+size_y/(zoom*2))
+   
 
    mask_exists=os.path.exists(filename.replace('image.tt0','mask'))
    if mask_exists: #if mask exists draw it as a contour, else don't use contours
@@ -2552,13 +2837,13 @@ def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
       tb.close()
 
    if min_val == None:
-      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+      img=ax.imshow(image_data[lly:uly,llx:ulx],extent=image_extent)
       if mask_exists:
-         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+         conts=ax.contour(mask_data[lly:uly,llx:ulx],levels=[0.5], colors='white', extent=image_extent)
    else:
-      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec],vmin=min_val,vmax=max_val)
+      img=ax.imshow(image_data[lly:uly,llx:ulx],extent=image_extent,vmin=min_val,vmax=max_val)
       if mask_exists:
-         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+         conts=ax.contour(mask_data[lly:uly,llx:ulx],levels=[0.5], colors='white', extent=image_extent)
 
    ax.set_xlabel('Offset (arcsec)',fontsize=18)
    ax.set_ylabel('Offset (arcsec)',fontsize=18)
@@ -2722,7 +3007,7 @@ def gaussian_norm(x, mean, sigma):
    norm_gauss_dist=gauss_dist/np.max(gauss_dist)
    return norm_gauss_dist
 
-def importdata(vislist,all_targets,telescope):
+def importdata(vislist,all_targets,bands_for_targets,telescope):
    spectral_scan=False
    listdict=collect_listobs_per_vis(vislist)
 
@@ -2743,7 +3028,7 @@ def importdata(vislist,all_targets,telescope):
    for band in bands:
         print(band)
         scantimesdict_temp,scanfieldsdict_temp,scannfieldsdict_temp,scanstartsdict_temp,scanendsdict_temp,integrationsdict_temp,integrationtimesdict_temp,\
-        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_dict,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,band_properties,band)
+        integrationtimes_temp,n_spws_temp,minspw_temp,spwsarray_dict,spws_set_dict_temp,mosaic_field_temp=fetch_scan_times_band_aware(vislist,all_targets,bands_for_targets,band_properties,band,telescope)
 
         spwslist_dict = {}
         spwstring_dict = {}
@@ -2778,13 +3063,20 @@ def importdata(vislist,all_targets,telescope):
    gaincalibrator_dict = {}
    for vis in vislist:
        if "targets" in vis:
-           vis_string = "_targets"
+           if "cont" in vis:
+              vis_string = "_targets_cont"
+           else: 
+              vis_string = "_targets"
        else:
-           vis_string = "_target"
+           if "cont" in vis:
+              vis_string = "_target_cont"
+           else: 
+              vis_string = "_target"
 
        viskey = vis.replace(vis_string+".ms",vis_string+".selfcal.ms")
 
        original_vis = vis.replace(sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_','').replace(vis_string+".ms",".ms").replace(vis_string+".selfcal.ms",".ms")
+
 
        gaincalibrator_dict[viskey] = {}
        if os.path.exists(original_vis):
@@ -2824,11 +3116,15 @@ def flag_spectral_lines(vislist,all_targets,spwsarray_dict, telescope):
          flagdata(vis=vis, mode='manual', spw=contdot_dat_flagchannels_string[:-2], flagbackup=False, field = target)
 
 
-def split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average):
+def split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_average,bands_for_targets,telescope):
    for vis in vislist:
        os.system('rm -rf '+vis.replace('.ms','.selfcal.ms')+'*')
        spwstring=''
        chan_widths=[]
+       if telescope == 'ALMA' or telescope == 'ACA':
+          splitfields = ','.join(all_targets)
+       else: # for VLA
+          splitfields = bands_for_targets[vis]['field_str']
        if spectral_average:
           initweights(vis=vis,wtmode='weight',dowtsp=True) # initialize channelized weights
           for band in bands:
@@ -2842,10 +3138,10 @@ def split_to_selfcal_ms(all_targets,vislist,band_properties,bands,spectral_avera
                 spwstring=band_properties[vis][band]['spwstring']+''
              else:
                 spwstring=spwstring+','+band_properties[vis][band]['spwstring']
-          mstransform(vis=vis,field=','.join(all_targets),chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=splitfields,chanaverage=True,chanbin=chan_widths,spw=spwstring,outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
           initweights(vis=vis,wtmode='delwtsp') # remove channelized weights
        else:
-          mstransform(vis=vis,field=','.join(all_targets),outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
+          mstransform(vis=vis,field=splitfields,outputvis=sanitize_string('_'.join(all_targets))+'_'+'_'.join(bands)+'_'+vis.replace('.ms','.selfcal.ms'),datacolumn='data',reindex=False)
 
 
 def check_mosaic(vislist,target):
@@ -2858,22 +3154,26 @@ def check_mosaic(vislist,target):
       mosaic=False
    return mosaic
 
-def get_phasecenter(vis,field):
-   msmd.open(vis)
-   fieldid=msmd.fieldsforname(field)
-   ra_phasecenter_arr=np.zeros(len(fieldid))
-   dec_phasecenter_arr=np.zeros(len(fieldid))
-   for i in range(len(fieldid)):
-      phasecenter=msmd.phasecenter(fieldid[i])
-      ra_phasecenter_arr[i]=phasecenter['m0']['value']
-      dec_phasecenter_arr[i]=phasecenter['m1']['value']
+def get_phasecenter(vis,selfcal_library,target,telescope):
+   ra_phasecenter_arr, dec_phasecenter_arr = get_phasecenter_arrays(selfcal_library)
+   #RA center = Min + delta ra
+   ra_phasecenter=np.min(ra_phasecenter_arr)+(np.max(ra_phasecenter_arr)-np.min(ra_phasecenter_arr))/2.0
+   dphi_dec=np.abs((np.max(dec_phasecenter_arr)-np.min(dec_phasecenter_arr))/2.0)
+   dec_phasecenter=np.max(dec_phasecenter_arr)-dphi_dec
 
-   msmd.done()
-
-   ra_phasecenter=np.median(ra_phasecenter_arr)
-   dec_phasecenter=np.median(dec_phasecenter_arr)
    phasecenter_string='ICRS {:0.8f}rad {:0.8f}rad '.format(ra_phasecenter,dec_phasecenter)
    return phasecenter_string
+
+def get_phasecenter_arrays(selfcal_library):
+   fieldid=selfcal_library['sub-fields-phasecenters'].keys()
+   ra_phasecenter_arr=np.zeros(len(fieldid))
+   dec_phasecenter_arr=np.zeros(len(fieldid))
+
+   for k, key in enumerate(fieldid):
+      ra_phasecenter_arr[k]=selfcal_library['sub-fields-phasecenters'][key][0]
+      dec_phasecenter_arr[k]=selfcal_library['sub-fields-phasecenters'][key][1]
+
+   return ra_phasecenter_arr, dec_phasecenter_arr
 
 
 def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
@@ -4226,3 +4526,7 @@ def is_iterable(obj):
         return True
     except TypeError:
         return False
+
+
+
+
