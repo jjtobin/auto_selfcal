@@ -70,8 +70,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
    print('Starting selfcal procedure on: '+target+' '+band)
    while iteration  < len(selfcal_plan['solints']):
 
-      print("Solving for solint="+selfcal_plan['solints'][iteration])
-
+      print("Solving for solint="+selfcal_plan['solints'][iteration]+' with interval '+selfcal_plan['solint_interval'][iteration])
+      
       # Set some cocal parameters.
       if selfcal_plan['solints'][iteration] in ["inf_EB_fb","inf_fb1"]:
           calculate_inf_EB_fb_anyways = True
@@ -113,6 +113,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          break
       else:
          solint=selfcal_plan['solints'][iteration]
+         solint_interval=selfcal_plan['solint_interval'][iteration]
          if iteration == 0:
             print('Starting with solint: '+solint)
          else:
@@ -242,7 +243,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                        list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                     continue
 
-               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, selfcal_plan['applycal_mode'][iteration], \
+               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, selfcal_plan['applycal_mode'][iteration], \
                        iteration, telescope, gaincal_minsnr, \
                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, rerank_refants=rerank_refants, \
                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 

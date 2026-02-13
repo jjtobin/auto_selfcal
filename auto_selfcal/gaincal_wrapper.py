@@ -1,7 +1,7 @@
 import numpy as np
 from .selfcal_helpers import *
 
-def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, telescope, 
+def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, applymode, iteration, telescope, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, 
         calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3,
@@ -341,7 +341,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                       if mode != 'per_bb':      
                          gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect,
                                 refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                                solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
+                                solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
                                 minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                                 field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                                 interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
@@ -352,7 +352,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                              spwselect_bb=selfcal_library[vis]['baseband'][baseband]['spwstring']
                              gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect_bb,
                                   refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                                  solint=solint.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
+                                  solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
                                   minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                                   field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                                   interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
@@ -478,7 +478,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                   if mode != 'per_bb':      
                      gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect,
                             refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                            solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),\
+                            solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_',''),\
                             minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                             field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                             interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
@@ -489,7 +489,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                          spwselect_bb=selfcal_library[vis]['baseband'][baseband]['spwstring']
                          gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect_bb,
                               refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                              solint=solint.replace('_EB','').replace('_ap','').replace('scan_',''),\
+                              solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_',''),\
                               minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                               field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                               interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
