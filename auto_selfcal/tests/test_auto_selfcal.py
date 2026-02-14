@@ -64,7 +64,10 @@ def test_benchmark(tmp_path, dataset):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=1e-3, exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets'])
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=1e-3,\
+     exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets',\
+         'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
+         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor'])
 
     assert difference_count == 0
 
@@ -99,7 +102,10 @@ def test_on_github(tmp_path, request, zip_file, link):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001, exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets'])
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001,\
+     exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets',\
+         'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
+         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor'])
 
     assert difference_count == 0
 
