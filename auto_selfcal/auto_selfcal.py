@@ -61,6 +61,13 @@ def auto_selfcal(
         weblog=True,
         mos_field_drop_flux_thresh=None,
         overlap_tol=1.0,
+        noisethreshold=None,
+        sidelobethreshold=None,
+        lownoisethreshold=None,
+        smoothfactor=None,
+        growiterations=None,
+        minbeamfrac=None,
+        dogrowprune=None,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -237,6 +244,31 @@ def auto_selfcal(
         spaced fields, > 1.0 will allow more distantly placed fields to be 
         identified as a mosaic. 
         Default: 1.0
+   noisethreshold: float, optional 
+        noise threshold for tclean automasking, will be adjusted by ratio of 
+        near-field RMS to full field RMS
+        Default: None - set by heuristics
+   sidelobethreshold: float, optional
+        side lobe threshold for tclean automasking
+        Default: None - set by heuristics
+    lownoisethreshold: float, optional
+        lownoisethreshold for tclean automasking, will be adjusted by ratio of 
+        near-field RMS to full field RMS
+        Default: None - set by heuristics
+    smoothfactor: float, optional
+        smoothing factor for grow masking in tclean automasking
+        Default: None - set by heuristics
+    growiterations: int, optional
+        number of mask growth iterations via binary ditalation in tclean automasking
+        Default: None - set by heuristics
+    minbeamfrac: float, optional
+        minimum fraction of beam for masked region to be kept, otherwise removed
+        in tclean auto_masking
+        Default: None - set by heuristics
+    dogrowprune: boolean, optional
+        prune masked regions smaller than minbeamfrac
+        Default: None - set by heuristics    
+        
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -354,6 +386,14 @@ def auto_selfcal(
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
             selfcal_library[target][band]['flux_threshold']=flux_threshold
             selfcal_library[target][band]['overlap_tol']=overlap_tol
+            selfcal_library[target][band]['am_noisethreshold']=noisethreshold
+            selfcal_library[target][band]['am_sidelobethreshold']=sidelobethreshold
+            selfcal_library[target][band]['am_lownoisethreshold']=lownoisethreshold
+            selfcal_library[target][band]['am_smoothfactor']=smoothfactor
+            selfcal_library[target][band]['am_growiterations']=growiterations                        
+            selfcal_library[target][band]['am_minbeamfrac']=minbeamfrac
+            selfcal_library[target][band]['am_dogrowprune']=dogrowprune
+           
             gaincalibrator_dict.update(target_gaincalibrator_dict)
 
     with open('selfcal_library.pickle', 'wb') as handle:

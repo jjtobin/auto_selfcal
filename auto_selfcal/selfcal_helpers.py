@@ -140,8 +140,8 @@ msmdw = msmdWrapper()
 
 def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
-                   cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
-                   lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
+                   cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard',\
+                   parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',nfrms_multiplier=1.0, \
                    savemodel_only=False, resume=False, spw='all', image_mosaic_fields_separately=True, \
                    store_threshold=''):
@@ -239,6 +239,22 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        minbeamfrac = 0.3
        #cyclefactor=3.0
        pbmask=0.0
+       
+    #override automatic automasking parameters with user-defined values  
+    if selfcal_library['am_noisethreshold'] != None:
+        noisethreshold = selfcal_library['am_noisethreshold']*nfrms_multiplier
+    if selfcal_library['am_lownoisethreshold'] != None:
+        lownoisethreshold = selfcal_library['am_lownoisethreshold']*nfrms_multiplier
+    if selfcal_library['am_smoothfactor'] != None:
+        smoothfactor = selfcal_library['am_smoothfactor']
+    if selfcal_library['am_growiterations'] != None:
+        growiterations = selfcal_library['am_growiterations']
+    if selfcal_library['am_sidelobethreshold'] != None:
+        sidelobethreshold = selfcal_library['am_sidelobethreshold']
+    if selfcal_library['am_minbeamfrac'] != None:
+        minbeamfrac = selfcal_library['am_minbeamfrac']
+    if selfcal_library['am_dogrowprune'] != None:
+        dogrowprune = selfcal_library['am_dogrowprune']
     wprojplanes=1
     if band=='EVLA_L' or band =='EVLA_S':
        gridder='wproject'
