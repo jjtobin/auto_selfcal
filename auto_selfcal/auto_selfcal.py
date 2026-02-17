@@ -59,6 +59,7 @@ def auto_selfcal(
         debug=False, 
         parallel=False,
         weblog=True,
+        max_solint=4500.0,
         mos_field_drop_flux_thresh=None,
         overlap_tol=1.0,
         noisethreshold=None,
@@ -234,6 +235,11 @@ def auto_selfcal(
     weblog : bool, optional
         If True, will create a weblog that provides information on how the 
         self-calibration process proceeded.
+    max_solint : float, optional
+        Preference for longest allowable solint for inf_EB, default avoids making
+        solints that are so long that long-timescale phase offset corrections
+        are not smeared out 
+        default : 4500.0
    mos_field_drop_flux_thresh: float, optional
         The flux difference ratio that will be used to determine if mosaic 
         fields should be dropped from gaincal selection due to low flux.
@@ -380,7 +386,7 @@ def auto_selfcal(
                     vis_for_targets[target][band]['vislist'], 
                     spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
                     inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-                    usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,debug=debug)
+                    usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,max_solint=max_solint,debug=debug)
 
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
