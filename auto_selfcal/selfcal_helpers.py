@@ -14,7 +14,13 @@ from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
 from casatools import ms as mstool
+from casatools import image as iatool
 from PIL import Image
+
+from . import casa_tools
+
+import traceback
+import shutil
 
 ms = mstool()
 tb = tbtool()
@@ -1247,169 +1253,340 @@ def checkmask(imagename):
    else:
       return True
 
-def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
-    MADtoRMS =  1.4826
-    headerlist = imhead(imagename, mode = 'list')
-    beammajor = headerlist['beammajor']['value']
-    beamminor = headerlist['beamminor']['value']
-    beampa = headerlist['beampa']['value']
+def estimate_SNR(
+    imagename,
+    maskname=None,
+    verbose=True,
+    mosaic_sub_field=False,
+):
+    """Estimate the Signal-to-Noise Ratio (SNR) of an image.
 
-    if mosaic_sub_field:
-        os.system("rm -rf temp.image")
-        immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
-                expr="IM0*IM1/IM2")
-        image_stats= imstat(imagename = "temp.image")
-        os.system("rm -rf temp.image")
-    else:
-        image_stats= imstat(imagename = imagename)
+    This function calculates the SNR by determining the peak intensity (considering
+    mosaic PBs if necessary) and the RMS noise (excluding the signal region masked
+    by the clean mask). This refactored version avoids writing temporary files.
 
+    Args:
+        imagename: Path to the image file.
+        maskname: Optional path to a mask file. If None, derived from imagename.
+        verbose: Whether to log the results.
+        mosaic_sub_field: If True, apply primary beam correction logic for stats.
+
+    Returns:
+        tuple[float, float]: (SNR, RMS). Returns (-99.0, -99.0) on error.
+    """
+    mad_to_rms = 1.4826
+    snr, rms = np.float64(-99.0), np.float64(-99.0)
+
+    try:
+        # 1. Calculate Peak Intensity (Corrected for Mosaic PB if needed)
+
+        with casa_tools.ImageReader(imagename) as image:
+            bm = image.restoringbeam(polarization=0)
+            if mosaic_sub_field:
+                # Calculate corrected image stats in memory: image * pb / mospb
+                pb_path = imagename.replace('.image', '.pb')
+                mospb_path = imagename.replace('.image', '.mospb')
+                if not os.path.exists(pb_path) or not os.path.exists(mospb_path):
+                    raise FileNotFoundError(
+                        f'Required PB or MOSPB image not found for mosaic sub-field SNR calculation: {pb_path}, {mospb_path}'
+                    )
+
+                # Use LEL expression in a transient image
+                calc_expr = f"'{imagename}' * '{pb_path}' / '{mospb_path}'"
+
+                # imagecalc with outfile='' creates a transient image tool
+                # attached to a memory-resident image/expression
+                ia_mospb = image.imagecalc(outfile='', pixels=calc_expr)
+                try:
+                    # robust=False mimics the default imstat (classic algorithm)
+                    image_stats = ia_mospb.statistics(robust=False)
+                finally:
+                    ia_mospb.close()
+            else:
+                image_stats = image.statistics(robust=False)
+
+        peak_intensity = image_stats['max'][0]
+
+        beammajor = bm['major']['value']
+        beamminor = bm['minor']['value']
+        beampa = bm['positionangle']['value']
+
+        # 2. RMS Calculation
+        if maskname is None:
+            mask_image = imagename.replace('image', 'mask').replace('.tt0', '')
+        else:
+            mask_image = maskname
+
+        # Determine validity of the default/implied mask associated with the image
+        good_mask = False
+        if 'dirty' not in imagename:
+            try:
+                good_mask = checkmask(imagename)
+            except Exception:
+                good_mask = False
+
+        if os.path.exists(mask_image) and good_mask:
+            with casa_tools.ImageReader(imagename) as image:
+                # Use LEL expression to mask pixels where the user mask > 0.5 (signal)
+                # We calculate RMS on the noise (mask < 0.5)
+                # 'mask(imagename)' ensures we respect the original image's validity mask
+                mask_expr = f"'{mask_image}' < 0.5 && mask('{imagename}')"
+
+                try:
+                    # calculate robust statistics (MAD)
+                    mask0_stats = image.statistics(mask=mask_expr, robust=True, axes=[0, 1])
+                    if len(mask0_stats['medabsdevmed']) > 0:
+                        rms = mask0_stats['medabsdevmed'][0] * mad_to_rms
+                    else:
+                        rms = 0.0
+                except Exception:
+                    # Fallback if masking fails or expression is invalid
+                    rms = 0.0
+        else:
+            # Fallback to Chauvenet algorithm on the full image
+            with casa_tools.ImageReader(imagename) as image:
+                stats = image.statistics(algorithm='chauvenet')
+                rms = stats['rms'][0] if len(stats['rms']) > 0 else 0.0
+
+        if rms > 0.0:
+            snr = peak_intensity / rms
+        else:
+            snr = 0.0
+
+        if verbose:
+            print('Image name: %s' % imagename)
+            print(
+                'Beam %.3f arcsec x %.3f arcsec (%.2f deg)' %
+                (beammajor,
+                beamminor,
+                beampa)
+            )
+            print('Peak intensity of source: %.2f mJy/beam' % (peak_intensity * 1000,))
+            print('rms: %.2e mJy/beam' % (rms * 1000,))
+            print('Peak SNR: %.2f' % (snr,))
+
+    except Exception:
+        print('Error in estimate_SNR: %s' % traceback.format_exc())
+        return np.float64(-99.0), np.float64(-99.0)
+
+    return snr, rms
+
+
+def estimate_near_field_SNR(
+    imagename,
+    las=None,
+    maskname=None,
+    verbose=True,
+    mosaic_sub_field=False,
+    save_near_field_mask=True,
+):
+    """Estimate the near-field SNR using in-memory CASA tool operations.
+
+    This function avoids writing temporary images to disk and minimizes large numpy array
+    loading by utilizing CASA tools for transient image operations.
+
+    Args:
+        imagename: Path to the image file.
+        las: Largest Angular Scale in arcseconds. Defaults to None.
+        maskname: Name of the mask to use. If None, derives from imagename.
+        verbose: If True, logs details about the calculation. Defaults to True.
+        mosaic_sub_field: Whether the image is a mosaic sub-field. Defaults to False.
+        save_near_field_mask: If True, saves the generated near-field mask to disk.
+            Defaults to True.
+
+    Returns:
+        A tuple containing:
+            - SNR: The estimated Signal-to-Noise Ratio. Returns -99.0 on failure.
+            - RMS: The estimated Root Mean Square noise. Returns -99.0 on failure.
+    """
     if maskname is None:
-       maskImage=imagename.replace('image','mask').replace('.tt0','')
+        mask_image = imagename.replace('image', 'mask').replace('.tt0', '')
     else:
-       maskImage=maskname
-    residualImage=imagename # change to .image JT 04-15-2024 .replace('image','residual')
-    os.system('rm -rf temp.mask temp.residual')
-    if os.path.exists(maskImage):
-       os.system('cp -r '+maskImage+ ' temp.mask')
-       maskImage='temp.mask'
-    os.system('cp -r '+residualImage+ ' temp.residual')   # leave this as .residual to avoid clashing with another temp.image
-    residualImage='temp.residual'
-    if 'dirty' not in imagename:
-       goodMask=checkmask(imagename)
-    else:
-       goodMask=False
-    if os.path.exists(maskImage) and goodMask:
-       ia.close()
-       ia.done()
-       ia.open(residualImage)
-       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-       ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-       mask0Stats = ia.statistics(robust=True,axes=[0,1])
-       ia.maskhandler(op='set',name='madpbmask0')
-       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
-       residualMean = mask0Stats['median'][0]
-    else:
-       residual_stats=imstat(imagename=imagename,algorithm='chauvenet')
-       rms = residual_stats['rms'][0]
-    peak_intensity = image_stats['max'][0]
-    SNR = peak_intensity/rms
-    if verbose:
-           print("#%s" % imagename)
-           print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-           print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-           print("#rms: %.2e mJy/beam" % (rms*1000,))
-           print("#Peak SNR: %.2f" % (SNR,))
-    ia.close()
-    ia.done()
-    if mosaic_sub_field:
-        os.system("rm -rf temp.image")
-    os.system('rm -rf temp.mask temp.residual')
-    return SNR,rms
+        mask_image = maskname
 
+    if not os.path.exists(mask_image):
+        print('mask file %s does not exist' % mask_image)
+        return np.float64(-99.0), np.float64(-99.0)
 
+    mad_to_rms = 1.4826
+    snr, rms = np.float64(-99.0), np.float64(-99.0)
 
-def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosaic_sub_field=False, save_near_field_mask=True):
-    if maskname is None:
-       maskImage=imagename.replace('image','mask').replace('.tt0','')
-    else:
-       maskImage=maskname
-    if not os.path.exists(maskImage):
-       print('Does not exist')
-       return np.float64(-99.0),np.float64(-99.0)
-    goodMask=checkmask(maskImage)
-    if not goodMask:
-       print('checkmask')
-       return np.float64(-99.0),np.float64(-99.0)
+    # Store tools to close at the end
+    tools_to_close = []
+    final_mask_name = imagename.replace('image', 'nearfield.mask').replace('.tt0', '')
 
-    MADtoRMS =  1.4826
-    headerlist = imhead(imagename, mode = 'list')
-    beammajor = headerlist['beammajor']['value']
-    beamminor = headerlist['beamminor']['value']
-    beampa = headerlist['beampa']['value']
+    try:
+        # Load Image Info
+        with casa_tools.ImageReader(imagename) as image:
+            bm = image.restoringbeam(polarization=0)
+            cs = image.coordsys()
+            incr = cs.increment()['numeric']
+            pixel_scale = np.abs(incr[0]) * 180 / np.pi * 3600.0
 
-    if mosaic_sub_field:
-        immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
-                expr="IM0*IM1/IM2")
-        image_stats= imstat(imagename = "temp.image")
-        os.system("rm -rf temp.image")
-    else:
-        image_stats= imstat(imagename = imagename)
+            if mosaic_sub_field:
+                # Calculate corrected image stats in memory: image * pb / mospb
+                pb_path = imagename.replace('.image', '.pb')
+                mospb_path = imagename.replace('.image', '.mospb')
+                if not os.path.exists(pb_path) or not os.path.exists(mospb_path):
+                    raise FileNotFoundError(
+                        f'Required PB or MOSPB image not found for mosaic sub-field SNR calculation: {pb_path}, {mospb_path}'
+                    )
 
-    residualImage=imagename   # change to .image JT 04-15-2024 .replace('image','residual')
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
-    os.system('cp -r '+maskImage+ ' temp.mask')
-    os.system('cp -r '+residualImage+ ' temp.residual')   # keep as .residual to avoid clashing with another temp.image
-    residualImage='temp.residual'
-    maskStats=imstat(imagename='temp.mask')
-    imsmooth(imagename='temp.mask',kernel='gauss',major=str(beammajor*1.0)+'arcsec',minor=str(beammajor*1.0)+'arcsec', pa='0deg',outfile='temp.smooth.mask')
-    immath(imagename=['temp.smooth.mask'],expr='iif(IM0 > 0.1*max(IM0),1.0,0.0)',outfile='temp.smooth.ceiling.mask')
+                # LEL expression for mosaic correction
+                calc_expr = f"'{imagename}' * '{pb_path}' / '{mospb_path}'"
+                # Create a transient image for stats
+                ia_mospb_corr = image.imagecalc(outfile='', pixels=calc_expr)
+                tools_to_close.append(ia_mospb_corr)
+                image_stats = ia_mospb_corr.statistics(robust=False)
+            else:
+                image_stats = image.statistics(robust=False)
 
-    # Check the extent of the beam as well.
-    psfImage = maskImage.replace('mask','psf')+'.tt0'
+            peak_intensity = image_stats['max'][0]
 
-    immath(psfImage, mode="evalexpr", expr="iif(IM0==1,IM0,0)", outfile="temp.delta")
-    npix = imhead("temp.delta", mode="get", hdkey="shape")[0]
-    imsmooth("temp.delta", major=str(npix/2)+"pix", minor=str(npix/2)+"pix", pa="0deg", \
-            outfile="temp.radius", overwrite=True)
+        beammajor = bm['major']['value']
+        beamminor = bm['minor']['value']
+        beampa = bm['positionangle']['value']
 
-    bmin = imhead(imagename, mode="get", hdkey="BMIN")['value']
-    bmaj = imhead(imagename, mode="get", hdkey="BMAJ")['value']
-    bpa = imhead(imagename, mode="get", hdkey="BPA")['value']
+        good_mask = checkmask(mask_image)
+        if not good_mask:
+            print('The mask file %s is empty.' % mask_image)
+            return np.float64(-99.0), np.float64(-99.0)
 
-    imhead(imagename="temp.radius", mode="put", hdkey="BMIN", hdvalue=str(bmin)+"arcsec")
-    imhead(imagename="temp.radius", mode="put", hdkey="BMAJ", hdvalue=str(bmaj)+"arcsec")
-    imhead(imagename="temp.radius", mode="put", hdkey="BPA", hdvalue=str(bpa)+"deg")
+        # 1. Smooth Mask (Small)
+        ia_mask = iatool()
+        ia_mask.open(mask_image)
+        tools_to_close.append(ia_mask)
 
-    immath(imagename=[psfImage,"temp.radius"], mode="evalexpr", expr="iif(IM0 > 0.1,1/IM1,0.0)", outfile="temp.beam.extent.image")
+        # outfile="" creates a transient image managed by the tool
+        ia_smooth = ia_mask.convolve2d(outfile='', major=f'{beammajor}arcsec', minor=f'{beammajor}arcsec', pa='0deg')
+        tools_to_close.append(ia_smooth)
 
-    centerpos = imhead(psfImage, mode="get", hdkey="maxpixpos")
-    maxpos = imhead("temp.beam.extent.image", mode="get", hdkey="maxpixpos")
-    center_coords = imval(psfImage, box=str(centerpos[0])+","+str(centerpos[1]))["coords"]
-    max_coords = imval(psfImage, box=str(maxpos[0])+","+str(maxpos[1]))["coords"]
+        smooth_stats = ia_smooth.statistics()
+        smooth_max = smooth_stats['max'][0]
 
-    beam_extent_size = ((center_coords - max_coords)**2)[0:2].sum()**0.5 * 360*60*60/(2*np.pi)
+        # Ceiling: iif(smooth > 0.1*max, 1.0, 0.0)
+        # We use the name() of the transient image in the LEL expression
+        ia_smooth.putchunk((ia_smooth.getchunk() > (0.1 * smooth_max)).astype(np.int8))
 
-    # use the maximum of the three possibilities as the outer extent of the mask.
-    print("beammajor*5 = ", beammajor*5, ", LAS = ", 5*las, ", beam_extent = ", beam_extent_size)
-    outer_major = max(beammajor*5, beam_extent_size, 5*las if las is not None else 0.)
+        # 2. Beam Extent from PSF (Calculated via transient images)
+        psf_image = mask_image.replace('mask', 'psf').replace('.tt0', '') + '.tt0'
+        if not os.path.exists(psf_image):
+            psf_image = mask_image.replace('mask', 'psf') + '.tt0'
 
-    imsmooth(imagename='temp.smooth.ceiling.mask',kernel='gauss',major=str(outer_major)+'arcsec',minor=str(outer_major)+'arcsec', pa='0deg',outfile='temp.big.smooth.mask')
+        beam_extent_size = 0.0
 
-    immath(imagename=['temp.big.smooth.mask'],expr='iif(IM0 > 0.01*max(IM0),1.0,0.0)',outfile='temp.big.smooth.ceiling.mask')
-    immath(imagename=['temp.big.smooth.ceiling.mask','temp.smooth.ceiling.mask'],expr='((IM0-IM1)-1.0)*-1.0',outfile='temp.nearfield.prepb.mask')
-    immath(imagename=[imagename,'temp.nearfield.prepb.mask'], expr='iif(MASK(IM0),IM1,1.0)',outfile='temp.nearfield.mask')
+        if os.path.exists(psf_image):
+            ia_psf = iatool()
+            ia_psf.open(psf_image)
+            tools_to_close.append(ia_psf)
 
-    maskImage='temp.nearfield.mask'
+            psf_stats = ia_psf.statistics()
+            # maxpos is [x, y, pol, chan] usually
+            max_pos = psf_stats['maxpos']
+            peak_x, peak_y = max_pos[0], max_pos[1]
 
-    mask_stats= imstat(maskImage)
-    if mask_stats['min'][0] == 1:
-       print('checkmask')
-       SNR, rms = np.float64(-99.0), np.float64(-99.0)
-    else:
-       ia.close()
-       ia.done()
-       ia.open(residualImage)
-       #ia.calcmask(maskImage+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-       ia.calcmask("'"+maskImage+"'"+" <0.5"+"&& mask("+residualImage+")",name='madpbmask0')
-       mask0Stats = ia.statistics(robust=True,axes=[0,1])
-       ia.maskhandler(op='set',name='madpbmask0')
-       rms = mask0Stats['medabsdevmed'][0] * MADtoRMS
-       residualMean = mask0Stats['median'][0]
-       peak_intensity = image_stats['max'][0]
-       SNR = peak_intensity/rms
-       if verbose:
-              print("#%s" % imagename)
-              print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
-              print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
-              print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
-              print("#Peak Near Field SNR: %.2f" % (SNR,))
-       ia.close()
-       ia.done()
+            # Calculate beam extent using numpy directly to avoid heavy convolution
+            # Find the max distance from the peak where PSF > 0.1
+            psf_data = ia_psf.getchunk()
 
-    if save_near_field_mask:
-        os.system('cp -r '+maskImage+' '+imagename.replace('image','nearfield.mask').replace('.tt0',''))
-    os.system('rm -rf temp.mask temp.residual temp.border.mask temp.smooth.ceiling.mask temp.smooth.mask temp.nearfield.mask temp.big.smooth.ceiling.mask temp.big.smooth.mask temp.nearfield.prepb.mask temp.beam.extent.image temp.delta temp.radius temp.image')
-    return SNR,rms
+            # Get spatial indices where data > 0.1
+            # psf_data is likely (nx, ny, npol, nchan)
+            indices = np.where(psf_data > 0.1)
+
+            if len(indices[0]) > 0:
+                # Calculate squared spatial distance from peak for all points > 0.1
+                # Use float64 to avoid overflow if image is huge
+                dx = indices[0].astype(np.float64) - peak_x
+                dy = indices[1].astype(np.float64) - peak_y
+                max_dist_sq = np.max(dx**2 + dy**2)
+                beam_extent_size = np.sqrt(max_dist_sq) * pixel_scale
+
+        print(
+            'beammajor*5 = %f, LAS = %f, beam_extent = %f' %
+            (beammajor * 5,
+            5 * las if las else 0.0,
+            beam_extent_size)
+        )
+        outer_major = max(beammajor * 5, beam_extent_size, 5 * las if las is not None else 0.0)
+
+        # 3. Big Smooth Mask (Outer Limit)
+        ia_big_smooth = ia_smooth.convolve2d(
+            outfile='',
+            major=f'{outer_major}arcsec',
+            minor=f'{outer_major}arcsec',
+            pa='0deg',
+        )
+        tools_to_close.append(ia_big_smooth)
+
+        big_stats = ia_big_smooth.statistics()
+        big_max = big_stats['max'][0]
+
+        # Label regions outside outer boundary as True
+        final_mask = ia_big_smooth.getchunk() < (0.01 * big_max)
+
+        # Label regions inside inner boundary as True
+        final_mask |= ia_smooth.getchunk() != 0  # in-place OR
+
+        # Label regions with bad pixels of the original image as True
+        # for casacore image built-in masks, True=Good, False=Bad
+        # note that for numpy.ma, True=Masked/Bad, False=Unmasked/Good
+        image = iatool()
+        image.open(imagename)
+        final_mask |= ~image.getchunk(getmask=True)
+        tools_to_close.append(image)
+
+        # Result: False in annulus (valid region), True elsewhere / masked
+        ia_big_smooth.putchunk(final_mask.astype(np.int8))
+        ia_annulus = ia_big_smooth.subimage(outfile=final_mask_name, overwrite=True, wantreturn=True)
+
+        tools_to_close.append(ia_annulus)
+
+        # 5. Calculate SNR & RMS in Annulus
+        annulus_stats = ia_annulus.statistics()
+        if annulus_stats['min'][0] >= 0.99:
+            print('Near field annulus is empty/fully masked.')
+        else:
+            with casa_tools.ImageReader(imagename) as ia_im:
+                # Use LEL mask expression: valid where annulus mask image value < 0.5
+                mask_expr = f"'{ia_annulus.name()}' < 0.5"
+                try:
+                    stats_final = ia_im.statistics(mask=mask_expr, robust=True)
+                    if len(stats_final['medabsdevmed']) > 0:
+                        rms = stats_final['medabsdevmed'][0] * mad_to_rms
+                        if rms > 0:
+                            snr = peak_intensity / rms
+                except Exception as e:
+                    print('Error calculating stats: %s' % e)
+
+            if verbose and rms > 0:
+                print('Image Name: %s' % imagename)
+                print(
+                    'Beam: %.3f arcsec x %.3f arcsec (%.2f deg)' %
+                    (beammajor,
+                    beamminor,
+                    beampa)
+                )
+                print('Peak intensity of source: %.2f mJy/beam' % (peak_intensity * 1000,))
+                print('Near Field rms: %.2e mJy/beam' % (rms * 1000,))
+                print('Peak Near Field SNR: %.2f' % (snr,))
+
+    except Exception:
+        print('Error in estimate_near_field_SNR: %s' % traceback.format_exc())
+        return np.float64(-99.0), np.float64(-99.0)
+    finally:
+        # Cleanup transient tools
+        for tool in tools_to_close:
+            try:
+                tool.close()
+            except Exception:
+                pass
+
+    # 6. Clean up NF mask if saving final mask is not requested
+    if not save_near_field_mask:
+        if os.path.exists(final_mask_name):
+            shutil.rmtree(final_mask_name)
+
+    return snr, rms
 
 
 def get_intflux(imagename,rms,maskname=None,mosaic_sub_field=False):
