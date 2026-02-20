@@ -69,6 +69,11 @@ def auto_selfcal(
         growiterations=None,
         minbeamfrac=None,
         dogrowprune=None,
+        iscalibrator=False,
+        targets=None,
+        applytargets=None,
+        imsize=None,
+        cell=None,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -273,8 +278,24 @@ def auto_selfcal(
         Default: None - set by heuristics
     dogrowprune: boolean, optional
         prune masked regions smaller than minbeamfrac
-        Default: None - set by heuristics    
-        
+        Default: None - set by heuristics   
+    targets: string or list of strings, optional
+        specify the target(s) to self-calibrate e.g., 'L1527,TMC1A,3C286' or ['L1527','TMC1A','3C286']
+        Default: None - set by heuristics, will self-calibrate all   
+    iscalibrator: boolean, optional
+        Use with target, denote whether or not target to self-calibrate is a phase calibrator.
+        If True, some different heuristics will be used for solution intervals.
+        Default: False   
+    applytargets: string or list of strings, optional
+        Apply solutions derived from selected target to a specified target in the dataset if and only
+        if applying back to original MS
+        Default: None - only applies to target self-calibrated
+    imsize: int or 2 element list of ints, optional
+        specify exact image size used for all targets, e.g., [1024,1024]
+        Default: None - set by heuristics
+    cell:   string, optional
+        specify cell size used by tclean for all targets, e.g., '0.1arcsec'
+        Default: None - set by heuristics
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -304,9 +325,12 @@ def auto_selfcal(
                      split_calibrated_final(vis=['calibrated_final.ms'])
                  else:
                      sys.exit('No Measurement sets found in current working directory, exiting')
-
-    n_ants=get_n_ants(vislist)
+    if imsize != None:
+        if type(imsize) == int:
+           imsize=[imsize,imsize]
     telescope=get_telescope(vislist[0])
+    n_ants=get_n_ants(vislist,telescope)
+
 
     ##
     ## save starting flags or restore to the starting flags
@@ -323,8 +347,11 @@ def auto_selfcal(
     ## 
     ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
     ##
-    #all_targets=fetch_targets(vislist[0])
-    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged, bands_for_targets=fetch_targets(vislist, telescope,overlap_tol)
+    if targets != None:
+        if type(targets) == str:
+            targets=targets.replace(' ','').split(',')        
+
+    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged, bands_for_targets=fetch_targets(vislist, telescope,specified_targets=targets,overlap_tol=overlap_tol)
 
     ##
     ## Global environment variables for control of selfcal
@@ -386,7 +413,8 @@ def auto_selfcal(
                     vis_for_targets[target][band]['vislist'], 
                     spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
                     inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-                    usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,max_solint=max_solint,debug=debug)
+                    usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,max_solint=max_solint,iscalibrator=iscalibrator,
+                    imsize=imsize, cell=cell, debug=debug)
 
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
