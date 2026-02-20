@@ -1635,7 +1635,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,solints_interv
          solint_snr[solint]=0.0
          solint_snr_per_spw[solint]={}       
          solint_snr_per_bb[solint]={}    
-         if solint == 'inf_EB':
+         if solint == 'inf_EB' or solint == 'inf_EB_delay':
             SNR_self_EB=np.zeros(len(selfcal_library['vislist']))
             SNR_self_EB_spw={}
             SNR_self_EB_bb={}
@@ -1687,7 +1687,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,solints_interv
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
                for baseband in selfcal_library[vis]['baseband']:
                   solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library['Median_scan_time'])**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
-         elif solint =='inf' or solint == 'inf_ap':
+         elif solint =='inf' or solint == 'inf_ap' or solint == 'inf_delay':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
                for spw in selfcal_library['spw_map']:
@@ -2760,6 +2760,8 @@ def get_max_uvdist(vislist,bands,band_properties,telescope):
          band_properties[vis][band]['75thpct_uv']=baseline_75
          band_properties[vis][band]['median_uv']=baseline_median
          band_properties[vis][band]['LAS']=0.6 * (meanlam/baseline_5) * 180./np.pi * 3600.
+         if telescope == 'VLBA':
+            band_properties[vis][band]['LAS']=0.0
 
 
 def get_uv_range(band,band_properties,vislist):
