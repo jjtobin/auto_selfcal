@@ -239,7 +239,22 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        minbeamfrac = 0.3
        #cyclefactor=3.0
        pbmask=0.0
-       
+    elif telescope == 'VLBA':
+       fastnoise=True
+       sidelobethreshold=2.0
+       smoothfactor=1.0
+       noisethreshold=5.0*nfrms_multiplier
+       lownoisethreshold=1.5*nfrms_multiplier
+       if selfcal_library['obstype']!='mosaic':
+           pblimit=-0.1
+       cycleniter=-1
+       negativethreshold = 0.0
+       dogrowprune = True
+       minpercentchange = 1.0
+       growiterations = 75
+       minbeamfrac = 0.3
+       #cyclefactor=3.0
+       pbmask=0.0   
     #override automatic automasking parameters with user-defined values  
     if selfcal_library['am_noisethreshold'] != None:
         noisethreshold = selfcal_library['am_noisethreshold']*nfrms_multiplier
@@ -694,7 +709,7 @@ def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_propertie
                 scansforfield=np.append(scansforfield,np.array(scans_temp))
             scansforfield.sort()
             print('scans for field',scansforfield)
-         elif telescope =='ALMA' or telescope == 'ACA':
+         elif telescope =='ALMA' or telescope == 'ACA' or telescope == 'VLBA':
             scansforfield=msmd.scansforfield(target)
          for spw in band_properties[vis][band]['spwarray']:
             scansforspw_temp=msmd.scansforspw(spw)
@@ -707,7 +722,7 @@ def fetch_scan_times_band_aware(vislist,targets,bands_for_targets,band_propertie
          mosaic_field[vis][target]['field_ids']=[]
          mosaic_field[vis][target]['mosaic']=False
          # ID ALMA mosaics by multiple fields with same target name
-         if telescope=='ALMA' or telescope == 'ACA':
+         if telescope=='ALMA' or telescope == 'ACA' or telescope == 'VLBA':
              mosaic_field[vis][target]['field_ids']=msmd.fieldsforscans(scansdict[vis][target]).tolist()
              mosaic_field[vis][target]['field_ids']=list(set(mosaic_field[vis][target]['field_ids']))
          # ID VLA mosaics using pre-determined mosaic groupings from fetch_targets
@@ -813,7 +828,9 @@ def fetch_spws(vislist,targets):
 
 #actual routine used for getting solints
 def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationtimes,\
-                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,n_solints=4.0,do_amp_selfcal=False, mosaic=False,do_scan_inf=True, max_solint=4500.0):
+                       inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,\
+                       n_solints=4.0,do_amp_selfcal=False, mosaic=False,do_scan_inf=True, max_solint=4500.0,\
+                       iscalibrator=False):
    all_integrations=np.array([])
    all_nscans_per_obs=np.array([])
    all_time_between_scans=np.array([])
@@ -937,14 +954,17 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
 
 
 
- # insert inf_EB
-   solints_list.insert(0,'inf_EB')
-   gaincal_combine.insert(0,inf_EB_gaincal_combine)
-   nsols,solint_inf_EB=split_inf_EB(median_time_per_obs, max_solint=max_solint)
-   print('Splitting inf_EB into {} solints of {}'.format(nsols,solint_inf_EB))
-   solint_interval.insert(0,solint_inf_EB)
+   # insert inf_EB
+   if not iscalibrator:
+       solints_list.insert(0,'inf_EB_delay')
+       solints_list.insert(0,'inf_EB')
+       gaincal_combine.insert(0,inf_EB_gaincal_combine)
+       nsols,solint_inf_EB=split_inf_EB(median_time_per_obs, max_solint=max_solint)
+       print('Splitting inf_EB into {} solints of {}'.format(nsols,solint_inf_EB))
+       solint_interval.insert(0,solint_inf_EB) # do one for the delay solint
+       solint_interval.insert(0,solint_inf_EB)
 
-
+  
 
    # Insert scan_inf_EB if this is a mosaic.
    if mosaic and median_scans_per_obs > 1 and do_scan_inf:
@@ -957,12 +977,21 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
 
    #insert solint = inf
    if (not mosaic and (median_scans_per_obs > 2 or (median_scans_per_obs == 2 and max_scantime / min_scantime < 4))) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
+      #insert one to do a delay
+      solints_list.append('inf_delay')
+      solint_interval.append('inf')
+      if spwcombine:
+         gaincal_combine.append('spw')
+      else:
+         gaincal_combine.append('')
+      #regular inf
       solints_list.append('inf')
       solint_interval.append('inf')
       if spwcombine:
          gaincal_combine.append('spw')
       else:
          gaincal_combine.append('')
+
 
    for solint in solints_lt_scan:
       solint_string='{:0.2f}s'.format(solint)
@@ -1037,7 +1066,7 @@ def test_truncated_scans(ints_per_solint, allscantimes,integration_time ):
    
 
 
-def fetch_targets(vislist,telescope,overlap_tol=1.0):
+def fetch_targets(vislist,telescope,specified_targets=None,overlap_tol=1.0):
    targets_vis={}
    targets_band_vis={}
    vis_for_targets={}
@@ -1058,7 +1087,10 @@ def fetch_targets(vislist,telescope,overlap_tol=1.0):
          if len(scans) > 0:
             fields.append(fieldname)
       msmd.close()
-      fields=list(set(fields)) # convert to set to only get unique items
+      if specified_targets != None:
+         fields=specified_targets
+      else:
+         fields=list(set(fields)) # convert to set to only get unique items
       targets_vis[vis]['fields']=list(set(fields))
       targets_vis[vis]['fields'].sort
       if len(targets_vis[vis]['fields']) > nfields:
@@ -1218,6 +1250,11 @@ def check_targets_for_mosaic(vislist,targets,freq,telescope,overlap_tol=1.0):
                mosaic_groups_ids[vis]=[]
                single_fields[vis]=targets
                single_fields_ids[vis]=fieldids
+        elif telescope == 'VLBA':
+           mosaic_groups[vis]=[]
+           mosaic_groups_ids[vis]=[]
+           single_fields[vis]=targets
+           single_fields_ids[vis]=fieldids
         elif telescope == 'ALMA' or telescope == 'ACA':
            mosaic_groups[vis]=[]
            mosaic_groups_ids[vis]=[]
@@ -1440,14 +1477,17 @@ def get_intflux(imagename,rms,maskname=None,mosaic_sub_field=False):
        e_flux = rms
    return flux,e_flux
 
-def get_n_ants(vislist):
+def get_n_ants(vislist,telescope):
    #Examines number of antennas in each ms file and returns the minimum number of antennas
    msmd = casatools.msmetadata()
    tb = casatools.table()
    n_ants=50.0
    for vis in vislist:
       msmd.open(vis)
-      names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
+      if telescope == 'VLBA':
+          names = msmd.antennanames()
+      else:
+          names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
       msmd.close()
       n_ant_vis=len(names)
       if n_ant_vis < n_ants:
@@ -1464,14 +1504,17 @@ def get_ant_list(vis):
    msmd.close()
    return names
 
-def rank_refants(vis, caltable=None):
+def rank_refants(vis, telescope, caltable=None):
      # Get the antenna names and offsets.
 
      msmd = casatools.msmetadata()
      tb = casatools.table()
 
      msmd.open(vis)
-     ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+     if telescope == 'VLBA':
+         ids = msmd.antennaids()
+     else:
+         ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
      names = msmd.antennanames(ids)
      offset = [msmd.antennaoffset(name) for name in names]
      msmd.close()
@@ -2088,7 +2131,7 @@ def get_spw_map(selfcal_library, target, band, telescope, fid):
     vislist = selfcal_library[target][band][fid]['vislist'].copy()
 
     # If we are looking at VLA data, find the EB with the maximum number of SPWs so that we have the fewest "odd man out" SPWs hanging out at the end as possible.
-    if "VLA" in telescope:
+    if "VLA" in telescope or telescope == 'VLBA':
         maxspws=0
         maxspwvis=''
         for vis in vislist:
@@ -2247,12 +2290,18 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
       fov=45.0e9/selfcal_library[target][band]['meanfreq']*60.0*1.5
       if selfcal_library[target][band]['meanfreq'] < 12.0e9:
          fov=fov*2.0
+
    if telescope=='ALMA':
       fov=63.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
+
    if telescope=='ACA':
       fov=108.0*100.0e9/selfcal_library[target][band]['meanfreq']*1.5
-   fov=fov*scale_fov
 
+   if telescope == 'VLBA':
+      fov=0.25*5.0e9/selfcal_library[target][band]['meanfreq']   
+                #VLBA FOV is set by bandwidth and time smearing, also can be inefficient to image the full limited FOV
+                #might want to think about this for a calibrator mode vs. a science target mode
+   fov=fov*scale_fov
    if mosaic:
        ra_phasecenter_arr, dec_phasecenter_arr = get_phasecenter_arrays(selfcal_library[target][band])
        median_dec=np.median(dec_phasecenter_arr)
@@ -2413,9 +2462,42 @@ def get_bands(vislist,fields,telescope):
       tb.close()
       #spw_names=visheader['spw_name'][0]
       spw_names_band=['']*len(spws_for_field)
-      spw_names_band=['']*len(spws_for_field)
       spw_names_bb=['']*len(spws_for_field)
       spw_names_spw=np.zeros(len(spw_names_band)).astype('int')
+      if telescope == 'VLBA':
+         meanfreqs=np.zeros(len(spws_for_field))
+         maxfreqs=np.zeros(len(spws_for_field))
+         minfreqs=np.zeros(len(spws_for_field))
+         fracbws=np.zeros(len(spws_for_field))
+         #VLBA spw names are "none" this look will use the central freqs of each spw to get the band
+         #There are multi-band receivers e.g., S/X and planned X/Ka and we want to ensure those are treated
+         #as a separate band
+         for s,spw in enumerate(spws_for_field):
+            meanfreqs[s], maxfreqs[s],minfreqs[s],fracbws[s]=get_mean_freq(vislist,[spw])
+            spw_names_band[s]=get_vlba_band_string(meanfreqs[s])
+            spw_names_spw[s]=spws_for_field[s]
+            spw_names_bb[s]='0'
+         all_bands=np.unique(spw_names_band)
+         observed_bands[vis]['n_bands']=len(all_bands)
+         observed_bands[vis]['bands']=all_bands.tolist()
+         for band in all_bands:
+            index=np.where(np.array(spw_names_band)==band)
+            observed_bands[vis][band]={}
+            observed_bands[vis][band]['spwarray']=spw_names_spw[index[0]]
+            spwslist=observed_bands[vis][band]['spwarray'].tolist()
+            spwstring=','.join(str(spw) for spw in spwslist)
+            observed_bands[vis][band]['spwstring']=spwstring+''
+            observed_bands[vis][band]['meanfreq'],observed_bands[vis][band]['maxfreq'],observed_bands[vis][band]['minfreq'],observed_bands[vis][band]['fracbw']=get_mean_freq([vis],observed_bands[vis][band]['spwarray'])
+            #There is no baseband designation in the SPECTRAL_WINDOW table for VLBA data, assign to zero as default and fake the get_basebands output
+            observed_bands[vis][band]['baseband']= {}
+            observed_bands[vis][band]['baseband']['0']={}
+            observed_bands[vis][band]['baseband']['0']['spwstring']=spwstring+''
+            observed_bands[vis][band]['baseband']['0']['spwarray']=spw_names_spw[index[0]]
+            observed_bands[vis][band]['baseband']['0']['nspws']=len(spw_names_spw[index[0]])
+            observed_bands[vis][band]['baseband']['0']['spwlist']=observed_bands[vis][band]['baseband']['0']['spwarray'].tolist()
+            msmd.open(vis)
+            observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(observed_bands[vis][band]['spwarray'][0]))
+            msmd.close()
 
       if 'VLA' in telescope:
          for i in range(len(spws_for_field)):
@@ -2493,6 +2575,8 @@ def get_bands(vislist,fields,telescope):
       get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLA')
    elif telescope == 'ALMA' or telescope == 'ACA':
       get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'ALMA')   
+   elif telescope == 'VLBA':
+      get_max_uvdist(vislist,observed_bands[vislist[0]]['bands'].copy(),observed_bands,'VLBA')   
       
    
 
@@ -2519,6 +2603,31 @@ def get_ALMA_band_string(meanfreq):
       band='Band_2'
    elif (meanfreq < 50.0e9) and (meanfreq >=30.0e9):
       band='Band_1'
+   return band
+
+def get_vlba_band_string(meanfreq):
+   if (meanfreq < 100.0e9) and (meanfreq >=80.0e9):
+      band='Band_W'
+   elif (meanfreq < 50.0e9) and (meanfreq >=40.0e9):
+      band='Band_Q'
+   elif (meanfreq < 39.9999999e9) and (meanfreq >=28.0e9):
+      band='Band_A'
+   elif (meanfreq < 27.9999999e9) and (meanfreq >=18.0e9):
+      band='Band_K'
+   elif (meanfreq < 17.9999999e9) and (meanfreq >=12.0e9):
+      band='Band_U'
+   elif (meanfreq < 11.9999999e9) and (meanfreq >=8.0e9):
+      band='Band_X'
+   elif (meanfreq < 7.99999999e9) and (meanfreq >=3.9e9):
+      band='Band_C'
+   elif (meanfreq < 3.89999999e9) and (meanfreq >=2.0e9):
+      band='Band_S'
+   elif (meanfreq < 1.99999999e9) and (meanfreq >=1.0e9):
+      band='Band_L'
+   elif (meanfreq < 0.626e9) and (meanfreq >=0.596e9):
+      band='Band_610'
+   elif (meanfreq < 0.342e9) and (meanfreq >=0.312e9):
+      band='Band_P'
    return band
 
 def get_basebands(observed_bands,vis,band,spwarray):
@@ -2603,13 +2712,16 @@ def get_dr_correction(telescope,dirty_peak,theoretical_sens,vislist):
    return n_dr
 
 
-def get_baseline_dist(vis):
+def get_baseline_dist(vis,telescope):
      # Get the antenna names and offsets.
 
      msmd = casatools.msmetadata()
 
      msmd.open(vis)
-     ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+     if telescope == 'VLBA':
+         ids = msmd.antennaids()
+     else:
+         ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
      names = msmd.antennanames(ids)
      offset = [msmd.antennaoffset(id) for id in ids]
      msmd.close()
@@ -2629,13 +2741,13 @@ def get_max_uvdist(vislist,bands,band_properties,telescope):
    for band in bands:   
       all_baselines=np.array([])
       for vis in vislist:
-         baselines=get_baseline_dist(vis)
+         baselines=get_baseline_dist(vis,telescope)
          all_baselines=np.append(all_baselines,baselines)
       max_baseline=np.max(all_baselines)
       min_baseline=np.min(all_baselines)
       if 'VLA' in telescope:
          baseline_5=numpy.percentile(all_baselines[all_baselines > 0.05*all_baselines.max()],5.0)
-      else: # ALMA
+      else: # ALMA oR VLBA
          baseline_5=numpy.percentile(all_baselines,5.0)
       baseline_75=numpy.percentile(all_baselines,75.0)
       baseline_median=numpy.percentile(all_baselines,50.0)
