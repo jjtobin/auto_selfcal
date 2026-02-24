@@ -439,7 +439,7 @@ def auto_selfcal(
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_initial',
                               band,telescope=telescope,nsigma=4.0, scales=[0],
                               threshold='theoretical_with_drmod',
-                              savemodel='none',parallel=parallel,
+                              savemodel='modelcolumn',parallel=parallel,
                               field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS, vis_to_image=[vis])
 
                initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_initial.image.tt0', 
@@ -452,14 +452,14 @@ def auto_selfcal(
         offsets = {}
         for target in all_targets:
             offsets[target] = {}
-            for band in bands:
+            for band in selfcal_library[target]:
                 if selfcal_library[target][band]['obstype'] == 'mosaic':
                     print(f"Skipping alignment of target {target} band {band} because it is a mosaic.")
                     continue
 
-                offsets[target][band] = align_measurement_sets(selfcal_library[target][band]['vislist'][0], selfcal_library[target][band]['vislist'], target,
-                        aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
-                        spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
+                selfcal_library[target][band]['offsets'] = align_measurement_sets(selfcal_library[target][band]['vislist'][0], selfcal_library[target][band]['vislist'], target,
+                        aquareport=aquareport, npix=max(selfcal_library[target][band]['imsize']), cell_size=float(selfcal_library[target][band]['cellsize'][0:-6]), 
+                        spwid=[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']], plot_uv_grid=False, plot_file_template=None, 
                         suffix='')
 
         for target in all_targets:
@@ -930,13 +930,15 @@ def auto_selfcal(
         # Use the already calculated offsets to shift the original MS files into new, shifted MSes
         suffix = '.shift'
 
-        for target in all_targets:
-            for band in bands:
-                selfcal_library[target][band]['offsets'] = offsets[target][band]
-                align_measurement_sets(selfcal_library[target][band]['original_vislist_map'][selfcal_library[target][band]['vislist'][0], 
-                        [selfcal_library[target][band]['original_vislist_map'][vis] for vis in selfcal_library[target][band]['vislist']], target, \
-                        align_offsets=[offsets[target][band][vis] for vis in selfcal_library[target][band]['vislist']], npix=imsize[target][band], 
-                        cell_size=float(cellsize[target][band][0:-6]), plot_uv_grid=False, plot_file_template=None, 
+        for target in selfcal_library:
+            for band in selfcal_library[target]:
+                if selfcal_library[target][band]['obstype'] == 'mosaic':
+                    continue
+
+                align_measurement_sets(selfcal_library[target][band]['original_vislist_map'][selfcal_library[target][band]['vislist'][0]], 
+                        [selfcal_library[target][band]['original_vislist_map'][vis] for vis in selfcal_library[target][band]['vislist']], target, 
+                        align_offsets=[selfcal_library[target][band]['offsets'][vis] for vis in selfcal_library[target][band]['vislist']], npix=max(selfcal_library[target][band]['imsize']), 
+                        cell_size=float(selfcal_library[target][band]['cellsize'][0:-6]), plot_uv_grid=False, plot_file_template=None, 
                         suffix='.shift')
     else:
         suffix = ''
