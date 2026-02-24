@@ -70,8 +70,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
    print('Starting selfcal procedure on: '+target+' '+band)
    while iteration  < len(selfcal_plan['solints']):
 
-      print("Solving for solint="+selfcal_plan['solints'][iteration])
-
+      print("Solving for solint="+selfcal_plan['solints'][iteration]+' with interval '+selfcal_plan['solint_interval'][iteration])
+      
       # Set some cocal parameters.
       if selfcal_plan['solints'][iteration] in ["inf_EB_fb","inf_fb1"]:
           calculate_inf_EB_fb_anyways = True
@@ -113,6 +113,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          break
       else:
          solint=selfcal_plan['solints'][iteration]
+         solint_interval=selfcal_plan['solint_interval'][iteration]
          if iteration == 0:
             print('Starting with solint: '+solint)
          else:
@@ -207,32 +208,55 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             if selfcal_library['obstype'] == 'mosaic':
                 selfcal_library['sub-fields-to-gaincal'] = evaluate_subfields_to_gaincal(selfcal_library, target, band, 
                         solint, iteration, selfcal_plan['solmode'], selfcal_plan['solints'], selfcal_plan, minsnr_to_proceed,
-                        allow_gain_interpolation=allow_gain_interpolation)
+                        telescope, allow_gain_interpolation=allow_gain_interpolation)
 
                 if solint != 'inf_EB' and not allow_gain_interpolation:
                     selfcal_library['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
+                print('Fields to gaincal: ',selfcal_library['sub-fields-to-gaincal'])
+                if len(selfcal_library['sub-fields-to-gaincal']) == 0:
+                    print('No fields to selfcal, exiting solution interval an selfcal for current target')
+                    selfcal_library['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+                    for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
+                        selfcal_library[fid]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+
+                    for vis in vislist:
+                        selfcal_library[vis][solint]['Pass'] = 'None'
+                        selfcal_library[vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+                        #for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                        for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
+                           if solint in selfcal_library[fid][vis].keys():
+                              selfcal_library[fid][vis][solint]['Pass'] = 'None'
+                              selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
+
+                    break
+
+
             else:
                selfcal_library['sub-fields-to-gaincal'] = selfcal_library['sub-fields-to-selfcal']
 
+
+
+         
             # Calculate the complex gains
             for vis in vislist:
                if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
                        list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                     continue
 
-               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, selfcal_plan['applycal_mode'][iteration], iteration, telescope, gaincal_minsnr, 
+               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, selfcal_plan['applycal_mode'][iteration], \
+                       iteration, telescope, gaincal_minsnr, \
                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, rerank_refants=rerank_refants, \
                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
                        allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction,
-                       guess_scan_combine=guess_scan_combine, do_fallback_calonly=do_fallback_calonly)
+                       do_fallback_calonly=do_fallback_calonly, guess_scan_combine=guess_scan_combine)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.
             if selfcal_library['obstype'] == 'mosaic':
                 selfcal_library['sub-fields-to-selfcal'] = evaluate_subfields_after_gaincal(selfcal_library, target, band, 
-                        solint, iteration, selfcal_plan['solmode'], allow_gain_interpolation=allow_gain_interpolation)
+                        solint, iteration, selfcal_plan['solmode'], telescope, allow_gain_interpolation=allow_gain_interpolation)
 
          ##
          ## Apply gain solutions per MS, target, solint, and band

@@ -8,7 +8,32 @@ Self-calibration without the hassle!
 
 Tired of self-calibrating your data by hand? You've come to the right place! The auto_selfcal package can automatically self-calibrate your 
 (ALMA and VLA, currently) data with almost no effort from you. But don't take our word for it, just ask the `ALMA Pipeline <https://almascience.nrao.edu/processing/alma_pipeline_user_s_guide_for_release_2024-1.pdf>`_. To see how to make this work
-for you, check out the rest of our documentation:
+for you, see our quickstart guide:
+
+Quickstart
+----------
+
+To use auto_selfcal with an existing monolithic CASA distribution:
+
+.. code-block:: bash
+
+   git clone https://github.com/jjtobin/auto_selfcal.git
+
+   cd </path/to/pipeline/calibrated/*_targets.ms/files>
+
+   casa -c </path/to/auto_selfcal>/bin/auto_selfcal.py
+
+Or to install into an existing Python environment (note that a Python version for which CASA is `available <https://casadocs.readthedocs.io/en/v6.7.0/notebooks/introduction.html#Compatibility>`_ is required) and run from a directory where pipeline-calibrated \*_targets.ms files exist:
+
+.. code-block:: bash
+
+   pip install auto-selfcal
+
+   cd </path/to/pipeline/calibrated/*_targets.ms/files>
+
+   auto_selfcal
+
+Or check out the rest of our documentation:
 
 .. toctree::
    :maxdepth: 1
@@ -31,7 +56,18 @@ Acknowledging auto_selfcal
 
 Love auto_selfcal and want to cite it in your paper? Please include the following citations:
 
-<COMING SOON>
+.. code-block:: bibtex
+
+   @software{auto_selfcal,
+      author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Austen Fourkas},
+      title        = {jjtobin/auto\_selfcal: v2.0.0},
+      month        = dec,
+      year         = 2025,
+      publisher    = {Zenodo},
+      version      = {v2.0.0},
+      doi          = {10.5281/zenodo.17871742},
+      url          = {https://doi.org/10.5281/zenodo.17871742},
+   }
 
 Contributing and/or Bugs
 ------------------------

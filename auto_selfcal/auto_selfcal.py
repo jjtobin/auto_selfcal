@@ -7,6 +7,7 @@
 import numpy as np
 import sys
 import pickle
+import pprint
 
 from .selfcal_helpers import *
 from .run_selfcal import run_selfcal
@@ -61,6 +62,16 @@ def auto_selfcal(
         debug=False, 
         parallel=False,
         weblog=True,
+        max_solint=4500.0,
+        mos_field_drop_flux_thresh=None,
+        overlap_tol=1.0,
+        noisethreshold=None,
+        sidelobethreshold=None,
+        lownoisethreshold=None,
+        smoothfactor=None,
+        growiterations=None,
+        minbeamfrac=None,
+        dogrowprune=None,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -227,6 +238,46 @@ def auto_selfcal(
     weblog : bool, optional
         If True, will create a weblog that provides information on how the 
         self-calibration process proceeded.
+    max_solint : float, optional
+        Preference for longest allowable solint for inf_EB, default avoids making
+        solints that are so long that long-timescale phase offset corrections
+        are not smeared out 
+        default : 4500.0
+   mos_field_drop_flux_thresh: float, optional
+        The flux difference ratio that will be used to determine if mosaic 
+        fields should be dropped from gaincal selection due to low flux.
+        Default for ALMA: 1.25, VLA: 1.5.
+   overlap_tol: float, optional 
+        Field overlap tolerance for VLA mosaic identification in units of HPBW.
+        1.0 will require overlap at the estimated HPBW, < 1.0 requires more closely
+        spaced fields, > 1.0 will allow more distantly placed fields to be 
+        identified as a mosaic. 
+        Default: 1.0
+   noisethreshold: float, optional 
+        noise threshold for tclean automasking, will be adjusted by ratio of 
+        near-field RMS to full field RMS
+        Default: None - set by heuristics
+   sidelobethreshold: float, optional
+        side lobe threshold for tclean automasking
+        Default: None - set by heuristics
+    lownoisethreshold: float, optional
+        lownoisethreshold for tclean automasking, will be adjusted by ratio of 
+        near-field RMS to full field RMS
+        Default: None - set by heuristics
+    smoothfactor: float, optional
+        smoothing factor for grow masking in tclean automasking
+        Default: None - set by heuristics
+    growiterations: int, optional
+        number of mask growth iterations via binary ditalation in tclean automasking
+        Default: None - set by heuristics
+    minbeamfrac: float, optional
+        minimum fraction of beam for masked region to be kept, otherwise removed
+        in tclean auto_masking
+        Default: None - set by heuristics
+    dogrowprune: boolean, optional
+        prune masked regions smaller than minbeamfrac
+        Default: None - set by heuristics    
+        
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -276,7 +327,7 @@ def auto_selfcal(
     ## Find targets, assumes all targets are in all ms files for simplicity and only science targets, will fail otherwise
     ##
     #all_targets=fetch_targets(vislist[0])
-    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged=fetch_targets(vislist, telescope)
+    all_targets, targets_vis, vis_for_targets, vis_missing_fields, vis_overflagged, bands_for_targets=fetch_targets(vislist, telescope,overlap_tol)
 
     ##
     ## Global environment variables for control of selfcal
@@ -305,6 +356,9 @@ def auto_selfcal(
                 import pipeline
                 pipeline.initcli()
 
+            from pipeline.h.cli import h_init
+            from pipeline.hifa.cli import hifa_importdata
+            from pipeline.hif.cli import hif_checkproductsize, hif_makeimlist, hif_findcont
             print("Running findcont")
             h_init()
             hifa_importdata(vis=vislist, dbservice=False)
@@ -318,25 +372,45 @@ def auto_selfcal(
     ##
     ## Get all of the relevant data from the MS files
     ##
+
+    flux_threshold=1.0
+    if mos_field_drop_flux_thresh != None:
+        flux_threshold=mos_field_drop_flux_thresh
+    elif 'VLA' in telescope:
+        flux_threshold=1.5
+    elif 'ALMA' in telescope or 'ACA' in telescope:
+        flux_threshold=1.25
+
     selfcal_library, selfcal_plan, gaincalibrator_dict = {}, {}, {}
     for target in all_targets:
         selfcal_library[target], selfcal_plan[target] = {}, {}
         for band in vis_for_targets[target]['Bands']:
-            target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], vis_for_targets[target][band]['vislist'], 
+            target_selfcal_library, target_selfcal_plan, target_gaincalibrator_dict = prepare_selfcal([target], [band], bands_for_targets[band][target], 
+                    vis_for_targets[target][band]['vislist'], 
                     spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
                     inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-                    usermask=usermask, usermodel=usermodel,debug=debug)
+                    usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,max_solint=max_solint,debug=debug)
 
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
+            selfcal_library[target][band]['flux_threshold']=flux_threshold
+            selfcal_library[target][band]['overlap_tol']=overlap_tol
+            selfcal_library[target][band]['am_noisethreshold']=noisethreshold
+            selfcal_library[target][band]['am_sidelobethreshold']=sidelobethreshold
+            selfcal_library[target][band]['am_lownoisethreshold']=lownoisethreshold
+            selfcal_library[target][band]['am_smoothfactor']=smoothfactor
+            selfcal_library[target][band]['am_growiterations']=growiterations                        
+            selfcal_library[target][band]['am_minbeamfrac']=minbeamfrac
+            selfcal_library[target][band]['am_dogrowprune']=dogrowprune
+           
             gaincalibrator_dict.update(target_gaincalibrator_dict)
 
     with open('selfcal_library.pickle', 'wb') as handle:
         pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
     with open('selfcal_plan.pickle', 'wb') as handle:
         pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
+    print('############## bands for targets after prepare selfcal #####################')
+    pprint.pprint(bands_for_targets)
     ###################################################################################################
     ############################# Start Actual important stuff for selfcal ############################
     ###################################################################################################
@@ -410,7 +484,6 @@ def auto_selfcal(
 
         if debug:
             print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
-
 
     ##
     ## create initial images for each target to evaluate SNR and beam
@@ -695,7 +768,7 @@ def auto_selfcal(
            if target not in fallback_fields[band]:
                continue
         
-           run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band, telescope, n_ants, \
+           run_selfcal(selfcal_library[target][band], selfcal_plan[target][band], target, band,  telescope, n_ants, \
                    gaincal_minsnr=gaincal_minsnr, gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, delta_beam_thresh=delta_beam_thresh, do_amp_selfcal=do_amp_selfcal, \
                    inf_EB_gaincal_combine=inf_EB_gaincal_combine, inf_EB_gaintype=inf_EB_gaintype, unflag_only_lbants=unflag_only_lbants, \
                    unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, \
