@@ -419,6 +419,9 @@ def auto_selfcal(
         for target in all_targets:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
+            if selfcal_library[target][band]['obstype'] == 'mosaic':
+                continue
+
             for vis in selfcal_library[target][band]['vislist']:
                #make images using the appropriate tclean heuristics for each telescope
                # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
@@ -450,6 +453,10 @@ def auto_selfcal(
         for target in all_targets:
             offsets[target] = {}
             for band in bands:
+                if selfcal_library[target][band]['obstype'] == 'mosaic':
+                    print(f"Skipping alignment of target {target} band {band} because it is a mosaic.")
+                    continue
+
                 offsets[target][band] = align_measurement_sets(selfcal_library[target][band]['vislist'][0], selfcal_library[target][band]['vislist'], target,
                         aquareport=aquareport, npix=imsize[target][band], cell_size=float(cellsize[target][band][0:-6]), 
                         spwid=[band_properties[vis][band]['spwarray'] for vis in vislist], plot_uv_grid=False, plot_file_template=None, 
@@ -458,6 +465,9 @@ def auto_selfcal(
         for target in all_targets:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
+            if selfcal_library[target][band]['obstype'] == 'mosaic':
+                continue
+
             for vis in selfcal_library[target][band]['vislist']:
                #make images using the appropriate tclean heuristics for each telescope
                # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
