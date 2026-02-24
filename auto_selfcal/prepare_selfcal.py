@@ -18,6 +18,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
         iscalibrator=False,
         imsize=None,
         cell=None,
+        refant=None,
         debug=False):
 
 
@@ -200,7 +201,10 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
           selfcal_library[target][band][vis]['Median_fields_per_scan']=np.median(scannfieldsdict[band][vis][target])
           allscantimes=np.append(allscantimes,scantimesdict[band][vis][target])
           allscannfields=np.append(allscannfields,scannfieldsdict[band][vis][target])
-          selfcal_library[target][band][vis]['refant'] = rank_refants(vis, telescope)
+          if refant != None:
+              selfcal_library[target][band][vis]['refant'] = refant
+          else:
+              selfcal_library[target][band][vis]['refant'] = rank_refants(vis, telescope)               
           #n_spws,minspw,spwsarray=fetch_spws([vis],[target])
           #spwslist=spwsarray.tolist()
           #spwstring=','.join(str(spw) for spw in spwslist)
@@ -544,6 +548,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 applycal_interp='linearPD'
              else:
                 applycal_interp='linear'
+             n_basebands=len(selfcal_library[target][band][vis]['baseband'].keys())
              for baseband in selfcal_library[target][band][vis]['baseband'].keys():
                 if selfcal_library[target][band][vis]['baseband'][baseband]['nspws']> maxspws_per_bb:
                    maxspws_per_bb=selfcal_library[target][band][vis]['baseband'][baseband]['nspws']+0.0
@@ -578,7 +583,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                     if min_SNR_spw > 2.0: 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
-                    if min_SNR_bb > 2.0 and maxspws_per_bb > 1.0 and selfcal_library[target][band]['spectral_scan']==False :  # only do the per baseband solutions if there are more than 1
+                    if min_SNR_bb > 2.0 and maxspws_per_bb > 1.0 and selfcal_library[target][band]['spectral_scan']==False and n_basebands > 1:  # only do the per baseband solutions if there are more than 1 spw and more than 1 baseband
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
                     if '_ap' in solint:

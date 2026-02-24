@@ -153,14 +153,17 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     fieldid=msmd.fieldsforname(field)
     msmd.done()
     tb.open(selfcal_library['vislist'][0]+'/FIELD')
-    try:
-       ephem_column=tb.getcol('EPHEMERIS_ID')
-       tb.close()
-       if ephem_column[fieldid[0]] !=-1:
-          phasecenter='TRACKFIELD'
-    except:
-       tb.close()
-       phasecenter=''
+    #avoid printing a SEVERE statement to log when not ephemeris
+    field_cols=tb.colnames()
+    if 'EPHEMERIS_ID' in field_cols:
+        try:
+           ephem_column=tb.getcol('EPHEMERIS_ID')
+           tb.close()
+           if ephem_column[fieldid[0]] !=-1:
+              phasecenter='TRACKFIELD'
+        except:
+           tb.close()
+           phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
        phasecenter=get_phasecenter(selfcal_library['vislist'][0],selfcal_library,field,telescope)
@@ -245,7 +248,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        smoothfactor=1.0
        noisethreshold=5.0*nfrms_multiplier
        lownoisethreshold=1.5*nfrms_multiplier
-       if selfcal_library['obstype']!='mosaic':
+       if selfcal_library['obstype'] != 'mosaic':
            pblimit=-0.1
        cycleniter=-1
        negativethreshold = 0.0
@@ -255,6 +258,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
        minbeamfrac = 0.3
        #cyclefactor=3.0
        pbmask=0.0   
+       robust=2
     #override automatic automasking parameters with user-defined values  
     if selfcal_library['am_noisethreshold'] != None:
         noisethreshold = selfcal_library['am_noisethreshold']*nfrms_multiplier
@@ -532,15 +536,18 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
     msmd.open(vlist[0])
     fieldid=msmd.fieldsforname(field)
     msmd.done()
-    tb.open(vlist[0]+'/FIELD')
-    try:
-       ephem_column=tb.getcol('EPHEMERIS_ID')
-       tb.close()
-       if ephem_column[fieldid[0]] !=-1:
-          phasecenter='TRACKFIELD'
-    except:
-       tb.close()
-       phasecenter=''
+    tb.open(selfcal_library['vislist'][0]+'/FIELD')
+    #avoid printing a SEVERE statement to log when not ephemeris
+    field_cols=tb.colnames()
+    if 'EPHEMERIS_ID' in field_cols:
+        try:
+           ephem_column=tb.getcol('EPHEMERIS_ID')
+           tb.close()
+           if ephem_column[fieldid[0]] !=-1:
+              phasecenter='TRACKFIELD'
+        except:
+           tb.close()
+           phasecenter=''
 
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
        phasecenter=get_phasecenter(selfcal_library['vislist'][0],field,telescope)
@@ -567,7 +574,9 @@ def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',sc
        wplanes=wplanes * selfcal_library['75thpct_uv']/20000.0
        if band=='EVLA_L':
           wplanes=wplanes*2.0 # compensate for 1.5 GHz being 2x longer than 3 GHz
-
+          
+    if telescope == 'VLBA':
+       robust=2.0
 
        wprojplanes=int(wplanes)
     if (band=='EVLA_L' or band =='EVLA_S') and selfcal_library['obstype']=='mosaic':
@@ -1012,26 +1021,48 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
       gaincal_combine.append('')
 
    solmode_list=['p']*len(solints_list)
+   
    if do_amp_selfcal:
+      amp_solint_interval=[]
+      amp_solints_list=[]
+      amp_gaincal_combine=[]
       if median_time_between_scans >150.0 or np.isnan(median_time_between_scans):
-         amp_solints_list=['inf_ap']
+         amp_solints_list.append('inf_ap')
          if spwcombine:
-            amp_gaincal_combine=['spw']
+            amp_gaincal_combine.append('spw')
          else:
-            amp_gaincal_combine=['']
+            amp_gaincal_combine.append('')
       else:
-         amp_solints_list=['300s_ap','inf_ap']
+         amp_solints_list.append('300s_ap').append('inf_ap')
          if spwcombine:
-            amp_gaincal_combine=['scan,spw','spw']
+            amp_gaincal_combine.append('scan,spw').append('spw')
          else:
-            amp_gaincal_combine=['scan','']
-      solints_list=solints_list+amp_solints_list
-      for amp_solint in amp_solints_list:
-          solint_interval.append(amp_solint.replace('_ap',''))
-      gaincal_combine=gaincal_combine+amp_gaincal_combine
-      solmode_list=solmode_list+['ap']*len(amp_solints_list)   
-         
+            amp_gaincal_combine.append('scan').append('')
 
+      for amp_solint in amp_solints_list:
+          amp_solint_interval.append(amp_solint.replace('_ap',''))
+            
+      if iscalibrator: # add shorter solints for calibrator sources
+          for solint in solints_lt_scan:
+              solint_string='{:0.2f}s_ap'.format(solint)
+              amp_solints_list.append(solint_string)
+              if spwcombine:
+                 amp_gaincal_combine.append('spw')
+              else:
+                 amp_gaincal_combine.append('')
+              amp_solint_interval.append(solint_string.replace('_ap',''))            
+      #append solint = int to end
+      amp_solints_list.append('int_ap')
+      amp_solint_interval.append('int')
+      if spwcombine:
+         amp_gaincal_combine.append('spw')
+      else:
+         amp_gaincal_combine.append('')
+            
+      solints_list=solints_list+amp_solints_list      
+      gaincal_combine=gaincal_combine+amp_gaincal_combine
+      solmode_list=solmode_list+['ap']*len(amp_solints_list)  
+      solint_interval=solint_interval+amp_solint_interval
    return solints_list,integration_time,gaincal_combine,solmode_list,solint_interval
 
 
@@ -1498,9 +1529,9 @@ def get_ant_list(vis):
    #Examines number of antennas in each ms file and returns the minimum number of antennas
    msmd = casatools.msmetadata()
    tb = casatools.table()
-   n_ants=50.0
    msmd.open(vis)
-   names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
+   #names = msmd.antennanames(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0]))
+   names = msmd.antennanames()
    msmd.close()
    return names
 
@@ -1696,7 +1727,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,solints_interv
                   solint_snr_per_spw[solint][str(spw)]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[vis]['per_spw_stats'][true_spw]['effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
                for baseband in selfcal_library[vis]['baseband']:
                   solint_snr_per_bb[solint][baseband]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/(selfcal_library['Median_scan_time']/selfcal_library['Median_fields_per_scan']))**0.5)*(selfcal_library[vis]['baseband'][baseband]['total_effective_bandwidth']/selfcal_library[vis]['total_effective_bandwidth'])**0.5
-         elif solint == 'int':
+         elif solint == 'int' or solint == 'int_ap':
                solint_snr[solint]=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/integration_time)**0.5)
                for spw in selfcal_library['spw_map']:
                   vis = list(selfcal_library['spw_map'][spw].keys())[0]
@@ -3418,10 +3449,22 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist_bb)
       else:
          baseband_scale=1.0
-      if solint == 'inf_EB':
+      if solint == 'inf_EB' or solint == 'inf_EB_delay':
          n_solutions=1.0
-      else:
+      elif 'inf_EB' in selfcal_plan[vis]['solint_settings'].keys():
          n_antennas=selfcal_plan[vis]['solint_settings']['inf_EB']['ntotal_non_apriori']['combinespw'][0]/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]
+         n_solutions=(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['combinespw'][0]+selfcal_plan[vis]['solint_settings'][solint]['nunflagged']['combinespw'][0])/n_antennas
+      else: # general way to get n_antennas that we expect to have gain solutions using return dict
+         #print(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict']['combinespw'])
+         gc_dict_keys=selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict']['combinespw'][0]['solvestats'].keys()
+         n_antennas=0
+         for key in gc_dict_keys:
+            if 'spw' in key:
+                spwkeys=selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict']['combinespw'][0]['solvestats'][key].keys()
+                for spwkey in spwkeys:
+                    if 'ant' in spwkey and 'above' not in spwkey:
+                        if selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict']['combinespw'][0]['solvestats'][key][spwkey]['data_unflagged'][0] > 0:
+                            n_antennas+=1
          n_solutions=(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['combinespw'][0]+selfcal_plan[vis]['solint_settings'][solint]['nunflagged']['combinespw'][0])/n_antennas
 
 
@@ -3471,7 +3514,8 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    print('intermediate report',preferred_mode)
    #if after checking flagging, per_spw or per_bb is selected, check to make sure the solutions are not consistent with noise 
    #don't check for zero spectral phase on inf_EB, because it might be zero
-   if ((preferred_mode == 'per_spw' or preferred_mode == 'per_bb') and solint != 'inf_EB'):
+   #don't check this for delay only solutions since this won't do what we want.
+   if ((preferred_mode == 'per_spw' or preferred_mode == 'per_bb') and solint != 'inf_EB' and 'delay' not in solint):
       print('intermediate report checking on the per_spw solutions')
       if preferred_mode == 'per_spw':
          if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
@@ -3499,7 +3543,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
             selfcal_plan[vis]['solint_settings'][solint]['non_zero_fraction'][spw_mode]=fraction_wspectral_phase
          if fraction_wspectral_phase >= spectral_solution_fraction:
             mode_dict[spw_mode]['status']=True
-         # we might want to consider allowing per-spw solutions if the work for inf_EB depending on experience.
+         # we might want to consider allowing per-spw solutions if they work for inf_EB depending on experience.
          #elif solint =='inf_EB':
          #   mode_dict[spw_mode]['status']=True
       #examine the results from checking the per_spw and per_bb solutions
@@ -3512,9 +3556,9 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
                preferred_mode='combinespw'
          else:
              preferred_mode='combinespw'
-
+   coarsest_solint=selfcal_plan['solints'][0] # use this instead of assuming inf_EB
    # Check whether any spws have estimated SNR < 3, in which case we should not (initially) allow 'per_spw'
-   if preferred_mode == 'per_spw' and np.any([selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
+   if preferred_mode == 'per_spw' and np.any([selfcal_plan['solint_snr_per_spw'][coarsest_solint][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
            minsnr_to_proceed for spw in spwlist]):
       if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
           preferred_mode = 'per_bb'
@@ -3525,11 +3569,13 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    # if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    # if doing amplitude selfcal, spw mapping might not be the best idea, so only do for phase-only
    applycal_spwmap=[]
+
    if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and (preferred_mode=='combinespw' or preferred_mode=='per_bb') and (selfcal_plan[vis]['solint_settings'][solint]['solmode'] !='ap'):
        for i in range(len(spwlist)):
           # use >= to not always map if an spw has flagged solutions for a given antenna
+          
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap or \
-                selfcal_plan['solint_snr_per_spw']['inf_EB'][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed or \
+                selfcal_plan['solint_snr_per_spw'][coarsest_solint][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed or \
                 selfcal_plan[vis]['solint_settings'][solint]['fracflagged']['per_spw'][i] == 1.0:
              fallback='spwmap'
              spwmap[i]=1.0
@@ -3921,7 +3967,7 @@ def check_spectral_gain_gradient(combine_spw_table,per_spw_table,spw_info,gainty
                         (gaintable_dict[gaintable]['phase_folded'].real/gaintable_dict[gaintable]['phase_folded'].imag)**2))**0.5 * 180.0/3.14159
 
             gaintable_dict[gaintable]['phase_folded_deg']= np.angle(gaintable_dict[gaintable]['phase_folded'])*180.0/3.14159
-            #plot_phase_err(gaintable_dict[gaintable]['phase_err_folded_deg'],gaintable_dict[gaintable]['snr_folded'],gaintable)
+            plot_phase_err(gaintable_dict[gaintable]['phase_err_folded_deg'],gaintable_dict[gaintable]['snr_folded'],gaintable)
             gaintable_dict[gaintable][gaintype+'_err_folded_deg']=\
                          (gaintable_dict[gaintable][gaintype+'_err_folded']**2 * \
                           1.0/(gaintable_dict[gaintable][gaintype+'_folded'].imag)**2 *\
@@ -3930,7 +3976,7 @@ def check_spectral_gain_gradient(combine_spw_table,per_spw_table,spw_info,gainty
 
             gaintable_dict[gaintable][gaintype+'_folded_deg']=\
                          np.angle(gaintable_dict[gaintable][gaintype+'_folded'])*180.0/3.14159
-            #plot_phase_err(gaintable_dict[gaintable][gaintype+'_err_folded_deg'],gaintable_dict[gaintable]['snr_folded'],gaintable)
+            plot_phase_err(gaintable_dict[gaintable][gaintype+'_err_folded_deg'],gaintable_dict[gaintable]['snr_folded'],gaintable)
       
     #for gaintable in gaintable_dict.keys():
     #    for i in range(gaintable_dict[gaintable]['nspws']):

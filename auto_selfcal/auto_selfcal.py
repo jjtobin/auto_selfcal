@@ -34,7 +34,7 @@ def auto_selfcal(
         gaincal_minsnr=2.0,
         gaincal_unflag_minsnr=5.0,
         minsnr_to_proceed=2.95,
-        spectral_solution_fraction=0.25,
+        spectral_solution_fraction=0.2,
         delta_beam_thresh=0.05,
         apply_cal_mode_default='calflag',
         unflag_only_lbants = False,
@@ -74,6 +74,7 @@ def auto_selfcal(
         applytargets=None,
         imsize=None,
         cell=None,
+        refant=None,
         **kwargs):
     """
     Main function to run the self-calibration pipeline.
@@ -158,7 +159,7 @@ def auto_selfcal(
         proceed with the next iteration of self-calibration. Default is 2.95.
     spectral_solution_fraction : float, optional
         The fraction of the spectral range to use for spectral solutions. 
-        Default is 0.25.
+        Default is 0.2.
     delta_beam_thresh : float, optional
         The threshold fraction for the change in beam size to consider a 
         significant change. If the beam size grows by more than this value
@@ -296,6 +297,10 @@ def auto_selfcal(
     cell:   string, optional
         specify cell size used by tclean for all targets, e.g., '0.1arcsec'
         Default: None - set by heuristics
+    refant: string, optional
+        specify reference antennas to use via a comma-separated string e.g., 'FD,PT' or 'ea01,ea02'
+        This can get cancelled out if rerank_refants is set to True
+        Default: None
     **kwargs : dict, optional
         Additional keyword arguments to pass to the self-calibration 
         functions.
@@ -414,7 +419,7 @@ def auto_selfcal(
                     spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
                     inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
                     usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,max_solint=max_solint,iscalibrator=iscalibrator,
-                    imsize=imsize, cell=cell, debug=debug)
+                    imsize=imsize, cell=cell, refant=refant, debug=debug)
 
             selfcal_library[target][band] = target_selfcal_library[target][band]
             selfcal_plan[target][band] = target_selfcal_plan[target][band]
@@ -494,7 +499,7 @@ def auto_selfcal(
                    imagename.replace('image.tt0','mask'), '', selfcal_library[target][band][fid], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig',
                    mosaic_sub_field=selfcal_library[target][band]["obstype"]=="mosaic")
 
-       if "VLA" in telescope and "clean_threshold_orig" not in selfcal_library[target][band]:
+       if ("VLA" in telescope or telescope == 'VLBA') and "clean_threshold_orig" not in selfcal_library[target][band]:
                  selfcal_library[target][band]['clean_threshold_orig']=4.0*initial_RMS
 
        if selfcal_library[target][band]['nterms'] == 1:  # updated nterms if needed based on S/N and fracbw

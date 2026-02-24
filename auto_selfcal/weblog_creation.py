@@ -610,15 +610,18 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                      xaxis='frequency'
                   else:
                      xaxis='time'
+                  if 'delay' in selfcal_plan[target][band]['solints'][i]:
+                     xaxis='frequency'
+                     yaxis='delay'
                   if 'ap' in selfcal_plan[target][band]['solints'][i]:
                      yaxis='amp'
                      plotrange=[0,0,0,2.0]
-                  else:
+                  elif 'delay' not in selfcal_plan[target][band]['solints'][i]:
                      yaxis='phase'
                      plotrange=[0,0,-180,180]
                   try:
                      plotms(gridrows=2,plotindex=0,rowindex=0,vis=gaintable,xaxis=xaxis, yaxis=yaxis,showgui=False,\
-                         xselfscale=True,plotrange=plotrange, antenna=ant,customflaggedsymbol=True,title=ant+' phase',\
+                         xselfscale=True,plotrange=plotrange, antenna=ant,customflaggedsymbol=True,title=ant+' '+yaxis,\
                          plotfile=directory+'/images/plot_'+ant+'_'+gaintable.replace('.g','.png'),overwrite=True, clearplots=True)
                      plotms(gridrows=2,rowindex=1,plotindex=1,vis=gaintable,xaxis=xaxis, yaxis='SNR',showgui=False,\
                          xselfscale=True, antenna=ant,customflaggedsymbol=True,title=ant+' SNR',\

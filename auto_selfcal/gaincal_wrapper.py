@@ -313,8 +313,21 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                    gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][mode]
                    filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]
 
-                   if solint != 'inf_EB':
-                       selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+                   if '_EB' not in solint and '_delay' not in solint:
+                       gaincal_gaintype=''
+                       if not do_fallback_calonly or second_iter_solmode == "":
+                           gaincal_gaintype='T'
+                       else:
+                           gaincal_gaintype='GSPLINE'
+                       if second_iter_solmode == "GSPLINE": 
+                           gaincal_gaintype='T'
+                       else:
+                           gaincal_gaintype= 'G'
+                       if gaincal_gaintype !='':
+                          selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]=gaincal_gaintype
+                           
+                       #selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+
                    if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] == "GSPLINE":
                        splinetime = solint.replace('_EB','').replace('_ap','')
                        if splinetime == "inf":
@@ -451,7 +464,19 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][mode]
                filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]
 
-               selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+               #selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+               gaincal_gaintype=''
+               if not do_fallback_calonly or second_iter_solmode == "":
+                   gaincal_gaintype='T'
+               else:
+                   gaincal_gaintype='GSPLINE'
+               if second_iter_solmode == "GSPLINE": 
+                   gaincal_gaintype='T'
+               else:
+                   gaincal_gaintype= 'G'
+               if gaincal_gaintype !='':
+                  selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]=gaincal_gaintype
+                  
                if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] == "GSPLINE":
                    splinetime = solint.replace('_EB','').replace('_ap','')
                    if splinetime == "inf":
