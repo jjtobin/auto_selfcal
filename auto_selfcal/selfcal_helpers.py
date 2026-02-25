@@ -3642,6 +3642,88 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    return preferred_mode,fallback,spwmap,applycal_spwmap
 
 
+def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed,telescope):
+   selected_mode='per_bb'
+   spwlist=selfcal_library[vis]['spwlist'].copy()
+   spwlist_str=selfcal_library[vis]['spws'].split(',')
+
+   fallback=''
+   selfcal_plan[vis]['solint_settings'][solint]['nflags']={}
+   selfcal_plan[vis]['solint_settings'][solint]['nunflagged']={}
+   selfcal_plan[vis]['solint_settings'][solint]['ntotal']={}
+   selfcal_plan[vis]['solint_settings'][solint]['fracflagged']={}
+   selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']={}
+   selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori']={}
+   selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori']={}
+   selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori']={}
+   selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']={}
+   selfcal_plan[vis]['solint_settings'][solint]['minimum_flagged_ants']={}
+   selfcal_plan[vis]['solint_settings'][solint]['maximum_flagged_ants']={}
+   selfcal_plan[vis]['solint_settings'][solint]['non_zero_fraction']={}
+   selfcal_plan[vis]['solint_settings'][solint]['polscale']={}
+   #for loop here to get fraction flagged, unflagged, and flag fraction per mode
+   for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+      gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]+'.g'
+      print(gaintable)
+      # get_gaintable_flagging_stats returns (in order):
+      # apriori_flagged - flagged solutions due to data being flagged
+      # nflagged - total flagged solutions 
+      # nunflagged - total unflagged solutions
+      # ntotal - total solutions
+      # fracflagged -fraction of flagged solutions
+      # nflagged_non_apriori - flagged solutions (with apriori_flagged subtracted)
+      # ntotal_non_apriori_flagged - total solutions with apriori_flagged solutions subtracted
+      # fracflagged_non_apriori - fraction flagged without apriori flagged solutions
+      # table evaulations will use flagging stats with apriori flags omitted
+
+      if mode=='per_spw':
+         selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist)
+
+         for s, spw in enumerate(spwlist):
+            selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']=selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode][s]
+            selfcal_library[vis]['per_spw_stats'][int(spw)]['nunflagged']=selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode][s]
+            selfcal_library[vis]['per_spw_stats'][int(spw)]['fracflagged']=selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode][s]
+
+      if mode == 'per_bb':
+         baseband_scale=float(len(selfcal_library[vis]['baseband'].keys()))
+         nflags=0
+         nunflagged=0
+         fracflagged=0.0
+         spwlist_bb=[]
+         for baseband in selfcal_library[vis]['baseband'].keys():
+            spwlist_bb.append(selfcal_library[vis]['baseband'][baseband]['spwlist'][0])
+         selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist_bb)
+      else:
+         baseband_scale=1.0
+
+      #for each baseband is the flagging greater on a per antenna basis for per_spw?  
+   nflags_total_per_spw_per_bb_norm={}       
+   nflags_total_per_bb_norm={}       
+   count_flags_per_spw_gt_per_bb=0
+   n_basebands=len(selfcal_library[vis]['baseband'].keys())
+   for baseband in selfcal_library[vis]['baseband'].keys():
+      nflags_per_bb_norm=0
+      for spw in selfcal_library[vis]['baseband'][baseband]['spwlist']:
+         nflags_per_bb_norm+=selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']
+      #normalize flags by number of spws to become equivalent to    
+      nflags_per_bb_norm = float(nflags_per_bb_norm) / float(selfcal_library[vis]['baseband'][baseband]['nspws'])
+      nflags_total_per_spw_per_bb_norm[baseband] = nflags_per_bb_norm
+      #fill a complementary dictionary for flagging in the per_bb solutions
+      nflags_total_per_bb_norm[baseband] = selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori']['per_bb']
+      if nflags_total_per_spw_per_bb_norm[baseband] > nflags_total_per_bb_norm[baseband]:
+        count_flags_per_spw_gt_per_bb+=1
+      
+   if float(count_flags_per_spw_gt_per_bb) > float(n_basebands) / 2.0:   # there are more flags per_spw than per_bb in a majority of basebands do per_bb solutions
+         preferred_mode='per_bb'
+         fallback=''
+   else:
+         preferred_mode='per_spw'
+         fallback='per_bb'
+   print('final report',preferred_mode)
+
+   return preferred_mode,fallback
+
+
 
 def check_narrow_window_flagging(selfcal_library,vis):  # return whether the narrows bws are flagged more than the widest
     bandwidths=[]

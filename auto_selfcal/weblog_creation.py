@@ -613,6 +613,7 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                   if 'delay' in selfcal_plan[target][band]['solints'][i]:
                      xaxis='frequency'
                      yaxis='delay'
+                     plotrange=[0,0,0,0]
                   if 'ap' in selfcal_plan[target][band]['solints'][i]:
                      yaxis='amp'
                      plotrange=[0,0,0,2.0]
