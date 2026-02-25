@@ -54,6 +54,7 @@ parser.add_argument('--apply_to_target_ms', action='store_true') # apply final s
 parser.add_argument('--uvcontsub_target_ms', action='store_true') # apply final selfcal solutions back to the input _target.ms files
 parser.add_argument('--sort_targets_and_EBs', action='store_true')
 parser.add_argument('--run_findcont', action='store_true')
+parser.add_argument('--align_EBs', action='store_true')
 parser.add_argument('--debug', action='store_true')
 
 parser.add_argument('--exit', action='store_true')
