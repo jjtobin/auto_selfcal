@@ -965,8 +965,8 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
 
    # insert inf_EB
    if not iscalibrator:
-       solints_list.insert(0,'inf_EB_delay')
        solints_list.insert(0,'inf_EB')
+       solints_list.insert(0,'inf_EB_delay')
        gaincal_combine.insert(0,inf_EB_gaincal_combine)
        nsols,solint_inf_EB=split_inf_EB(median_time_per_obs, max_solint=max_solint)
        print('Splitting inf_EB into {} solints of {}'.format(nsols,solint_inf_EB))
@@ -1363,7 +1363,7 @@ def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
     SNR = peak_intensity/rms
     if verbose:
            print("#%s" % imagename)
-           print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+           print("#Beam %.4f arcsec x %.4f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
            print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
            print("#rms: %.2e mJy/beam" % (rms*1000,))
            print("#Peak SNR: %.2f" % (SNR,))
@@ -1467,7 +1467,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
        SNR = peak_intensity/rms
        if verbose:
               print("#%s" % imagename)
-              print("#Beam %.3f arcsec x %.3f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
+              print("#Beam %.4f arcsec x %.4f arcsec (%.2f deg)" % (beammajor, beamminor, beampa))
               print("#Peak intensity of source: %.2f mJy/beam" % (peak_intensity*1000,))
               print("#Near Field rms: %.2e mJy/beam" % (rms*1000,))
               print("#Peak Near Field SNR: %.2f" % (SNR,))
@@ -4048,7 +4048,7 @@ def evaluate_per_spw_gaintables(combine_spw_table,per_spw_table,vis,selfcal_libr
 
 
 
-def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
+def unflag_failed_antennas(vis, caltable, gaincal_return, telescope, flagged_fraction=0.25, only_long_baselines=False, solnorm=True, calonly_max_flagged=0., spwmap=[], 
         fb_to_prev_solint=False, solints=[], iteration=0, plot=False, plot_directory="./"):
     tb.open(caltable, nomodify=plot) # Because we only modify if we aren't plotting, i.e. in the selfcal loop itself plot=False
     antennas = tb.getcol("ANTENNA1")
@@ -4067,7 +4067,10 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, flagged_fraction=0.25,
         good_spws = np.repeat(True, antennas.size)
 
     msmd.open(vis)
-    good_antenna_ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
+    if telescope == 'VLBA':
+        good_antenna_ids = msmd.antennaids()
+    else:
+        good_antenna_ids = msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*")[0])
     good_antennas = np.repeat(False, antennas.size)
     for ant in np.unique(antennas):
         if ant in good_antenna_ids:

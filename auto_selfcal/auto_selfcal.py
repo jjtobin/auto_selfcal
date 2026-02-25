@@ -287,9 +287,9 @@ def auto_selfcal(
         Use with target, denote whether or not target to self-calibrate is a phase calibrator.
         If True, some different heuristics will be used for solution intervals.
         Default: False   
-    applytargets: string or list of strings, optional
-        Apply solutions derived from selected target to a specified target in the dataset if and only
-        if applying back to original MS
+    applytargets: string, optional
+        Apply solutions derived from selected target (specified in parameter targets) to a specified target(s) 
+        in the dataset if and only if applying back to original MS, e.g., '3C273,3C84'
         Default: None - only applies to target self-calibrated
     imsize: int or 2 element list of ints, optional
         specify exact image size used for all targets, e.g., [1024,1024]
@@ -432,7 +432,7 @@ def auto_selfcal(
             selfcal_library[target][band]['am_growiterations']=growiterations                        
             selfcal_library[target][band]['am_minbeamfrac']=minbeamfrac
             selfcal_library[target][band]['am_dogrowprune']=dogrowprune
-           
+            selfcal_library[target][band]['telescope']=telescope
             gaincalibrator_dict.update(target_gaincalibrator_dict)
 
     with open('selfcal_library.pickle', 'wb') as handle:
@@ -877,7 +877,7 @@ def auto_selfcal(
     # Either apply the calibrations to the original MS files, or write a file with the relevant
     # commands to do so.
 
-    applycal_to_orig_MSes(selfcal_library, write_only=(not apply_to_target_ms))
+    applycal_to_orig_MSes(selfcal_library, write_only=(not apply_to_target_ms),applytargets=applytargets)
 
     # Do continuum subtraction of the original MS files.
 
