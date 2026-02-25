@@ -575,10 +575,10 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=[]
                 min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_spw'][solint])
                 min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_bb'][solint])
-                if selfcal_plan[target][band]['telescope'] == 'VLBA' and 'delay' in solint:
+                if selfcal_library[target][band]['telescope'] == 'VLBA' and 'delay' in solint:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')
                 if 'delay' not in solint:
-                   selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')                
+                   selfcal_library[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')                
                 if solint == 'inf_EB':
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespwpol')
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
