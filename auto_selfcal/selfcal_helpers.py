@@ -3375,8 +3375,6 @@ def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
      # Calculate a score based on those two.
      return nflags, nunflagged,fracflagged
 
-
-
 def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed):
    telescope=selfcal_library['telescope']
    selected_mode='combinespw'
@@ -3453,13 +3451,14 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist_bb)
       else:
          baseband_scale=1.0
-      if solint == 'inf_EB' or solint == 'inf_EB_delay':
+      if solint == 'inf_EB':
          n_solutions=1.0
-      elif 'inf_EB' in selfcal_plan[vis]['solint_settings'].keys():
+      elif 'inf_EB'  in selfcal_plan[vis]['solint_settings'].keys():
          n_antennas=selfcal_plan[vis]['solint_settings']['inf_EB']['ntotal_non_apriori']['combinespw'][0]/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]
          n_solutions=(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['combinespw'][0]+selfcal_plan[vis]['solint_settings'][solint]['nunflagged']['combinespw'][0])/n_antennas
       else: # general way to get n_antennas that we expect to have gain solutions using return dict
          #print(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict']['combinespw'])
+         print('using more general method than assuming inf_EB exists')
          gc_dict_keys=selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict']['combinespw'][0]['solvestats'].keys()
          n_antennas=0
          for key in gc_dict_keys:
@@ -3518,8 +3517,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    print('intermediate report',preferred_mode)
    #if after checking flagging, per_spw or per_bb is selected, check to make sure the solutions are not consistent with noise 
    #don't check for zero spectral phase on inf_EB, because it might be zero
-   #don't check this for delay only solutions since this won't do what we want.
-   if ((preferred_mode == 'per_spw' or preferred_mode == 'per_bb') and solint != 'inf_EB' and 'delay' not in solint):
+   if ((preferred_mode == 'per_spw' or preferred_mode == 'per_bb') and solint != 'inf_EB'):
       print('intermediate report checking on the per_spw solutions')
       if preferred_mode == 'per_spw':
          if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
@@ -3547,7 +3545,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
             selfcal_plan[vis]['solint_settings'][solint]['non_zero_fraction'][spw_mode]=fraction_wspectral_phase
          if fraction_wspectral_phase >= spectral_solution_fraction:
             mode_dict[spw_mode]['status']=True
-         # we might want to consider allowing per-spw solutions if they work for inf_EB depending on experience.
+         # we might want to consider allowing per-spw solutions if the work for inf_EB depending on experience.
          #elif solint =='inf_EB':
          #   mode_dict[spw_mode]['status']=True
       #examine the results from checking the per_spw and per_bb solutions
@@ -3560,8 +3558,9 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
                preferred_mode='combinespw'
          else:
              preferred_mode='combinespw'
-   coarsest_solint=selfcal_plan['solints'][0] # use this instead of assuming inf_EB
+
    # Check whether any spws have estimated SNR < 3, in which case we should not (initially) allow 'per_spw'
+   coarsest_solint=selfcal_plan['solints'][0] # use this instead of assuming inf_EB
    if preferred_mode == 'per_spw' and np.any([selfcal_plan['solint_snr_per_spw'][coarsest_solint][str(selfcal_library['reverse_spw_map'][vis][int(spw)])] < \
            minsnr_to_proceed for spw in spwlist]):
       if 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
@@ -3573,11 +3572,9 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    # if certain spws have more than max_flagged_ants_spwmap flagged solutions that the least flagged spws, set those to spwmap
    # if doing amplitude selfcal, spw mapping might not be the best idea, so only do for phase-only
    applycal_spwmap=[]
-
    if 'per_spw' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'] and (preferred_mode=='combinespw' or preferred_mode=='per_bb') and (selfcal_plan[vis]['solint_settings'][solint]['solmode'] !='ap'):
        for i in range(len(spwlist)):
           # use >= to not always map if an spw has flagged solutions for a given antenna
-          
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap or \
                 selfcal_plan['solint_snr_per_spw'][coarsest_solint][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed or \
                 selfcal_plan[vis]['solint_settings'][solint]['fracflagged']['per_spw'][i] == 1.0:
@@ -3644,6 +3641,8 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
           preferred_mode='combinespwpol'
 
    return preferred_mode,fallback,spwmap,applycal_spwmap
+
+
 
 
 def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed):
