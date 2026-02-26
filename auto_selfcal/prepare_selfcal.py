@@ -569,7 +569,10 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_gaintable']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_spwmap']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']={}
-                selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_interpolate']=applycal_interp
+                if 'delay' not in solint:
+                    selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_interpolate']=applycal_interp
+                else:
+                    selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_interpolate']='linear'
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['final_mode']=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['accepted_gaintable']=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=[]
@@ -578,16 +581,20 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 if selfcal_library[target][band]['telescope'] == 'VLBA' and 'delay' in solint:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')
                 if 'delay' not in solint:
-                   selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')                
+                   selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')    
+                if 'delay' in solint and n_basebands > 1:
+                   selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
                 if solint == 'inf_EB':
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespwpol')
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
+                print('solint',solint,'N basebands: ',n_basebands, 'modes to attempt: ',selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'])
                 if 'spw' not in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']:
                     if min_SNR_spw > 2.0: 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
                     if min_SNR_bb > 2.0 and maxspws_per_bb > 1.0 and selfcal_library[target][band]['spectral_scan']==False and n_basebands > 1:  # only do the per baseband solutions if there are more than 1 spw and more than 1 baseband
-                       selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
+                       if 'per_bb' not in selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']:
+                          selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
                     if '_ap' in solint:
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='ap'

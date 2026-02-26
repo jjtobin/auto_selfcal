@@ -21,7 +21,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
         gaincalibrator_dict={}, allow_gain_interpolation=False, guess_scan_combine=False, aca_use_nfmask=False,debug=False,spectral_solution_fraction=0.3):
 
    # If we are running this on a mosaic, we want to rerank reference antennas and have a higher gaincal_minsnr by default.
-
+   print(selfcal_plan)
    if selfcal_library["obstype"] == "mosaic":
        if gaincal_minsnr < 2.0:
           gaincal_minsnr = 2.0

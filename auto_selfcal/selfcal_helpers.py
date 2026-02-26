@@ -3662,6 +3662,7 @@ def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,
    selfcal_plan[vis]['solint_settings'][solint]['non_zero_fraction']={}
    selfcal_plan[vis]['solint_settings'][solint]['polscale']={}
    #for loop here to get fraction flagged, unflagged, and flag fraction per mode
+   print(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'])
    for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
       gaintable=gaintable_prefix+solint+'_'+str(selfcal_plan['solints'].index(solint))+'_'+selfcal_plan[vis]['solint_settings'][solint]['solmode']+'_'+selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]+'.g'
       print(gaintable)
@@ -3695,8 +3696,8 @@ def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,
          selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist_bb)
       else:
          baseband_scale=1.0
-
-      #for each baseband is the flagging greater on a per antenna basis for per_spw?  
+   print(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode])
+   #for each baseband is the flagging greater on a per antenna basis for per_spw?  
    nflags_total_per_spw_per_bb_norm={}       
    nflags_total_per_bb_norm={}       
    count_flags_per_spw_gt_per_bb=0
@@ -3707,9 +3708,11 @@ def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,
          nflags_per_bb_norm+=selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']
       #normalize flags by number of spws to become equivalent to    
       nflags_per_bb_norm = float(nflags_per_bb_norm) / float(selfcal_library[vis]['baseband'][baseband]['nspws'])
-      nflags_total_per_spw_per_bb_norm[baseband] = nflags_per_bb_norm
+      nflags_total_per_spw_per_bb_norm[baseband] = np.sum(nflags_per_bb_norm)
       #fill a complementary dictionary for flagging in the per_bb solutions
-      nflags_total_per_bb_norm[baseband] = selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori']['per_bb']
+      print('flags',nflags_total_per_spw_per_bb_norm[baseband], nflags_total_per_bb_norm)
+      nflags_total_per_bb_norm[baseband] = np.sum(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['per_bb'])
+
       if nflags_total_per_spw_per_bb_norm[baseband] > nflags_total_per_bb_norm[baseband]:
         count_flags_per_spw_gt_per_bb+=1
       

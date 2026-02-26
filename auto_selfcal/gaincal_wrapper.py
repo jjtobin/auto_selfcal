@@ -20,7 +20,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
     band : str
         The band for which gaincal is being run.
     """
-
+    print('in gaincal_wrapper for solint', solint)
     sani_target=sanitize_string(target)
     ##
     ## Solve gain solutions per MS, target, solint, and band
@@ -306,6 +306,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             selfcal_library[vis][solint]["include_targets"] = include_targets
             print(solint,'Include scans: ', include_scans)
             print(solint,'Include targets: ', include_targets)
+            print(solint,'Modes to attempt: ',selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'])
             for incl_scans, incl_targets in zip(include_scans, include_targets):
                 for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
                    print(vis,solint,mode)
@@ -351,6 +352,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                       else:
                          spwselect=selfcal_library[vis]['spws']
                       gaintable_name=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'
+                      print('prior to gaincal',gaintable_name, mode)
                       if mode != 'per_bb':      
                          gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect,
                                 refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
@@ -424,7 +426,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
         selfcal_library[vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
 
         # Remove per_spw and/or per_bb from subsequent solints if per_bb or combinespw are selected for a given solint
-        if preferred_mode != 'per_spw':
+        if preferred_mode != 'per_spw' and 'delay' not in solint:
             remove_modes(selfcal_plan,vis,current_solint_index)
 
 
@@ -561,7 +563,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
         selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
         # Remove per_spw and/or per_bb from subsequent solints if per_bb or combinespw are selected for a given solint
-        if preferred_mode != 'per_spw':
+        if preferred_mode != 'per_spw' and 'delay' not in solint:
             remove_modes(selfcal_plan,vis,current_solint_index)
 
 
