@@ -553,7 +553,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                  sys.exit(0)
 
              print('Final Mode:', selfcal_library[vis][solint]['final_mode'])
-             if 'combinespw' not in selfcal_library[vis][solint]['final_mode']:
+             if 'combinespw' not in selfcal_library[vis][solint]['final_mode'] or (selfcal_library['telescope'] == 'VLBA' and 'per_bb' not in selfcal_library[vis][solint]['final_mode']):
                  print('****************Attempting combine="spw" fallback*************')
                  do_fallback_combinespw=True
                  do_fallback_calonly=False
