@@ -839,7 +839,7 @@ def fetch_spws(vislist,targets):
 def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scanendsdict,integrationtimes,\
                        inf_EB_gaincal_combine,spwcombine=True,solint_decrement='fixed',solint_divider=2.0,\
                        n_solints=4.0,do_amp_selfcal=False, mosaic=False,do_scan_inf=True, max_solint=4500.0,\
-                       iscalibrator=False):
+                       iscalibrator=False,shorter_amp_solints=False,do_delay_cal=False):
    all_integrations=np.array([])
    all_nscans_per_obs=np.array([])
    all_time_between_scans=np.array([])
@@ -966,11 +966,13 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
    # insert inf_EB
    if not iscalibrator:
        solints_list.insert(0,'inf_EB')
-       solints_list.insert(0,'inf_EB_delay')
+       if do_delay_cal:
+           solints_list.insert(0,'inf_EB_delay')
        gaincal_combine.insert(0,inf_EB_gaincal_combine)
        nsols,solint_inf_EB=split_inf_EB(median_time_per_obs, max_solint=max_solint)
        print('Splitting inf_EB into {} solints of {}'.format(nsols,solint_inf_EB))
-       solint_interval.insert(0,solint_inf_EB) # do one for the delay solint
+       if do_delay_cal:
+           solint_interval.insert(0,solint_inf_EB) # do one for the delay solint
        solint_interval.insert(0,solint_inf_EB)
 
   
@@ -987,8 +989,9 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
    #insert solint = inf
    if (not mosaic and (median_scans_per_obs > 2 or (median_scans_per_obs == 2 and max_scantime / min_scantime < 4))) or mosaic:                    # if only a single scan per target, redundant with inf_EB and do not include
       #insert one to do a delay
-      solints_list.append('inf_delay')
-      solint_interval.append('inf')
+      if do_delay_cal:
+          solints_list.append('inf_delay')
+          solint_interval.append('inf')
       if spwcombine:
          gaincal_combine.append('spw')
       else:
@@ -1042,7 +1045,7 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
       for amp_solint in amp_solints_list:
           amp_solint_interval.append(amp_solint.replace('_ap',''))
             
-      if iscalibrator: # add shorter solints for calibrator sources
+      if shorter_amp_solints: # add shorter solints if requested
           for solint in solints_lt_scan:
               solint_string='{:0.2f}s_ap'.format(solint)
               amp_solints_list.append(solint_string)
@@ -1051,13 +1054,13 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
               else:
                  amp_gaincal_combine.append('')
               amp_solint_interval.append(solint_string.replace('_ap',''))            
-      #append solint = int to end
-      amp_solints_list.append('int_ap')
-      amp_solint_interval.append('int')
-      if spwcombine:
-         amp_gaincal_combine.append('spw')
-      else:
-         amp_gaincal_combine.append('')
+          #append solint = int to end
+          amp_solints_list.append('int_ap')
+          amp_solint_interval.append('int')
+          if spwcombine:
+             amp_gaincal_combine.append('spw')
+          else:
+             amp_gaincal_combine.append('')
             
       solints_list=solints_list+amp_solints_list      
       gaincal_combine=gaincal_combine+amp_gaincal_combine
@@ -3374,7 +3377,8 @@ def get_flagged_solns_per_spw(spwlist,gaintable,extendpol=False):
 
 
 
-def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed,telescope):
+def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed):
+   telescope=selfcal_library['telescope']
    selected_mode='combinespw'
    spwlist=selfcal_library[vis]['spwlist'].copy()
    spwlist_str=selfcal_library[vis]['spws'].split(',')
@@ -3642,7 +3646,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
    return preferred_mode,fallback,spwmap,applycal_spwmap
 
 
-def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed,telescope):
+def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed):
    selected_mode='per_bb'
    spwlist=selfcal_library[vis]['spwlist'].copy()
    spwlist_str=selfcal_library[vis]['spws'].split(',')
@@ -4775,6 +4779,8 @@ def remove_modes(selfcal_plan,vis,start_index):  # remove the per_spw and/or per
     preferred_mode=selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][start_index]]['final_mode']
     for j in range(start_index+1,len(selfcal_plan['solints'])):
        if 'ap' in selfcal_plan['solints'][j] and 'ap' not in selfcal_plan['solints'][start_index]: # exempt over ap solints since they go back to a longer solint
+          continue
+       if 'delay' in selfcal_plan['solints'][j]: # do not remove for delay solints since they cannot use combinespw
           continue
        if preferred_mode == 'per_bb' or preferred_mode == 'combinespw':
           if 'per_spw' in selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['modes_to_attempt']:
