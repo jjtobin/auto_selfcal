@@ -388,7 +388,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 
             if fallback=='spwmap':
                 selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode']['per_spw']=spwmapping_for_applycal.copy()
-            print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, spwmapping for applycal
+            print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, spwmapping for applycal {}'.format(preferred_mode,solint,fallback,spwmapping_for_applycal))
         else:
             preferred_mode='combinespw'
             fallback=''
