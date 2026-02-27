@@ -138,7 +138,7 @@ class msmdWrapper:
 
 msmdw = msmdWrapper()
 
-def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scales=[0], smallscalebias = 0.6, mask = '',\
+def tclean_wrapper(selfcal_library, imagename, band, scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard',\
                    parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
@@ -149,6 +149,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     Wrapper for tclean with keywords set to values desired for the Large Program imaging
     See the CASA 6.1.1 documentation for tclean to get the definitions of all the parameters
     """
+    telescope=selfcal_library['telescope']
     msmd.open(selfcal_library['vislist'][0])
     fieldid=msmd.fieldsforname(field)
     msmd.done()
@@ -514,12 +515,13 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     if not savemodel_only:
         return tclean_return
 
-def usermodel_wrapper(selfcal_library, imagename, band, telescope='undefined',scales=[0], smallscalebias = 0.6, mask = '',\
+def usermodel_wrapper(selfcal_library, imagename, band,scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
                    cycleniter = 300, uvtaper = [], savemodel = 'none',gridder='standard', sidelobethreshold=3.0,smoothfactor=1.0,noisethreshold=5.0,\
                    lownoisethreshold=1.5,parallel=False,cyclefactor=3,threshold='0.0Jy',phasecenter='',\
                    startmodel='',pblimit=0.1,pbmask=0.1,field='',datacolumn='',spw='',\
                    savemodel_only=False, resume=False):
+    telescope=selfcal_library['telescope']
     vlist = selfcal_library['vislist']
     field_str = [selfcal_library['bands_for_targets'][vis]['field_str'] for vis in vlist]
 
@@ -1036,11 +1038,14 @@ def get_solints_simple(vislist,scantimesdict,scannfieldsdict,scanstartsdict,scan
          else:
             amp_gaincal_combine.append('')
       else:
-         amp_solints_list.append('300s_ap').append('inf_ap')
+         amp_solints_list.append('300s_ap')
+         amp_solints_list.append('inf_ap')
          if spwcombine:
-            amp_gaincal_combine.append('scan,spw').append('spw')
+            amp_gaincal_combine.append('scan,spw')
+            amp_gaincal_combine.append('spw')
          else:
-            amp_gaincal_combine.append('scan').append('')
+            amp_gaincal_combine.append('scan')
+            amp_gaincal_combine.append('')
 
       for amp_solint in amp_solints_list:
           amp_solint_interval.append(amp_solint.replace('_ap',''))

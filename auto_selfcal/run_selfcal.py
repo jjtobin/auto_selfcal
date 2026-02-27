@@ -57,7 +57,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    if selfcal_library['usermodel'] != '':
       print('Setting model column to user model')
       usermodel_wrapper(selfcal_library,sani_target+'_'+band,
-                     band,telescope=selfcal_library['telescope'],nsigma=0.0, scales=[0],
+                     band,nsigma=0.0, scales=[0],
                      threshold='0.0Jy',
                      savemodel='modelcolumn',parallel=parallel,
                      field=target,spw=selfcal_library['spws_per_vis'],resume=False, 
@@ -161,7 +161,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
              if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and selfcal_library['usermask'] != '':
                 os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
              tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                         band,telescope=selfcal_library['telescope'],nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                         band,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                          threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                          savemodel='none',parallel=parallel,
                          field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], resume=resume)
@@ -199,7 +199,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
             # We need to redo saving the model now that we have potentially unflagged some data.
             if not do_fallback_calonly:
                 tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
-                            band,telescope=selfcal_library['telescope'],nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                            band,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                             threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                             savemodel='modelcolumn',parallel=parallel,
                             field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], savemodel_only=True)
@@ -272,7 +272,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
          os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
          tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                  band,telescope=selfcal_library['telescope'],nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                  band,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                   threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                   savemodel='none',parallel=parallel,
                   field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'])
@@ -387,7 +387,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                  os.system("mv "+f+" "+f.replace("_post","_post_intermediate"))
 
              tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
-                      band,telescope=selfcal_library['telescope'],nsigma=selfcal_library['nsigma'][iteration], scales=[0],
+                      band,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                       threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                       savemodel='none',parallel=parallel,
                       field=target, nfrms_multiplier=selfcal_library[vislist[0]][solint]['nfrms_multiplier'], 
