@@ -494,7 +494,9 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
         for key in gaincalibrator_dict.keys():
             if len(gaincalibrator_dict[key].keys()) == 0 and guess_scan_combine == False and 'VLA' in telescope:
                 do_scan_inf = False
-
+    n_solints=4.0
+    if telescope == 'VLBA':
+        n_solints=6.0
     selfcal_plan = {}
     for target in all_targets:
        selfcal_plan[target] = {}
@@ -506,7 +508,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
                     selfcal_plan[target][band]['solmode'],selfcal_plan[target][band]['solint_interval']=get_solints_simple(selfcal_library[target][band]['vislist'],scantimesdict[band],\
                     scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
                     inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic',do_scan_inf=do_scan_inf,\
-                    max_solint=max_solint,iscalibrator=iscalibrator,shorter_amp_solints=shorter_amp_solints,do_delay_cal=do_delay_cal)
+                    max_solint=max_solint,iscalibrator=iscalibrator,shorter_amp_solints=shorter_amp_solints,do_delay_cal=do_delay_cal,n_solints=n_solints)
              print(band,target,selfcal_plan[target][band]['solints'])
              print(band,target,selfcal_plan[target][band]['solint_interval'])
              selfcal_plan[target][band]['applycal_mode']=[apply_cal_mode_default]*len(selfcal_plan[target][band]['solints'])
