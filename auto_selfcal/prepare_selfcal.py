@@ -636,7 +636,8 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T'
                     else:
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='G'
-                        
+                    if '_EB' not in solint: 
+                       selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T'
                     if '_delay' in solint :
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='K'
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
