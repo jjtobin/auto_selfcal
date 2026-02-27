@@ -388,22 +388,17 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 
             if fallback=='spwmap':
                 selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode']['per_spw']=spwmapping_for_applycal.copy()
-
+        else:
+            preferred_mode='combinespw'
+            fallback=''
+            
             print(preferred_mode,solint,fallback,spwmapping_for_applycal)
         if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1 and 'delay' in solint:
              preferred_mode,fallback = \
                            select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed)
        
-        elif 'delay' not in solint:
-            preferred_mode='combinespw'
-            fallback=''
-        elif 'delay' in solint:
-            preferred_mode='per_bb'
-            fallback=''
-        else:
-            preferred_mode='combinespw'
-            fallback=''
-        print(preferred_mode,solint,fallback)
+
+             print(preferred_mode,solint,fallback)
 
 
             

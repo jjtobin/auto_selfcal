@@ -3458,7 +3458,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
          baseband_scale=1.0
       if solint == 'inf_EB':
          n_solutions=1.0
-      elif 'inf_EB'  in selfcal_plan[vis]['solint_settings'].keys():
+      elif 'inf_EB' in selfcal_plan[vis]['solint_settings'].keys():
          n_antennas=selfcal_plan[vis]['solint_settings']['inf_EB']['ntotal_non_apriori']['combinespw'][0]/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]
          n_solutions=(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['combinespw'][0]+selfcal_plan[vis]['solint_settings'][solint]['nunflagged']['combinespw'][0])/n_antennas
       else: # general way to get n_antennas that we expect to have gain solutions using return dict
