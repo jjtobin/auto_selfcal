@@ -1,7 +1,7 @@
 import numpy as np
 from .selfcal_helpers import *
 
-def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, applymode, iteration, telescope, 
+def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, applymode, iteration, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, 
         calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3,
@@ -20,7 +20,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
     band : str
         The band for which gaincal is being run.
     """
-
+    print('in gaincal_wrapper for solint', solint)
     sani_target=sanitize_string(target)
     ##
     ## Solve gain solutions per MS, target, solint, and band
@@ -129,9 +129,9 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                 scans = scans[is_gaincalibrator]
 
                 msmd.open(vis)
-                if telescope == 'ALMA' or telescope == 'ACA':
+                if selfcal_library['telescope'] == 'ALMA' or selfcal_library['telescope'] == 'ACA':
                     scan_ids_for_target = msmd.scansforfield(target)
-                elif 'VLA' in telescope:
+                elif 'VLA' in selfcal_library['telescope']:
                     scan_ids_for_target=np.array([],dtype=int)
                     for fid in selfcal_library['sub-fields']:
                         if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
@@ -162,7 +162,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                 #to guess at scan_inf combination for VLA look for breaks in the consecutive
                 #scan numbers and assume that the break is due to a calibrator scan
                 #Fetch scans for scan inf by collecting the field ids and running msmd.scansforfield
-                if 'VLA' in telescope:
+                if 'VLA' in selfcal_library['telescope']:
                     scans=np.array([],dtype=int)
                     for fid in selfcal_library['sub-fields']:
                         if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
@@ -190,7 +190,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                                 scan_group=''
 
                 #guess scan_inf combination by getting all the scans for targets and do a simple grouping
-                if telescope == 'ALMA' or telescope == 'ACA':
+                if selfcal_library['telescope'] == 'ALMA' or selfcal_library['telescope'] == 'ACA':
                     scans = msmd.scansforfield(target)
 
                     for iscan in range(scans.size):
@@ -210,9 +210,9 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             else:
                 print("Not guessing where calibration scans are and justincluding all scans")
                 msmd.open(vis)
-                if telescope == 'ALMA' or telescope == 'ACA':
+                if selfcal_library['telescope'] == 'ALMA' or selfcal_library['telescope'] == 'ACA':
                     include_scans = [str(scan) for scan in msmd.scansforfield(target)]
-                elif 'VLA' in telescope:
+                elif 'VLA' in selfcal_library['telescope']:
                     scans=np.array([],dtype=int)
                     for fid in selfcal_library['sub-fields']:
                         if fid in selfcal_library['sub-fields-fid_map'][vis].keys():
@@ -306,15 +306,29 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             selfcal_library[vis][solint]["include_targets"] = include_targets
             print(solint,'Include scans: ', include_scans)
             print(solint,'Include targets: ', include_targets)
+            print(solint,'Modes to attempt: ',selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'])
             for incl_scans, incl_targets in zip(include_scans, include_targets):
                 for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
                    print(vis,solint,mode)
                    print(selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'])
                    gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][mode]
                    filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]
+                   if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] =='':
+                       if '_EB' not in solint and '_delay' not in solint:
+                           gaincal_gaintype=''
+                           if not do_fallback_calonly or second_iter_solmode == "":
+                               gaincal_gaintype='T'
+                           else:
+                               gaincal_gaintype='GSPLINE'
+                           if second_iter_solmode == "GSPLINE": 
+                               gaincal_gaintype='T'
+                           else:
+                               gaincal_gaintype= 'G'
+                           if gaincal_gaintype !='':
+                              selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]=gaincal_gaintype
+                               
+                           #selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
 
-                   if solint != 'inf_EB':
-                       selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
                    if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] == "GSPLINE":
                        splinetime = solint.replace('_EB','').replace('_ap','')
                        if splinetime == "inf":
@@ -338,6 +352,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                       else:
                          spwselect=selfcal_library[vis]['spws']
                       gaintable_name=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'
+                      print('prior to gaincal',gaintable_name, mode)
                       if mode != 'per_bb':      
                          gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect,
                                 refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
@@ -367,20 +382,22 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                    #   break
         gaintable_prefix=sani_target+'_'+vis+'_'+band+'_'
         # assume that if there is only one mode to attempt, that it is combinespw and don't bother checking.
-        if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1:
+        if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1 and 'delay' not in solint:
             preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
-                           select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed,telescope)
+                           select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed)
 
             if fallback=='spwmap':
                 selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode']['per_spw']=spwmapping_for_applycal.copy()
-
-            print(preferred_mode,solint,fallback,spwmapping_for_applycal)
+            print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, spwmapping for applycal {}'.format(preferred_mode,solint,fallback,spwmapping_for_applycal))
         else:
             preferred_mode='combinespw'
             fallback=''
-
-            print(preferred_mode,solint,fallback)
-
+            print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}'.format(preferred_mode,solint,fallback))
+        if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1 and 'delay' in solint:
+             preferred_mode,fallback = \
+                           select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed)
+       
+             print('Select best delaycal, preferred mode: {}, solint: {}, fallback: {}'.format(preferred_mode,solint,fallback))
 
             
         # Update the appropriate selfcal_library entries.
@@ -451,7 +468,20 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][mode]
                filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]
 
-               selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
+
+               if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] =='':
+                   gaincal_gaintype=''
+                   if not do_fallback_calonly or second_iter_solmode == "":
+                       gaincal_gaintype='T'
+                   else:
+                       gaincal_gaintype='GSPLINE'
+                   if second_iter_solmode == "GSPLINE": 
+                       gaincal_gaintype='T'
+                   else:
+                       gaincal_gaintype= 'G'
+                   if gaincal_gaintype !='':
+                      selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]=gaincal_gaintype
+                   #selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
                if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] == "GSPLINE":
                    splinetime = solint.replace('_EB','').replace('_ap','')
                    if splinetime == "inf":
@@ -501,11 +531,11 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
         gaintable_prefix='temp_'
         if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1:
             preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
-                           select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed,telescope)
+                           select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed)
         else:
             preferred_mode='combinespw'
             fallback=''
-        print(preferred_mode,solint,fallback)
+        print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, spwmapping for applycal {}'.format(preferred_mode,solint,fallback,spwmapping_for_applycal))
 
         selfcal_plan[vis]['solint_settings'][solint]['final_mode']=preferred_mode
         selfcal_plan[vis]['solint_settings'][solint]['applycal_spwmap']=selfcal_plan[vis]['solint_settings'][solint]['spwmap_for_mode'][preferred_mode]
@@ -562,7 +592,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             os.system('rm -rf '+'temp_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+mode+'.g')
 
     if rerank_refants:
-        selfcal_library[vis]["refant"] = rank_refants(vis, caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g')
+        selfcal_library[vis]["refant"] = rank_refants(vis, selfcal_library['telescope'], caltable=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g')
 
         # If we are falling back to a previous solution interval on the unflagging, we need to make sure all tracks use a common 
         # reference antenna.
@@ -591,7 +621,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 
                     unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+sint+'_'+str(it)+'_'+\
                             selfcal_plan['solmode'][it]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', \
-                            selfcal_plan[vis]['solint_settings'][sint]['gaincal_return_dict'][selfcal_library[vis][sint]['final_mode']], \
+                            selfcal_plan[vis]['solint_settings'][sint]['gaincal_return_dict'][selfcal_library[vis][sint]['final_mode']], selfcal_library['telescope'], \
                             flagged_fraction=0.25, solnorm=solnorm, \
                             only_long_baselines=selfcal_plan['solmode'][it]=="ap" if unflag_only_lbants and \
                             unflag_only_lbants_onlyap else unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, \
@@ -626,7 +656,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
         selfcal_library[vis][solint]['unflagged_lbs'] = True
 
         unflag_failed_antennas(vis, sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+\
-                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][selfcal_library[vis][solint]['final_mode']], flagged_fraction=0.25, solnorm=solnorm, \
+                selfcal_plan['solmode'][iteration]+'_'+selfcal_library[vis][solint]['final_mode']+'.g', selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][selfcal_library[vis][solint]['final_mode']], selfcal_library['telescope'], flagged_fraction=0.25, solnorm=solnorm, \
                 only_long_baselines=selfcal_plan['solmode'][iteration]=="ap" if unflag_only_lbants and unflag_only_lbants_onlyap else \
                 unflag_only_lbants, calonly_max_flagged=calonly_max_flagged, spwmap=unflag_spwmap, \
                 fb_to_prev_solint=unflag_fb_to_prev_solint, solints=selfcal_plan['solints'], iteration=iteration)
@@ -673,7 +703,10 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 def generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration): 
     sani_target=sanitize_string(target)
     current_solint_index=selfcal_plan['solints'].index(solint)
-    preferred_mode='combinespw'
+    if selfcal_library['telescope'] == 'VLBA' and 'delay' in solint:  # use per_bb in place of combinespw for VLBA fall back'
+        preferred_mode='per_bb'
+    else:
+        preferred_mode='combinespw'
 
     selfcal_plan[vis]['solint_settings'][solint]['final_mode'] = preferred_mode+''
     selfcal_plan[vis]['solint_settings'][solint]['preapply_this_gaintable'] = True if solint == 'inf_EB' else False

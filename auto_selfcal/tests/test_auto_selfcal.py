@@ -67,7 +67,7 @@ def test_benchmark(tmp_path, dataset):
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=1e-3,\
      exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets',\
          'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
-         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor'])
+         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope'])
 
     assert difference_count == 0
 
@@ -105,7 +105,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001,\
      exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets',\
          'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
-         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor'])
+         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope'])
 
     assert difference_count == 0
 
