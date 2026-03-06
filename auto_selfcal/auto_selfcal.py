@@ -58,6 +58,7 @@ def auto_selfcal(
         sort_targets_and_EBs=False,
         run_findcont=False,
         align_EBs=False,
+        align_optimizer='minimize',
         aquareport="",
         debug=False, 
         parallel=False,
@@ -460,7 +461,7 @@ def auto_selfcal(
                 selfcal_library[target][band]['offsets'] = align_measurement_sets(selfcal_library[target][band]['vislist'][0], selfcal_library[target][band]['vislist'], target,
                         aquareport=aquareport, npix=max(selfcal_library[target][band]['imsize']), cell_size=float(selfcal_library[target][band]['cellsize'][0:-6]), 
                         spwid=[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']], plot_uv_grid=False, plot_file_template=None, 
-                        suffix='')
+                        suffix='', optimizer=align_optimizer)
 
         for target in all_targets:
          sani_target=sanitize_string(target)

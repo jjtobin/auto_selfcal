@@ -16,14 +16,12 @@ import shutil
 import matplotlib.pyplot as plt
 import warnings
 from scipy import constants
-import emcee
-import dynesty
-import dynesty.utils
-import dynesty.plotting
 import scipy.stats
 import glob
 import xml.etree.ElementTree as ET
 
+from .selfcal_helpers import sanitize_string
+import matplotlib.ticker as ticker
 
 skycoord_frames = {'ICRS':'icrs','J2000':FK5(equinox='J2000')}
 
@@ -347,7 +345,7 @@ def plot_grid_nvis(ax,grid_nvis,grid_uu,grid_vv,vmin=None,vmax=None):
 
 def find_offset(reference_ms, offset_ms, target, aquareport='', npix=1024, cell_size=0.01, 
                 spwid=0, fail_silently=False,verbose=False,plot_uv_grid=False,
-                uv_grid_plot_filename=None):
+                uv_grid_plot_filename=None, optimizer='minimize'):
     """
     Find the offset between ``offset_ms`` and ``reference_ms`` by minimizing
     the aggregate phase angle and amplitude.
@@ -486,102 +484,130 @@ def find_offset(reference_ms, offset_ms, target, aquareport='', npix=1024, cell_
         for ms in [ms1, ms2]:
             ms += [np.repeat(0.,ms[0].shape)]
 
-    print("==========================================")
-    print("Minimize")
-    print("==========================================")
-    res = minimize(fun=calculate_likelihood,x0=x0,args=([ms1, ms2], cell_size),method='L-BFGS-B')
-    print(res)
+    if optimizer == 'minimize':
+        print("==========================================")
+        print("Minimize")
+        print("==========================================")
+        res = minimize(fun=calculate_likelihood,x0=x0,args=([ms1, ms2], cell_size),method='L-BFGS-B', jac='3-point', tol=1e-30)
 
-    xx, yy = np.linspace(-2.,2.,200), np.linspace(-2.,2.,200)
-    likelihood = np.empty(200**2).reshape((200,200))
-    for i in range(200):
-        for j in range(200):
-            likelihood[i,j] = log_likelihood([xx[i],yy[j]], [ms1,ms2], cell_size)
+        offsets = res.x
+        uncertainty = np.sqrt(np.diag(0.5*res.hess_inv.todense()))
+        for i in range(len(res.x)):
+            print('x^{0} = {1:12.4e} ± {2:.1e}'.format(i, res.x[i], uncertainty[i]))
 
-    plt.imshow(likelihood, origin="lower", interpolation="none")
-    plt.colorbar()
-    plt.contour(likelihood, levels=likelihood.max()-scipy.stats.chi2.isf(q=[0.003,0.05,0.32], df=2), colors="white", linestyles='--')
-    plt.tight_layout()
-    plt.savefig(target+'_'+offset_ms+'_likelihood.png')
-    plt.clf()
-    plt.close()
+        # Make a plot of the likelihood.
 
+        xx, yy = np.linspace(-10.,10.,201)*uncertainty.min(), np.linspace(-10.,10.,201)*uncertainty.min()
+        likelihood = np.empty(xx.size*yy.size).reshape((xx.size,yy.size))
+        for i in range(xx.size):
+            for j in range(yy.size):
+                likelihood[i,j] = log_likelihood([xx[i]+offsets[0],yy[j]+offsets[1]], [ms1,ms2], cell_size)
 
-    uncertainty = np.sqrt(np.diag(res.hess_inv.todense()))
-    for i in range(len(res.x)):
-        print('x^{0} = {1:12.4e} ± {2:.1e}'.format(i, res.x[i], uncertainty[i]))
+        sigma = 2.**0.5 * scipy.special.erfinv(1. - scipy.stats.chi2.sf(likelihood.max() - likelihood, df=2))
+        sigma = np.where(np.isfinite(sigma), sigma, sigma[np.isfinite(sigma)].max())
 
-    print("==========================================")
-    print("Emcee")
-    print("==========================================")
+        plt.imshow(sigma, origin="lower", interpolation="none", cmap='viridis_r')
 
-    ndim, nwalkers = 2, 50
-    p0 = np.random.uniform(-x0[0],x0[0], (nwalkers,ndim))
+        plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{1000*(offsets[0] + np.interp(x, np.arange(xx.size), xx)):.0f}'))
+        plt.gca().yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{1000*(offsets[1] + np.interp(x, np.arange(yy.size), yy)):.0f}'))
 
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=([ms1, ms2], cell_size))
-    sampler.run_mcmc(p0, 1000)
+        plt.gca().set_xlabel('Offset (mas)')
+        plt.gca().set_ylabel('Offset (mas)')
 
-    fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
-    samples = sampler.get_chain()
-    labels = ["m", "b", "log(f)"]
-    for i in range(ndim):
-        ax = axes[i]
-        ax.plot(samples[:, :, i], "k", alpha=0.3)
-        ax.set_xlim(0, len(samples))
-        ax.set_ylabel(labels[i])
-        ax.yaxis.set_label_coords(-0.1, 0.5)
+        plt.colorbar(label='$\sigma$')
+        plt.contour(sigma, levels=[1., 2., 3.], colors="white", linestyles='--')
+        plt.tight_layout()
+        plt.savefig(sanitize_string(target)+'_'+offset_ms+'_likelihood.png')
+        plt.clf()
+        plt.close()
 
-    axes[-1].set_xlabel("step number")
-    fig.savefig(target+"_"+offset_ms+"_stepsplot.png")
-    plt.clf()
-    plt.close(fig)
+    elif optimizer in ['emcee', 'dynesty']:
+        import corner
 
-    samples = sampler.get_chain(flat=True, discard=500)
+        if optimizer == 'emcee':
+            import emcee
 
-    print(np.median(samples, axis=0))
-    print(np.std(samples, axis=0))
+            print("==========================================")
+            print("Emcee")
+            print("==========================================")
 
-    print("==========================================")
-    print("Dynesty")
-    print("==========================================")
+            ndim, nwalkers = 2, 50
+            p0 = np.random.uniform(-x0[0],x0[0], (nwalkers,ndim))
 
-    def prior_transform(u):
-        return (2.*u - 1.)*5.
-        #return scipy.stats.norm.ppf(u)
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, log_likelihood, args=([ms1, ms2], cell_size))
+            sampler.run_mcmc(p0, 1000)
 
-    sampler = dynesty.NestedSampler(log_likelihood, prior_transform, 2, nlive=500, logl_args=([ms1, ms2], cell_size))
+            fig, axes = plt.subplots(2, figsize=(10, 7), sharex=True)
+            samples = sampler.get_chain()
+            labels = ["m", "b", "log(f)"]
+            for i in range(ndim):
+                ax = axes[i]
+                ax.plot(samples[:, :, i], "k", alpha=0.3)
+                ax.set_xlim(0, len(samples))
+                ax.set_ylabel(labels[i])
+                ax.yaxis.set_label_coords(-0.1, 0.5)
 
-    sampler.run_nested()
+            axes[-1].set_xlabel("step number")
+            fig.savefig(sanitize_string(target)+"_"+offset_ms+"_stepsplot.png")
+            plt.clf()
+            plt.close(fig)
 
-    fig, ax = dynesty.plotting.traceplot(sampler.results, show_titles=True, trace_cmap='viridis', connect=True, connect_highlight=range(5))
-    fig.savefig(target+"_"+offset_ms+"_traceplot.png")
-    plt.clf()
-    plt.close(fig)
+            samples = sampler.get_chain(flat=True, discard=500)
 
-    samples = dynesty.utils.resample_equal(sampler.results.samples, sampler.results.importance_weights())
+            print(np.median(samples, axis=0))
+            print(np.std(samples, axis=0))
 
-    print(np.median(samples, axis=0))
-    print(np.std(samples, axis=0))
+        elif optimizer == 'dynesty':
+            import dynesty
+            import dynesty.utils
+            import dynesty.plotting
 
-    print("==========================================")
+            print("==========================================")
+            print("Dynesty")
+            print("==========================================")
+
+            def prior_transform(u):
+                return (2.*u - 1.)*5.
+                #return scipy.stats.norm.ppf(u)
+
+            sampler = dynesty.NestedSampler(log_likelihood, prior_transform, 2, nlive=500, logl_args=([ms1, ms2], cell_size))
+
+            sampler.run_nested()
+
+            fig, ax = dynesty.plotting.traceplot(sampler.results, show_titles=True, trace_cmap='viridis', connect=True, connect_highlight=range(5))
+            fig.savefig(sanitize_string(target)+"_"+offset_ms+"_traceplot.png")
+            plt.clf()
+            plt.close(fig)
+
+            samples = dynesty.utils.resample_equal(sampler.results.samples, sampler.results.importance_weights())
+
+            print("==========================================")
+
+        offsets = np.median(samples, axis=0)
+        unc = np.std(samples, axis=0)
+
+        fig = corner.corner(1000*samples, labels=['$\Delta$R.A. (mas)', '$\Delta$Dec (mas)'], quantiles=[0.16,0.5,0.84], show_titles=True)
+
+        plt.savefig(sanitize_string(target)+'_'+offset_ms+'_likelihood.png')
 
     # Return the offset, otherwise if this fails, either raise an error or
     # returns a null offset.
 
-    if not res.success:
-        if fail_silently:
-            return [0.0, 0.0]
-        else:
-            print(res)
-            raise RuntimeError
     for temp_ms in temporary_ms:
         if verbose:
             print(f'going to delete temporary ms {temp_ms}')
         shutil.rmtree(temp_ms)
-    """
-    return res.x
-    """
-    return np.median(samples, axis=0)
+
+    if optimizer == 'minimize':
+        if not res.success:
+            if fail_silently:
+                return [0.0, 0.0]
+            else:
+                print(res)
+                raise RuntimeError
+        return res.x
+    elif optimizer in ['emcee', 'dynesty']:
+        return offsets
 
 
 def get_phase_center(measurement_set, target):
@@ -699,7 +725,7 @@ def update_phase_center(vis, target, new_phase_center, ref_phase_center,
 
 def align_measurement_sets(reference_ms, align_ms, target, aquareport='', align_offsets=None,npix=1024,
                            cell_size=0.01,spwid=0,plot_uv_grid=False,
-                           plot_file_template=None,suffix='_shift'):
+                           plot_file_template=None,suffix='_shift',optimizer='minimize'):
     """
     Using ``reference_ms`` as the truth, align all meausrement sets in
     ``align_ms``. This includes calculating the RA and Dec offset between the
@@ -757,7 +783,8 @@ def align_measurement_sets(reference_ms, align_ms, target, aquareport='', align_
                 offset = find_offset(reference_ms=reference_ms,offset_ms=ms,npix=npix,
                                      target=target,aquareport=aquareport,cell_size=cell_size,spwid=spwid,
                                      plot_uv_grid=plot_uv_grid,
-                                     uv_grid_plot_filename=uv_grid_plot_filename)
+                                     uv_grid_plot_filename=uv_grid_plot_filename,
+                                     optimizer=optimizer)
 
         calculated_offsets[ms] = offset
 
