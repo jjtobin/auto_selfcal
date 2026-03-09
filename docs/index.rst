@@ -49,6 +49,7 @@ Or check out the rest of our documentation:
    :caption: API
 
    api
+   alignment_helpers
    selfcal_helpers
 
 Acknowledging auto_selfcal

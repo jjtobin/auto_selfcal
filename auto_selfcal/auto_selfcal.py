@@ -232,6 +232,16 @@ def auto_selfcal(
         If True, will run the hif_findcont task to identify continuum windows.
         Only available when run within CASA distributions where the pipeline 
         is installed.
+    align_EBs: bool, optional
+        If True, fit for spatial offsets between EBs and remove prior to running
+        self calibration.
+    align_optimizer: str, optional
+        If align_EBs=True, the optimizer to use to fit for EB-to-EB offsets. 
+        Options include 'minimize' (scipy.optimize.minimize), 'emcee', and 
+        'dynesty'. Note that 'emcee' and 'dynesty' are not installed with
+        auto_selfcal and need to be installed if their functionality is
+        requested.
+        Default : minimize
     debug : bool, optional
         If True, will print debug information during processing.
     parallel : bool, optional
@@ -244,21 +254,21 @@ def auto_selfcal(
         solints that are so long that long-timescale phase offset corrections
         are not smeared out 
         default : 4500.0
-   mos_field_drop_flux_thresh: float, optional
+    mos_field_drop_flux_thresh: float, optional
         The flux difference ratio that will be used to determine if mosaic 
         fields should be dropped from gaincal selection due to low flux.
         Default for ALMA: 1.25, VLA: 1.5.
-   overlap_tol: float, optional 
+    overlap_tol: float, optional 
         Field overlap tolerance for VLA mosaic identification in units of HPBW.
         1.0 will require overlap at the estimated HPBW, < 1.0 requires more closely
         spaced fields, > 1.0 will allow more distantly placed fields to be 
         identified as a mosaic. 
         Default: 1.0
-   noisethreshold: float, optional 
+    noisethreshold: float, optional 
         noise threshold for tclean automasking, will be adjusted by ratio of 
         near-field RMS to full field RMS
         Default: None - set by heuristics
-   sidelobethreshold: float, optional
+    sidelobethreshold: float, optional
         side lobe threshold for tclean automasking
         Default: None - set by heuristics
     lownoisethreshold: float, optional

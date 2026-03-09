@@ -732,18 +732,39 @@ def align_measurement_sets(reference_ms, align_ms, target, aquareport='', align_
     two measurement sets, calcuating the updated phase center coordinate, and
     then appling this phase center shift to the data.
 
-    Args:
-        reference_ms (str): The MS to use as a the fixed reference point.
-        align_ms (str or list): The MS to align to the reference MS.
-        target(str or int): The target to align.
-        align_offsets (optional[list]): list of offsets to be used for the alignment.
-            Each element corresponds to an element of align_ms.
-            If None, offsets will be calculated.
-        npix (optional[int]): Number of pixels in the grid.
-        cell_size (optional[float]): Cell size in [arcsec] for the grid.
-        spwid (optional[int]): The spectral window to align based on; defaults to 0.
-        plot_uv_grid (bool): whether to plot an overview of the uv grid
-        plot_file_template (str): template to produce output file of uv grid plot
+    Parameters
+    ----------
+    reference_ms: str 
+        The MS to use as a the fixed reference point.
+    align_ms: str or list
+        The MS to align to the reference MS.
+    target : str or int
+        The target to align.
+    align_offsets : list
+        list of offsets to be used for the alignment.
+        Each element corresponds to an element of align_ms.
+        If None, offsets will be calculated.
+    npix: int, optional
+        Number of pixels in the grid. Default: 1024
+    cell_size: float, optional
+        Cell size in [arcsec] for the grid.
+    spwid: int or list
+        The spectral window to align based on; defaults to 0.
+    plot_uv_grid: bool
+        whether to plot an overview of the uv grid
+    plot_file_template: str
+        template to produce output file of uv grid plot
+    suffix: str
+        string to append to shifted MSes
+    optimizer: str
+        which optimizer to use for alignment. Options are 'minimize' 
+        (scipy.optimize.minimize), 'emcee', or 'dynesty'. Note that 'emcee' and 'dynesty'
+        require those packages be installed separately.
+
+    Returns
+    -------
+    calculated offsets (list)
+        List of offsets applied to each measurement set.
     """
 
     # Use the reference MS as the phase center for all the shifted MSs. Note
