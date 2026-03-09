@@ -53,3 +53,15 @@ A note on CASA versions
 -----------------------
 
 There may be specific CASA version requirements matched to specific versions of auto_selfcal, but one overarching requirement is that his code should only be executed within the CASA 6.4+ environment. CASA versions earlier that 6.4.0 are likely to encounter problems due to a gaincal bug that was fixed in CASA 6.4.0. Current testing of this code was conducted using CASA 6.5.4 and CASA 6.5.6, but we fully expect this code to run properly on CASA 6.6 and should aso run properly back to CASA 6.4.0.
+
+Installation options
+--------------------
+
+To keep auto_selfcal slim and easy to install, when installing via pip, the dependencies for using mpicasa and for EB
+alignment are not installed by default. To install auto_selfcal with the necessary dependencies, use:
+
+.. code-block:: bash
+
+    pip install auto-selfcal[mpi]
+    pip install auto-selfcal[align]
+

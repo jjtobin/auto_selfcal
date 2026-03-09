@@ -15,7 +15,10 @@ from .image_analysis_helpers import *
 from .weblog_creation import *
 from .prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_per_solint
 from .original_ms_helpers import applycal_to_orig_MSes, uvcontsub_orig_MSes
-from .alignment_helpers import align_measurement_sets
+try:
+    from .alignment_helpers import align_measurement_sets
+except:
+    pass
 
 import casatasks
 from casatools import msmetadata as msmdtool

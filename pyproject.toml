@@ -26,14 +26,13 @@ dependencies = [
     "casadata",
     "casaviewer<=2.0.1",
     "protobuf<=3.20.3",
-    "numba",
-    "astropy",
 ]
 
 [project.optional-dependencies]
 mpi = ["casampi","mpi4py<4.0.0"]
 test = ["pytest","pytest-xdist","submitit"]
 docs = ["sphinx","sphinx-automodapi","sphinx_book_theme","numpydoc"]
+align = ["numba","astropy"]
 
 [project.urls]
 Homepage = "https://github.com/jjtobin/auto_selfcal"
