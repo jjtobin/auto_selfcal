@@ -433,7 +433,7 @@ def auto_selfcal(
         for target in all_targets:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
-            if selfcal_library[target][band]['obstype'] == 'mosaic':
+            if selfcal_library[target][band]['obstype'] == 'mosaic' and len(selfcal_library[target][band]['vislist']) > 1:
                 continue
 
             for vis in selfcal_library[target][band]['vislist']:
@@ -479,7 +479,7 @@ def auto_selfcal(
         for target in all_targets:
          sani_target=sanitize_string(target)
          for band in selfcal_library[target].keys():
-            if selfcal_library[target][band]['obstype'] == 'mosaic':
+            if selfcal_library[target][band]['obstype'] == 'mosaic' and len(selfcal_library[target][band]['vislist']) > 1:
                 continue
 
             for vis in selfcal_library[target][band]['vislist']:
@@ -946,7 +946,7 @@ def auto_selfcal(
 
         for target in selfcal_library:
             for band in selfcal_library[target]:
-                if selfcal_library[target][band]['obstype'] == 'mosaic':
+                if selfcal_library[target][band]['obstype'] == 'mosaic' and len(selfcal_library[target][band]['vislist']) > 1:
                     continue
 
                 align_measurement_sets(selfcal_library[target][band]['original_vislist_map'][selfcal_library[target][band]['vislist'][0]], 
