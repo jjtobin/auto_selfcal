@@ -692,7 +692,7 @@ def generate_alignment_weblog(sclib, directory='weblog'):
 
             if os.path.exists(sanitize_string(target)+'_'+vis+'_likelihood.png'):
                os.system('cp '+sanitize_string(target)+'_'+vis+'_likelihood.png weblog/images/')
-               line+='<td><a href="images/'+sanitize_string(target)+'_'+vis+'_likelihood.png"><img src="images/'+sanitize_string(target)+'_'+'_'+vis+'_likelihood.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+               line+='<td><a href="images/'+sanitize_string(target)+'_'+vis+'_likelihood.png"><img src="images/'+sanitize_string(target)+'_'+vis+'_likelihood.png" ALT="pre-SC-solint image" HEIGHT=330></a> </td>\n'
             else:
                line+='    <td> - </td>\n'
 

@@ -467,7 +467,7 @@ def auto_selfcal(
         for target in all_targets:
             offsets[target] = {}
             for band in selfcal_library[target]:
-                if selfcal_library[target][band]['obstype'] == 'mosaic':
+                if selfcal_library[target][band]['obstype'] == 'mosaic' or len(selfcal_library[target][band]['vislist']) == 1:
                     print(f"Skipping alignment of target {target} band {band} because it is a mosaic.")
                     continue
 
