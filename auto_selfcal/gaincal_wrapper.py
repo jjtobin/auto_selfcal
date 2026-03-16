@@ -313,28 +313,6 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                    print(selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'])
                    gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][mode]
                    filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]
-                   if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] =='':
-                       if '_EB' not in solint and '_delay' not in solint:
-                           gaincal_gaintype=''
-                           if not do_fallback_calonly or second_iter_solmode == "":
-                               gaincal_gaintype='T'
-                           else:
-                               gaincal_gaintype='GSPLINE'
-                           if second_iter_solmode == "GSPLINE": 
-                               gaincal_gaintype='T'
-                           else:
-                               gaincal_gaintype= 'G'
-                           if gaincal_gaintype !='':
-                              selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]=gaincal_gaintype
-                               
-                           #selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
-
-                   if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] == "GSPLINE":
-                       splinetime = solint.replace('_EB','').replace('_ap','')
-                       if splinetime == "inf":
-                           splinetime = selfcal_library["Median_scan_time"]
-                       else:
-                           splinetime = float(splinetime[0:-1])
 
                    if 'spw' in gaincal_combine:
                       if selfcal_library['spws_set'][vis].ndim == 1:
@@ -472,27 +450,6 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             for mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
                gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][mode]
                filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][mode]
-
-
-               if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] =='':
-                   gaincal_gaintype=''
-                   if not do_fallback_calonly or second_iter_solmode == "":
-                       gaincal_gaintype='T'
-                   else:
-                       gaincal_gaintype='GSPLINE'
-                   if second_iter_solmode == "GSPLINE": 
-                       gaincal_gaintype='T'
-                   else:
-                       gaincal_gaintype= 'G'
-                   if gaincal_gaintype !='':
-                      selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]=gaincal_gaintype
-                   #selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T' if not do_fallback_calonly or second_iter_solmode == "" else "GSPLINE" if second_iter_solmode == "GSPLINE" else "G"
-               if selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode] == "GSPLINE":
-                   splinetime = solint.replace('_EB','').replace('_ap','')
-                   if splinetime == "inf":
-                       splinetime = selfcal_library[fid]["Median_scan_time"]
-                   else:
-                       splinetime = float(splinetime[0:-1])
 
                if 'spw' in gaincal_combine:
                   if selfcal_library['spws_set'][vis].ndim == 1:
