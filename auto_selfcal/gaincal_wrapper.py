@@ -392,7 +392,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, spwmapping for applycal {}'.format(preferred_mode,solint,fallback,spwmapping_for_applycal))
         else:
             preferred_mode=selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'][0]
-            get_gaincalmode_flagging_stats(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
+            if 'delay' not in solint:
+               get_gaincalmode_flagging_stats(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
             fallback=''
             print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, possible modes: {}'.format(preferred_mode,solint,fallback,selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']))
         if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1 and 'delay' in solint:
@@ -539,7 +540,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                            select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed)
         else:
             preferred_mode=selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'][0]
-            get_gaincalmode_flagging_stats(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
+            if 'delay' not in solint:
+                get_gaincalmode_flagging_stats(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
             fallback=''
             spwmapping_for_applycal=[]
         print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, spwmapping for applycal {}'.format(preferred_mode,solint,fallback,spwmapping_for_applycal))

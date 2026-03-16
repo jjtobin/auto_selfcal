@@ -555,7 +555,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 applycal_interp='linear'
              n_basebands=len(selfcal_library[target][band][vis]['baseband'].keys())
              for baseband in selfcal_library[target][band][vis]['baseband'].keys():
-                nspws=+selfcal_library[target][band][vis]['baseband'][baseband]['nspws']
+                nspws+=selfcal_library[target][band][vis]['baseband'][baseband]['nspws']
                 if selfcal_library[target][band][vis]['baseband'][baseband]['nspws']> maxspws_per_bb:
                    maxspws_per_bb=selfcal_library[target][band][vis]['baseband'][baseband]['nspws']+0.0
 
