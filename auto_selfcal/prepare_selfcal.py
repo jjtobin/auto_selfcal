@@ -547,6 +547,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
    for target in selfcal_library.keys():
       for band in selfcal_library[target].keys():
          for vis in selfcal_library[target][band]['vislist']:
+             nspws=0
              maxspws_per_bb=0
              if selfcal_library[target][band]['meanfreq'] > 12.0e9:
                 applycal_interp='linearPD'
@@ -554,6 +555,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 applycal_interp='linear'
              n_basebands=len(selfcal_library[target][band][vis]['baseband'].keys())
              for baseband in selfcal_library[target][band][vis]['baseband'].keys():
+                nspws=+selfcal_library[target][band][vis]['baseband'][baseband]['nspws']
                 if selfcal_library[target][band][vis]['baseband'][baseband]['nspws']> maxspws_per_bb:
                    maxspws_per_bb=selfcal_library[target][band][vis]['baseband'][baseband]['nspws']+0.0
 
@@ -582,9 +584,10 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=[]
                 min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_spw'][solint])
                 min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_bb'][solint])
-                if selfcal_library[target][band]['telescope'] == 'VLBA' and 'delay' in solint:
+                print('Nspws: {}, spws per BB: {}, basebands: {}'.format(nspws,maxspws_per_bb,n_basebands))
+                if selfcal_library[target][band]['telescope'] == 'VLBA' and 'delay' in solint and maxspws_per_bb > 1.0:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
-                if 'delay' not in solint:
+                if 'delay' not in solint and nspws > 1.0:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')    
                 if 'delay' in solint and n_basebands > 1:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
@@ -640,6 +643,8 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='G'
                     if '_EB' not in solint: 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T'
+                    if selfcal_library[target][band]['telescope'] == 'VLBA':
+                       selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='G'
                     if '_delay' in solint :
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='K'
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
