@@ -329,6 +329,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                      #gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                      #nflagged_sols, nsols=get_sols_flagged_solns(gaintable)
                      final_mode=selfcal_plan[target][band][vis]['solint_settings'][solint]['final_mode']
+                     print(target,solint)
                      nflagged_sols_total=np.sum(selfcal_plan[target][band][vis]['solint_settings'][solint]['nflags'][final_mode])
                      nsols_total=np.sum(selfcal_plan[target][band][vis]['solint_settings'][solint]['ntotal'][final_mode])
                      nflagged_sols=np.sum(selfcal_plan[target][band][vis]['solint_settings'][solint]['nflags_non_apriori'][final_mode])

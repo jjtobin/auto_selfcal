@@ -449,7 +449,10 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
             if do_fallback_combinespw:
                 for vis in vislist:
-                    selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw'
+                    if 'delay' in solint:
+                        selfcal_plan[vis]['solint_settings'][solint]['final_mode']='per_bb'                    
+                    else:
+                        selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw'
                     remove_modes(selfcal_plan,vis,iteration)
             do_fallback_combinespw=False   # Turn off this switch if successful               
             do_fallback_calonly=False
