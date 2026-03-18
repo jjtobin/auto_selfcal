@@ -376,7 +376,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                 print('Select best gaincal, preferred mode: {}, solint: {}, fallback: {}, possible modes: {}'.format(preferred_mode,\
                                                     solint,fallback,selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']))
         else:
-             if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1:
+             if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) >= 1: # run this even if we only have one mode to fill flagging stats
                 preferred_mode,fallback = select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,\
                                                                     gaintable_prefix,solint,\
                                                                     spectral_solution_fraction,minsnr_to_proceed)

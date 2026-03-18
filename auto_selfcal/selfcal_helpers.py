@@ -3722,33 +3722,38 @@ def select_best_delaycal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,
          selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist_bb)
       else:
          baseband_scale=1.0
-   print(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode])
-   #for each baseband is the flagging greater on a per antenna basis for per_spw?  
-   nflags_total_per_spw_per_bb_norm={}       
-   nflags_total_per_bb_norm={}       
-   count_flags_per_spw_gt_per_bb=0
-   n_basebands=len(selfcal_library[vis]['baseband'].keys())
-   for baseband in selfcal_library[vis]['baseband'].keys():
-      nflags_per_bb_norm=0
-      for spw in selfcal_library[vis]['baseband'][baseband]['spwlist']:
-         nflags_per_bb_norm+=selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']
-      #normalize flags by number of spws to become equivalent to    
-      nflags_per_bb_norm = float(nflags_per_bb_norm) / float(selfcal_library[vis]['baseband'][baseband]['nspws'])
-      nflags_total_per_spw_per_bb_norm[baseband] = np.sum(nflags_per_bb_norm)
-      #fill a complementary dictionary for flagging in the per_bb solutions
-      print('flags',nflags_total_per_spw_per_bb_norm[baseband], nflags_total_per_bb_norm)
-      nflags_total_per_bb_norm[baseband] = np.sum(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['per_bb'])
+         
+   if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1:   # only run this code if we have more than 1 mode to attempt
+       print(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode])
+       #for each baseband is the flagging greater on a per antenna basis for per_spw?  
+       nflags_total_per_spw_per_bb_norm={}       
+       nflags_total_per_bb_norm={}       
+       count_flags_per_spw_gt_per_bb=0
+       n_basebands=len(selfcal_library[vis]['baseband'].keys())
+       for baseband in selfcal_library[vis]['baseband'].keys():
+          nflags_per_bb_norm=0
+          for spw in selfcal_library[vis]['baseband'][baseband]['spwlist']:
+             nflags_per_bb_norm+=selfcal_library[vis]['per_spw_stats'][int(spw)]['nflags']
+          #normalize flags by number of spws to become equivalent to    
+          nflags_per_bb_norm = float(nflags_per_bb_norm) / float(selfcal_library[vis]['baseband'][baseband]['nspws'])
+          nflags_total_per_spw_per_bb_norm[baseband] = np.sum(nflags_per_bb_norm)
+          #fill a complementary dictionary for flagging in the per_bb solutions
+          print('flags',nflags_total_per_spw_per_bb_norm[baseband], nflags_total_per_bb_norm)
+          nflags_total_per_bb_norm[baseband] = np.sum(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori']['per_bb'])
 
-      if nflags_total_per_spw_per_bb_norm[baseband] > nflags_total_per_bb_norm[baseband]:
-        count_flags_per_spw_gt_per_bb+=1
-      
-   if float(count_flags_per_spw_gt_per_bb) > float(n_basebands) / 2.0:   # there are more flags per_spw than per_bb in a majority of basebands do per_bb solutions
-         preferred_mode='per_bb'
-         fallback=''
+          if nflags_total_per_spw_per_bb_norm[baseband] > nflags_total_per_bb_norm[baseband]:
+            count_flags_per_spw_gt_per_bb+=1
+          
+       if float(count_flags_per_spw_gt_per_bb) > float(n_basebands) / 2.0:   # there are more flags per_spw than per_bb in a majority of basebands do per_bb solutions
+             preferred_mode='per_bb'
+             fallback=''
+       else:
+             preferred_mode='per_spw'
+             fallback='per_bb'
+       print('final report',preferred_mode)
    else:
-         preferred_mode='per_spw'
-         fallback='per_bb'
-   print('final report',preferred_mode)
+       preferred_mode=selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'][0]
+       fallback=''
 
    return preferred_mode,fallback
 
