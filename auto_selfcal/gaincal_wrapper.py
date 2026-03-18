@@ -435,7 +435,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             applycal_interpolate=[]
             applycal_spwmap=[]
             for j in range(current_solint_index):
-              if selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['preapply_this_gaintable'] and selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['solmode']=='p':
+              if selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['preapply_this_gaintable']: #allow amplitude and phase to be pre-applied
+                 # and selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['solmode']=='p':
                  gaincal_preapply_gaintable.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['accepted_gaintable'])
                  gaincal_spwmap.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['applycal_spwmap'])
                  gaincal_interpolate.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['applycal_interpolate'])
