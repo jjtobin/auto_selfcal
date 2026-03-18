@@ -641,14 +641,16 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T'
                     else:
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='G'
-                    if '_EB' not in solint: 
+                    if '_EB' not in solint:   # do T by default beyond inf_EB if not VLBA
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T'
-                    if selfcal_library[target][band]['telescope'] == 'VLBA':
+                    if selfcal_library[target][band]['telescope'] == 'VLBA':  # do G by default for VLBA
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='G'
-                    if '_delay' in solint :
+                    if '_delay' in solint :   # delay solints should always use K and be preapplied
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='K'
+                       #consider if improvement from delay is neglegible or harms to continume selfcal but then turning off the preapply 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
-            
+                        
+                           
             #for fid in selfcal_library[target][band]['sub-fields']:
             #   selfcal_plan[target][band][vis][fid]['solint_settings'][solint]['gaincal_preapply_gaintable']={}
             #   selfcal_plan[target][band][vis][fid]['solint_settings'][solint]['gaincal_spwmap']={}
