@@ -38,6 +38,17 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    htmlOut.writelines('<body>\n')
    htmlOut.writelines('<a name="top"></a>\n')
    htmlOut.writelines('<h1>SelfCal Weblog</h1>\n')
+   align_any = False
+   for target in sclib:
+      for band in sclib[target]:
+         if 'offsets' in sclib[target][band]:
+            align_any = True
+
+   if align_any:
+      print('\n Generating alignment weblog \n')
+      htmlOut.writelines('<a href="align.html"> Align EBs Weblog </a><br>\n')
+      generate_alignment_weblog(sclib)
+
    htmlOut.writelines('<h4>Date Executed:'+datetime.today().strftime('%Y-%m-%d')+'</h4>\n')
    htmlOut.writelines('<h2>Targets:</h2>\n')
    targets=list(sclib.keys())
@@ -62,6 +73,10 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
       for band in bands_obsd:
          htmlOut.writelines('<h2>'+band+'</h2>\n')
          htmlOut.writelines('<a name="'+target+'_'+band+'"></a>\n')
+         if 'offsets' in sclib[target][band]:
+            htmlOut.writelines('Aligned EBs?: <a href="align.html#'+target+'"> True</a><br>\n')
+         else:
+            htmlOut.writelines('Aligned EBs?: False\n')
          htmlOut.writelines('Selfcal Success?: '+str(sclib[target][band]['SC_success'])+'<br>\n')
          keylist=sclib[target][band].keys()
          if 'Stop_Reason' not in keylist:
@@ -630,3 +645,66 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
             htmlOutSolint.writelines('</body>\n')
             htmlOutSolint.writelines('</html>\n')
             htmlOutSolint.close()
+
+
+def generate_alignment_weblog(sclib, directory='weblog'):
+   htmlOut=open(directory+'/align.html','w')
+   htmlOut.writelines('<html>\n')
+   htmlOut.writelines('<title>Alignment Weblog</title>\n')
+   htmlOut.writelines('<head>\n')
+   htmlOut.writelines('</head>\n')
+   htmlOut.writelines('<body>\n')
+   htmlOut.writelines('<a name="top"></a>\n')
+   htmlOut.writelines('<h1>Alignment Weblog</h1>\n')
+   htmlOut.writelines('<a href="index.html"> Return to Selfcal Weblog </a><br>\n')
+   htmlOut.writelines('<h2>Targets:</h2>\n')
+   targets=list(sclib.keys())
+   for target in targets:
+      htmlOut.writelines('<a href="#'+target+'">'+target+'</a><br>\n')
+   
+   for target in targets:
+      htmlOut.writelines('<a name="'+target+'"></a>\n')
+      htmlOut.writelines('<h2>'+target+' Summary</h2>\n')
+      htmlOut.writelines('<a href="#top">Back to Top</a><br>\n')
+
+      for band in sclib[target]:
+         htmlOut.writelines('<h2>'+band+'</h2>\n')
+         htmlOut.writelines('<a name="'+target+'_'+band+'"></a>\n')
+
+         htmlOut.writelines('<table cellspacing="0" cellpadding="0" border="0" bgcolor="#000000">\n')
+         htmlOut.writelines('	<tr>\n')
+         htmlOut.writelines('		<td>\n')
+         line='<table>\n  <tr bgcolor="#ffffff">\n    <th>EB:</th>\n    '
+         for data_type in ['Initial', 'Final', "logLikelihood", "Offset"]:
+            line+='<th>'+data_type+'</th>\n    '
+         line+='</tr>\n'
+         htmlOut.writelines(line)
+         for vis in sclib[target][band]['vislist']:
+            line=f'<tr bgcolor="#ffffff">\n    <td>{vis} </td>\n'
+
+            plot_image(sanitize_string(target)+'_'+band+'_'+vis+'_initial.image.tt0',\
+                        directory+'/images/'+sanitize_string(target)+'_'+band+'_'+vis+'_initial.image.tt0.png')
+            plot_image(sanitize_string(target)+'_'+band+'_'+vis+'_initial_after.image.tt0',\
+                        directory+'/images/'+sanitize_string(target)+'_'+band+'_'+vis+'_initial_after.image.tt0.png')
+
+            line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_'+vis+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+vis+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+            line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_'+vis+'_initial_after.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+vis+'_initial_after.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+
+            if os.path.exists(sanitize_string(target)+'_'+vis+'_likelihood.png'):
+               os.system('cp '+sanitize_string(target)+'_'+vis+'_likelihood.png weblog/images/')
+               line+='<td><a href="images/'+sanitize_string(target)+'_'+vis+'_likelihood.png"><img src="images/'+sanitize_string(target)+'_'+vis+'_likelihood.png" ALT="pre-SC-solint image" HEIGHT=330></a> </td>\n'
+            else:
+               line+='    <td> - </td>\n'
+
+            line += f'<td style="white-space: nowrap;"> ({sclib[target][band]["offsets"][vis][0]:5.3f}, {sclib[target][band]["offsets"][vis][1]:5.3f}) </td>\n'
+
+            line+='</tr>\n    '
+            htmlOut.writelines(line)
+         htmlOut.writelines('</table>\n')
+         htmlOut.writelines('	</td>\n')
+         htmlOut.writelines('	</tr>\n')
+         htmlOut.writelines('</table>\n')
+
+   htmlOut.writelines('</body>\n')
+   htmlOut.writelines('</html>\n')
+   htmlOut.close()

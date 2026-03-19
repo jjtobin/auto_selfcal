@@ -49,6 +49,7 @@ Or check out the rest of our documentation:
    :caption: API
 
    api
+   alignment_helpers
    selfcal_helpers
 
 Acknowledging auto_selfcal
@@ -80,3 +81,5 @@ Acknowledgements:
 Certain functions to convert from LSRK to channel, S/N estimates, and tclean wrapper have their origins from the ALMA DSHARP large program reduction scripts.
 
 The functions to parse the cont.dat file and convert to channel ranges (used the routine from above) was adapted from a function written by Patrick Sheehan for the ALMA eDisk large program
+
+The EB-alignment functionality is based off of scripts kindly donated by the exoALMA Large Program, described in `exoALMA II: Data Calibration and Imaging Pipeline <https://arxiv.org/abs/2504.19870>`_.

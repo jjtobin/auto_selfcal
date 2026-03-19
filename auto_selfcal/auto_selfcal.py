@@ -15,6 +15,10 @@ from .image_analysis_helpers import *
 from .weblog_creation import *
 from .prepare_selfcal import prepare_selfcal, set_clean_thresholds, plan_selfcal_per_solint
 from .original_ms_helpers import applycal_to_orig_MSes, uvcontsub_orig_MSes
+try:
+    from .alignment_helpers import align_measurement_sets
+except:
+    pass
 
 import casatasks
 from casatools import msmetadata as msmdtool
@@ -56,6 +60,9 @@ def auto_selfcal(
         uvcontsub_target_ms=False, # continuum subtract the input _target.ms files
         sort_targets_and_EBs=False,
         run_findcont=False,
+        align_EBs=False,
+        align_optimizer='minimize',
+        aquareport="",
         debug=False, 
         parallel=False,
         weblog=True,
@@ -228,6 +235,16 @@ def auto_selfcal(
         If True, will run the hif_findcont task to identify continuum windows.
         Only available when run within CASA distributions where the pipeline 
         is installed.
+    align_EBs: bool, optional
+        If True, fit for spatial offsets between EBs and remove prior to running
+        self calibration.
+    align_optimizer: str, optional
+        If align_EBs=True, the optimizer to use to fit for EB-to-EB offsets. 
+        Options include 'minimize' (scipy.optimize.minimize), 'emcee', and 
+        'dynesty'. Note that 'emcee' and 'dynesty' are not installed with
+        auto_selfcal and need to be installed if their functionality is
+        requested.
+        Default : minimize
     debug : bool, optional
         If True, will print debug information during processing.
     parallel : bool, optional
@@ -240,21 +257,21 @@ def auto_selfcal(
         solints that are so long that long-timescale phase offset corrections
         are not smeared out 
         default : 4500.0
-   mos_field_drop_flux_thresh: float, optional
+    mos_field_drop_flux_thresh: float, optional
         The flux difference ratio that will be used to determine if mosaic 
         fields should be dropped from gaincal selection due to low flux.
         Default for ALMA: 1.25, VLA: 1.5.
-   overlap_tol: float, optional 
+    overlap_tol: float, optional 
         Field overlap tolerance for VLA mosaic identification in units of HPBW.
         1.0 will require overlap at the estimated HPBW, < 1.0 requires more closely
         spaced fields, > 1.0 will allow more distantly placed fields to be 
         identified as a mosaic. 
         Default: 1.0
-   noisethreshold: float, optional 
+    noisethreshold: float, optional 
         noise threshold for tclean automasking, will be adjusted by ratio of 
         near-field RMS to full field RMS
         Default: None - set by heuristics
-   sidelobethreshold: float, optional
+    sidelobethreshold: float, optional
         side lobe threshold for tclean automasking
         Default: None - set by heuristics
     lownoisethreshold: float, optional
@@ -412,6 +429,85 @@ def auto_selfcal(
     ############################# Start Actual important stuff for selfcal ############################
     ###################################################################################################
 
+    if align_EBs:
+        for target in all_targets:
+         sani_target=sanitize_string(target)
+         for band in selfcal_library[target].keys():
+            if selfcal_library[target][band]['obstype'] == 'mosaic' or len(selfcal_library[target][band]['vislist']) == 1:
+                continue
+
+            for vis in selfcal_library[target][band]['vislist']:
+               #make images using the appropriate tclean heuristics for each telescope
+               # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+               # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+               # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_dirty',
+                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              threshold='0.0Jy',niter=1, gain=0.00001,
+                              savemodel='none',parallel=parallel,
+                              field=target, vis_to_image=[vis])
+
+               dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_dirty.image.tt0', sani_target+'_'+band+'_'+vis+'_dirty.mask',
+                        '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
+
+               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_initial',
+                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              threshold='theoretical_with_drmod',
+                              savemodel='modelcolumn',parallel=parallel,
+                              field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS, vis_to_image=[vis])
+
+               initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_initial.image.tt0', 
+                       sani_target+'_'+band+'_'+vis+'_initial.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
+
+        ##
+        ## Align the EBs prior to running selfcal on them.
+        ##
+
+        offsets = {}
+        for target in all_targets:
+            offsets[target] = {}
+            for band in selfcal_library[target]:
+                if selfcal_library[target][band]['obstype'] == 'mosaic' or len(selfcal_library[target][band]['vislist']) == 1:
+                    print(f"Skipping alignment of target {target} band {band} because it is a mosaic.")
+                    continue
+
+                selfcal_library[target][band]['offsets'] = align_measurement_sets(selfcal_library[target][band]['vislist'][0], selfcal_library[target][band]['vislist'], target,
+                        aquareport=aquareport, npix=max(selfcal_library[target][band]['imsize']), cell_size=float(selfcal_library[target][band]['cellsize'][0:-6]), 
+                        spwid=[selfcal_library[target][band][vis]['spwsarray'] for vis in selfcal_library[target][band]['vislist']], plot_uv_grid=False, plot_file_template=None, 
+                        suffix='', optimizer=align_optimizer)
+
+        for target in all_targets:
+         sani_target=sanitize_string(target)
+         for band in selfcal_library[target].keys():
+            if selfcal_library[target][band]['obstype'] == 'mosaic' or len(selfcal_library[target][band]['vislist']) == 1:
+                continue
+
+            for vis in selfcal_library[target][band]['vislist']:
+               #make images using the appropriate tclean heuristics for each telescope
+               # Because tclean doesn't deal in NF masks, the automask from the initial image is likely to contain a lot of noise unless
+               # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
+               # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
+               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_dirty_after',
+                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              threshold='0.0Jy',niter=1, gain=0.00001,
+                              savemodel='none',parallel=parallel,
+                              field=target, vis_to_image=[vis])
+
+               dirty_SNR, dirty_RMS, dirty_NF_SNR, dirty_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_dirty_after.image.tt0', 
+                        sani_target+'_'+band+'_'+vis+'_dirty_after.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
+
+               tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_initial_after',
+                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              threshold='theoretical_with_drmod',
+                              savemodel='none',parallel=parallel,
+                              field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS, vis_to_image=[vis])
+
+               initial_SNR, initial_RMS, initial_NF_SNR, initial_NF_RMS = get_image_stats(sani_target+'_'+band+'_'+vis+'_initial_after.image.tt0', 
+                       sani_target+'_'+band+'_'+vis+'_initial_after.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'orig', 'orig')
+
+
+        if debug:
+            print(json.dumps(selfcal_library, indent=4, cls=NpEncoder))
 
     ##
     ## create initial images for each target to evaluate SNR and beam
@@ -841,14 +937,34 @@ def auto_selfcal(
     with open('selfcal_plan.pickle', 'wb') as handle:
         pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+    # If the user asks to align the EBs, then align the original EBs using the alignment values found from the
+    # averaged EBs.
+
+    if align_EBs:
+        # Use the already calculated offsets to shift the original MS files into new, shifted MSes
+        suffix = '.shift'
+
+        for target in selfcal_library:
+            for band in selfcal_library[target]:
+                if selfcal_library[target][band]['obstype'] == 'mosaic' or len(selfcal_library[target][band]['vislist']) == 1:
+                    continue
+
+                align_measurement_sets(selfcal_library[target][band]['original_vislist_map'][selfcal_library[target][band]['vislist'][0]], 
+                        [selfcal_library[target][band]['original_vislist_map'][vis] for vis in selfcal_library[target][band]['vislist']], target, 
+                        align_offsets=[selfcal_library[target][band]['offsets'][vis] for vis in selfcal_library[target][band]['vislist']], npix=max(selfcal_library[target][band]['imsize']), 
+                        cell_size=float(selfcal_library[target][band]['cellsize'][0:-6]), plot_uv_grid=False, plot_file_template=None, 
+                        suffix='.shift')
+    else:
+        suffix = ''
+
     # Either apply the calibrations to the original MS files, or write a file with the relevant
     # commands to do so.
 
-    applycal_to_orig_MSes(selfcal_library, write_only=(not apply_to_target_ms))
+    applycal_to_orig_MSes(selfcal_library, write_only=(not apply_to_target_ms), suffix=suffix)
 
     # Do continuum subtraction of the original MS files.
 
-    uvcontsub_orig_MSes(selfcal_library, write_only=(not uvcontsub_target_ms))
+    uvcontsub_orig_MSes(selfcal_library, write_only=(not uvcontsub_target_ms), suffix=suffix)
 
     #
     # Perform a check on the per-spw images to ensure they didn't lose quality in self-calibration
