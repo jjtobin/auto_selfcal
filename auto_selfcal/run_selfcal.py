@@ -526,10 +526,12 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
          ## If the beam area got larger, this could be because of flagging of long baseline antennas. Try with applymode = "calonly".
          ## Alternatively, if mode != 'combinespw', try with combine="spw"
          ##
+ 
 
          elif (delta_beamarea > delta_beam_thresh and not do_fallback_calonly) or \
-                 ('combinespw' not in selfcal_library[vis][solint]['final_mode'] and not do_fallback_combinespw):
-
+                 (('combinespw' not in selfcal_library[vis][solint]['final_mode'] and selfcal_library['telescope'] != 'VLBA') or (selfcal_library['telescope'] == 'VLBA' and 'per_bb' not in selfcal_library[vis][solint]['final_mode'] and 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) and not do_fallback_combinespw):
+             #for VLBA require that per_bb be in modes_to_attempt so that we do not bother trying to fallback on single spw data
+             #VLBA data is typically single baseband, so combinespw doesn't always have meaning
              print('****************************Selfcal failed**************************')
              if delta_beamarea > delta_beam_thresh:
                  print('REASON: Beam change beyond '+str(delta_beam_thresh))
@@ -556,7 +558,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                  sys.exit(0)
 
              print('Final Mode:', selfcal_library[vis][solint]['final_mode'])
-             if 'combinespw' not in selfcal_library[vis][solint]['final_mode'] or (selfcal_library['telescope'] == 'VLBA' and 'per_bb' not in selfcal_library[vis][solint]['final_mode']):
+             if ('combinespw' not in selfcal_library[vis][solint]['final_mode'] and selfcal_library['telescope'] != 'VLBA') or (selfcal_library['telescope'] == 'VLBA' and 'per_bb' not in selfcal_library[vis][solint]['final_mode'] and 'per_bb' in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']):
+                 #for VLBA require that per_bb be in modes_to_attempt so that we do not bother trying to fallback on single spw data
+                 #VLBA data is typically single baseband, so combinespw doesn't always have meaning
                  print('****************Attempting combine="spw" fallback*************')
                  do_fallback_combinespw=True
                  do_fallback_calonly=False

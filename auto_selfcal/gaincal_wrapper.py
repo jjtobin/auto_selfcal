@@ -673,7 +673,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 def generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration): 
     sani_target=sanitize_string(target)
     current_solint_index=selfcal_plan['solints'].index(solint)
-    if selfcal_library['telescope'] == 'VLBA' and 'delay' in solint:  # use per_bb in place of combinespw for VLBA fall back'
+    if selfcal_library['telescope'] == 'VLBA' or 'delay' in solint:  # use per_bb in place of combinespw for VLBA fall back'
         preferred_mode='per_bb'
     else:
         preferred_mode='combinespw'
