@@ -69,6 +69,9 @@ def test_benchmark(tmp_path, dataset):
          'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
          'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope'])
 
+    for msfile in starting_MS_files:
+        print(f"rm -rf {os.path.basename(msfile)}")
+
     assert difference_count == 0
 
 # Note for future reference: to create the tar file properly, update the files in the folder on OneDrive, and then run:
