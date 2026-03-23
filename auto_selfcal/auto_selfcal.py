@@ -291,8 +291,7 @@ def auto_selfcal(
         Default: None - set by heuristics, will self-calibrate all   
     do_delay_cal: boolean, optional
         If set to True, will do a delay calibration prior to inf_EB, with solint equiv. to inf_EB, and will do 
-        a delay cal prior to inf, with solint = inf. Will get set to True for VLBA data if not explicitly set to
-        False, and will get set to True automatically if iscalibrator==True
+        a delay cal prior to inf, with solint = inf. 
         Default: None
     iscalibrator: boolean, optional
         Use with target, denote whether or not target to self-calibrate is a phase calibrator.
@@ -349,9 +348,8 @@ def auto_selfcal(
     
     if iscalibrator: # if a calibrator source, automatically try shorter ap solints than inf
         shorter_amp_solints=True
-        do_delay_cal=True
-    if telescope == 'VLBA' and do_delay_cal == None: # do delay cals for VLBA data, unless parameter is set
-        do_delay_cal=True
+
+
 
     ##
     ## save starting flags or restore to the starting flags
