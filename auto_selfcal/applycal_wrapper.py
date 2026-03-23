@@ -14,7 +14,7 @@ def applycal_wrapper(vis, target, band, solint, selfcal_library, current=lambda 
                  interp=selfcal_library[fid][vis][solint]['applycal_interpolate'], calwt=False,\
                  spwmap=selfcal_library[fid][vis][solint]['spwmap'],\
                  #applymode=applymode,field=target,spw=selfcal_library[vis]['spws'])
-                 applymode='calflag',field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),\
+                 applymode=selfcal_library[fid][vis][solint]['applycal_mode'],field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),\
                  spw=selfcal_library[vis]['spws'])
 
     for fid in [fid for fid in np.intersect1d(selfcal_library['sub-fields'],

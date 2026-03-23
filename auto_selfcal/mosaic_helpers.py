@@ -2,7 +2,7 @@ import numpy as np
 from .selfcal_helpers import *
 
 def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iteration, solmode, solints, selfcal_plan, 
-        minsnr_to_proceed, telescope, allow_gain_interpolation=False,):
+        minsnr_to_proceed, allow_gain_interpolation=False,):
 
      sani_target=sanitize_string(target)
 
@@ -65,7 +65,7 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
 
 
 
-def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iteration, solmode, telescope, allow_gain_interpolation=False):
+def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iteration, solmode, allow_gain_interpolation=False):
 
      new_fields_to_selfcal = selfcal_library['sub-fields-to-selfcal'].copy()
 
