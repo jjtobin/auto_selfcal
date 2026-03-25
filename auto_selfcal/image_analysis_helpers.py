@@ -1,4 +1,5 @@
 from .selfcal_helpers import *
+import numpy as np
 
 def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solint, suffix, mosaic_sub_field=False, spw='all'):
     ##
@@ -7,7 +8,7 @@ def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solin
     SNR, RMS = estimate_SNR(image, maskname=mask, mosaic_sub_field=mosaic_sub_field)
     if use_nfmask:
        SNR_NF,RMS_NF = estimate_near_field_SNR(image, maskname=mask, las=selfcal_library['LAS'], mosaic_sub_field=mosaic_sub_field)
-       if RMS_NF < 0 and backup_mask != '':
+       if RMS_NF[0] < 0 and backup_mask != '':
            SNR_NF, RMS_NF = estimate_near_field_SNR(image, maskname=backup_mask, las=selfcal_library['LAS'], mosaic_sub_field=mosaic_sub_field)
     else:
        SNR_NF, RMS_NF = SNR, RMS
@@ -30,9 +31,14 @@ def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solin
        update_dict['RMS_NF_'+suffix]=RMS_NF.copy()
 
        header=imhead(imagename=image)
-       update_dict['Beam_major_'+suffix]=header['restoringbeam']['major']['value']
-       update_dict['Beam_minor_'+suffix]=header['restoringbeam']['minor']['value']
-       update_dict['Beam_PA_'+suffix]=header['restoringbeam']['positionangle']['value'] 
+       if 'restoringbeam' in header:
+           update_dict['Beam_major_'+suffix]=header['restoringbeam']['major']['value']
+           update_dict['Beam_minor_'+suffix]=header['restoringbeam']['minor']['value']
+           update_dict['Beam_PA_'+suffix]=header['restoringbeam']['positionangle']['value'] 
+       else:
+           update_dict['Beam_major_'+suffix]=header['perplanebeams']['beams']['*0']['*0']['major']['value']
+           update_dict['Beam_minor_'+suffix]=header['perplanebeams']['beams']['*0']['*0']['minor']['value']
+           update_dict['Beam_PA_'+suffix]=header['perplanebeams']['beams']['*0']['*0']['positionangle']['value']
 
        if checkmask(imagename=mask):
            update_dict['intflux_'+suffix], update_dict['e_intflux_'+suffix] = get_intflux(image, RMS, maskname=mask,

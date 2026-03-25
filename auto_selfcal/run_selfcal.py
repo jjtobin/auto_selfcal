@@ -149,11 +149,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              # Record solint details.
              for vis in vislist:
                 selfcal_library[vis][solint]={}
-                selfcal_library[vis][solint]['clean_threshold'] = selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
+                selfcal_library[vis][solint]['clean_threshold'] = selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'][0]
                 selfcal_library[vis][solint]['nfrms_multiplier'] = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
                 for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                     selfcal_library[fid][vis][solint]={}
-                    selfcal_library[fid][vis][solint]['clean_threshold'] = selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr']
+                    selfcal_library[fid][vis][solint]['clean_threshold'] = selfcal_library['nsigma'][iteration]*selfcal_library['RMS_NF_curr'][0]
                     selfcal_library[fid][vis][solint]['nfrms_multiplier'] = selfcal_library['RMS_NF_curr'] / selfcal_library['RMS_curr']
 
              #remove mask if exists from previous selfcal _post image user is specifying a mask
@@ -297,11 +297,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          ##
          for vis in vislist:
             ## Update RMS value if necessary
-            if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr'] and \
+            if selfcal_library[vis][solint]['RMS_post'][0] < selfcal_library['RMS_curr'][0] and \
                     "inf_EB_fb" not in solint and vis == vislist[-1]:
                selfcal_library['RMS_curr']=selfcal_library[vis][solint]['RMS_post'].copy()
-            if selfcal_library[vis][solint]['RMS_NF_post'] < selfcal_library['RMS_NF_curr'] and \
-                    "inf_EB_fb" not in solint and selfcal_library[vis][solint]['RMS_NF_post'] > 0 and vis == vislist[-1]:
+            if selfcal_library[vis][solint]['RMS_NF_post'][0] < selfcal_library['RMS_NF_curr'][0] and \
+                    "inf_EB_fb" not in solint and selfcal_library[vis][solint]['RMS_NF_post'][0] > 0 and vis == vislist[-1]:
                selfcal_library['RMS_NF_curr']=selfcal_library[vis][solint]['RMS_NF_post'].copy()
 
          ##
@@ -324,15 +324,15 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          beam_field_by_field_success = []
          rms_field_by_field_success = []
          for fid in selfcal_library['sub-fields-to-selfcal']:
-             strict_field_by_field_success += [(post_mosaic_SNR[fid] >= mosaic_SNR[fid]) and (post_mosaic_SNR_NF[fid] >= mosaic_SNR_NF[fid])]
-             loose_field_by_field_success += [((post_mosaic_SNR[fid]-mosaic_SNR[fid])/mosaic_SNR[fid] > -0.02) and \
-                     ((post_mosaic_SNR_NF[fid] - mosaic_SNR_NF[fid])/mosaic_SNR_NF[fid] > -0.02)]
+             strict_field_by_field_success += [(post_mosaic_SNR[fid][0] >= mosaic_SNR[fid][0]) and (post_mosaic_SNR_NF[fid][0] >= mosaic_SNR_NF[fid][0])]
+             loose_field_by_field_success += [((post_mosaic_SNR[fid][0]-mosaic_SNR[fid][0])/mosaic_SNR[fid][0] > -0.02) and \
+                     ((post_mosaic_SNR_NF[fid][0] - mosaic_SNR_NF[fid][0])/mosaic_SNR_NF[fid][0] > -0.02)]
              beam_field_by_field_success += [delta_beamarea < delta_beam_thresh]
-             rms_field_by_field_success = ((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] < 1.05 and \
-                     (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] < 1.05) or \
-                     (((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] > 1.05 or \
-                     (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] > 1.05) and \
-                     selfcal_plan[fid]['solint_snr_per_field'][solint] > 5)
+             rms_field_by_field_success = ((post_mosaic_RMS[fid][0] - mosaic_RMS[fid][0])/mosaic_RMS[fid][0] < 1.05 and \
+                     (post_mosaic_RMS_NF[fid][0] - mosaic_RMS_NF[fid][0])/mosaic_RMS_NF[fid][0] < 1.05) or \
+                     (((post_mosaic_RMS[fid][0] - mosaic_RMS[fid][0])/mosaic_RMS[fid][0] > 1.05 or \
+                     (post_mosaic_RMS_NF[fid][0] - mosaic_RMS_NF[fid][0])/mosaic_RMS_NF[fid][0] > 1.05) and \
+                     selfcal_plan[fid]['solint_snr_per_field'][solint][0] > 5)
 
          if 'inf_EB' in solint:
              # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
@@ -389,10 +389,10 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                 selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
                 ## Update RMS value if necessary
-                if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr']:
+                if selfcal_library[vis][solint]['RMS_post'][0] < selfcal_library['RMS_curr'][0]:
                    selfcal_library['RMS_curr']=selfcal_library[vis][solint]['RMS_post'].copy()
-                if selfcal_library[vis][solint]['RMS_NF_post'] < selfcal_library['RMS_NF_curr'] and \
-                        selfcal_library[vis][solint]['RMS_NF_post'] > 0:
+                if selfcal_library[vis][solint]['RMS_NF_post'][0] < selfcal_library['RMS_NF_curr'][0] and \
+                        selfcal_library[vis][solint]['RMS_NF_post'][0] > 0:
                    selfcal_library['RMS_NF_curr']=selfcal_library[vis][solint]['RMS_NF_post'].copy()
 
          if mode == "cocal" and calculate_inf_EB_fb_anyways and solint == "inf_EB_fb" and selfcal_library["SC_success"]:
@@ -412,16 +412,16 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
 
          marginal_inf_EB_will_attempt_next_solint=False
-         if (solint =='inf_EB') and ((((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00)) or (((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00))) and (delta_beamarea < delta_beam_thresh):
+         if (solint =='inf_EB') and ((((post_SNR[0]-SNR[0])/SNR[0] > -0.02) and ((post_SNR[0]-SNR[0])/SNR[0] < 0.00)) or (((post_SNR_NF[0] - SNR_NF[0])/SNR_NF[0] > -0.02) and ((post_SNR_NF[0] - SNR_NF[0])/SNR_NF[0] < 0.00))) and (delta_beamarea < delta_beam_thresh):
             if selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
                marginal_inf_EB_will_attempt_next_solint = False
             else:
                marginal_inf_EB_will_attempt_next_solint =  True
 
-         RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
-                 ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and selfcal_plan['solint_snr'][solint] > 5)
+         RMS_change_acceptable = (post_RMS[0]/RMS[0] < 1.05 and post_RMS_NF[0]/RMS_NF[0] < 1.05) or \
+                 ((post_RMS[0]/RMS[0] > 1.05 or post_RMS_NF[0]/RMS_NF[0] > 1.05) and selfcal_plan['solint_snr'][solint] > 5)
 
-         if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
+         if (((post_SNR[0] >= SNR[0]) and (post_SNR_NF[0] >= SNR_NF[0]) and (delta_beamarea < delta_beam_thresh)) or (('inf_EB' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR[0]-SNR[0])/SNR[0] > -0.02) and ((post_SNR_NF[0] - SNR_NF[0])/SNR_NF[0] > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
 
             if do_fallback_combinespw:
                 for vis in vislist:
@@ -447,9 +447,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
             selfcal_library['SC_success']=True
             selfcal_library['Stop_Reason']='None'
             #keep track of whether inf_EB had a S/N decrease
-            if (solint =='inf_EB') and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+            if (solint =='inf_EB') and (((post_SNR[0]-SNR[0])/SNR[0] < 0.0) or ((post_SNR_NF[0] - SNR_NF[0])/SNR_NF[0] < 0.0)):
                selfcal_library['inf_EB_SNR_decrease']=True
-            elif (solint =='inf_EB') and (((post_SNR-SNR)/SNR >= 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF >= 0.0)):
+            elif (solint =='inf_EB') and (((post_SNR[0]-SNR[0])/SNR[0] >= 0.0) and ((post_SNR_NF[0] - SNR_NF[0])/SNR_NF[0] >= 0.0)):
                selfcal_library['inf_EB_SNR_decrease']=False
             for vis in vislist:
                selfcal_library[vis]['gaintable_final']=selfcal_library[vis][solint]['gaintable']
@@ -563,9 +563,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
 
          if not selfcal_library[vislist[0]][solint]['Pass'] or (solint == 'inf_EB' and selfcal_library['inf_EB_SNR_decrease']):
             reason=''
-            if (post_SNR <= SNR):
+            if (post_SNR[0] <= SNR[0]):
                reason=reason+' S/N decrease'
-            if (post_SNR_NF < SNR_NF):
+            if (post_SNR_NF[0] < SNR_NF[0]):
                if reason != '':
                    reason += '; '
                reason = reason + ' NF S/N decrease'
@@ -573,11 +573,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
-            if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+            if (post_RMS[0]/RMS[0] > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
                if reason != '':
                   reason=reason+'; '
                reason=reason+'RMS increase beyond 5%'
-            if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+            if (post_RMS_NF[0]/RMS_NF[0] > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
                if reason != '':
                   reason=reason+'; '
                reason=reason+'NF RMS increase beyond 5%'
@@ -595,9 +595,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
              if not selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] or \
                      (solint == "inf_EB" and selfcal_library[fid]['inf_EB_SNR_decrease']):
                  mosaic_reason[fid]=''
-                 if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
+                 if (post_mosaic_SNR[fid][0] <= mosaic_SNR[fid][0]):
                     mosaic_reason[fid]=mosaic_reason[fid]+' SNR decrease'
-                 if (post_mosaic_SNR_NF[fid] < mosaic_SNR_NF[fid]):
+                 if (post_mosaic_SNR_NF[fid][0] < mosaic_SNR_NF[fid][0]):
                     if mosaic_reason[fid] != '':
                         mosaic_reason[fid] += '; '
                     mosaic_reason[fid] = mosaic_reason[fid] + ' NF SNR decrease'
@@ -605,11 +605,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
                     if mosaic_reason[fid] !='':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'Beam change beyond '+str(delta_beam_thresh)
-                 if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                 if (post_RMS[0]/RMS[0] > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
                     if mosaic_reason[fid] != '':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'RMS increase beyond 5%'
-                 if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                 if (post_RMS_NF[0]/RMS_NF[0] > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
                     if mosaic_reason[fid] != '':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'NF RMS increase beyond 5%'
@@ -677,8 +677,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, telescope, n_ants, 
          if selfcal_library[vislist[0]][solint]['Pass'] == True and \
                  np.any([selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] == True for fid in \
                  selfcal_library['sub-fields-to-selfcal']]):
-             if mode == "selfcal" and (iteration < len(selfcal_plan['solints'])-1) and (selfcal_library[vis][solint]['SNR_post'] > \
-                     selfcal_library['SNR_orig']): #(iteration == 0) and 
+             if mode == "selfcal" and (iteration < len(selfcal_plan['solints'])-1) and (selfcal_library[vis][solint]['SNR_post'][0] > \
+                     selfcal_library['SNR_orig'][0]): #(iteration == 0) and 
                 print('Updating solint = '+selfcal_plan['solints'][iteration+1]+' SNR')
                 print('Was: ',selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]])
                 get_SNR_self_update(selfcal_library,selfcal_plan,n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan['integration_time'],

@@ -614,7 +614,7 @@ def set_clean_thresholds(selfcal_library, selfcal_plan, dividing_factor=-99.0, r
                dividing_factor_band=15.0
 
             # restricts initial nsigma to be at least 5
-            nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig']/dividing_factor_band,5.0])
+            nsigma_init=np.max([selfcal_library[target][band]['SNR_NF_orig'][0]/dividing_factor_band,5.0])
 
             # count number of amplitude selfcal solints, repeat final clean depth of phase-only for amplitude selfcal
             n_ap_solints=sum(1 for solint in selfcal_plan[target][band]['solints'] if 'ap' in solint)

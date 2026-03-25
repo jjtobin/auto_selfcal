@@ -49,9 +49,12 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
     if selfcal_library['obstype']=='mosaic' and phasecenter != 'TRACKFIELD':
        phasecenter=get_phasecenter(selfcal_library['vislist'][0],field)
 
+    if not is_iterable(nfrms_multiplier):
+        nfrms_multiplier = np.array([nfrms_multiplier])
     print('NF RMS Multiplier: ', nfrms_multiplier)
     # Minimize out the nfrms_multiplier at 1.
-    nfrms_multiplier = max(nfrms_multiplier, 1.0)
+    nfrms_multiplier = np.maximum(nfrms_multiplier, 1.0)
+    nfrms_multiplier = nfrms_multiplier[0]
 
     baselineThresholdALMA = 400.0
 
@@ -159,7 +162,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
         if telescope =='ALMA' or telescope =='ACA':
            sensitivity=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,
                    imsize=selfcal_library['imsize'],cellsize=selfcal_library['cellsize'])
-           dr_mod=get_dr_correction(telescope,selfcal_library['SNR_dirty']*selfcal_library['RMS_dirty'],sensitivity,vlist)
+           dr_mod=get_dr_correction(telescope,selfcal_library['SNR_dirty'][0]*selfcal_library['RMS_dirty'][0],sensitivity,vlist)
            sensitivity_nomod=sensitivity.copy()
            print('DR modifier: ',dr_mod, 'SPW: ',spw)
 
@@ -184,7 +187,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
             else:
                 sensitivity_agg=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,imsize=selfcal_library['imsize'],
                         cellsize=selfcal_library['cellsize'])
-                sensitivity_scale_factor=selfcal_library['RMS_NF_curr']/sensitivity_agg
+                sensitivity_scale_factor=selfcal_library['RMS_NF_curr'][0]/sensitivity_agg
             threshold = str(4.0*sensitivity_nomod*sensitivity_scale_factor)+'Jy'
 
     if threshold != '0.0Jy':
@@ -195,7 +198,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
           nsigma=nsigma*nfrms_multiplier*0.66
 
     if np.all([selfcal_library[vis]['pol_type'] == 'full-pol' for vis in vlist]):
-        stokes_list = ['I','Q','U','V']
+        stokes_list = ['I','IQUV']
     else:
         stokes_list = ['I']
 
@@ -206,6 +209,10 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
             for ext in ['.image*', '.mask', '.model*', '.pb*', '.psf*', '.residual*', '.sumwt*','.gridwt*']:
                 os.system('rm -rf '+ imagename + ext)
         for stokes in stokes_list:
+            if stokes == 'IQUV' and usemask == 'auto-multithresh':
+               usemask = 'user'
+               mask = imagename+'.I.mask'
+
             tclean_return = tclean(vis=vlist, 
                    imagename = imagename+f'.{stokes}', 
                    field=field,
@@ -258,12 +265,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
             else:
                 ext = '.'.join(fsplit[-2:])
 
-            if len(stokes_list) > 1:
-                full_image = ia.imageconcat(outfile=imagename+'.'+ext, infiles=[f.replace('I',stokes) for stokes in stokes_list], axis=2)
-                full_image.done()
-            else:
-                os.system(f"mv {imagename}.I.{ext} {imagename}.{ext}")
-
+            os.system(f"mv {imagename}.{stokes}.{ext} {imagename}.{ext}")
             os.system(f"rm -rf {imagename}.*.{ext}")
 
         if store_threshold != '':
@@ -335,7 +337,7 @@ def tclean_wrapper(selfcal_library, imagename, band, telescope='undefined', scal
           tclean(vis= vlist, 
                  imagename = imagename, 
                  field=field,
-                 stokes = ''.join(stokes_list),
+                 stokes = stokes_list[-1],
                  specmode = 'mfs', 
                  deconvolver = 'mtmfs',
                  scales = scales, 
@@ -959,9 +961,14 @@ def checkmask(imagename):
 def estimate_SNR(imagename,maskname=None,verbose=True, mosaic_sub_field=False):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
-    beammajor = headerlist['beammajor']['value']
-    beamminor = headerlist['beamminor']['value']
-    beampa = headerlist['beampa']['value']
+    if 'beammajor' in headerlist:
+        beammajor = headerlist['beammajor']['value']
+        beamminor = headerlist['beamminor']['value']
+        beampa = headerlist['beampa']['value']
+    else:
+        beammajor = headerlist['perplanebeams']['*0']['major']['value']
+        beamminor = headerlist['perplanebeams']['*0']['minor']['value']
+        beampa = headerlist['perplanebeams']['*0']['positionangle']['value']
 
     if mosaic_sub_field:
         os.system("rm -rf temp.image")
@@ -1032,9 +1039,14 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
 
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
-    beammajor = headerlist['beammajor']['value']
-    beamminor = headerlist['beamminor']['value']
-    beampa = headerlist['beampa']['value']
+    if 'beammajor' in headerlist:
+        beammajor = headerlist['beammajor']['value']
+        beamminor = headerlist['beamminor']['value']
+        beampa = headerlist['beampa']['value']
+    else:
+        beammajor = headerlist['perplanebeams']['*0']['major']['value']
+        beamminor = headerlist['perplanebeams']['*0']['minor']['value']
+        beampa = headerlist['perplanebeams']['*0']['positionangle']['value']
 
     if mosaic_sub_field:
         immath(imagename=[imagename, imagename.replace(".image",".pb"), imagename.replace(".image",".mospb")], outfile="temp.image", \
@@ -1061,13 +1073,14 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
     imsmooth("temp.delta", major=str(npix/2)+"pix", minor=str(npix/2)+"pix", pa="0deg", \
             outfile="temp.radius", overwrite=True)
 
-    bmin = imhead(imagename, mode="get", hdkey="BMIN")['value']
-    bmaj = imhead(imagename, mode="get", hdkey="BMAJ")['value']
-    bpa = imhead(imagename, mode="get", hdkey="BPA")['value']
+    bmin = beamminor
+    bmaj = beammajor
+    bpa = beampa
 
-    imhead(imagename="temp.radius", mode="put", hdkey="BMIN", hdvalue=str(bmin)+"arcsec")
-    imhead(imagename="temp.radius", mode="put", hdkey="BMAJ", hdvalue=str(bmaj)+"arcsec")
-    imhead(imagename="temp.radius", mode="put", hdkey="BPA", hdvalue=str(bpa)+"deg")
+    if 'beammajor' in headerlist:
+        imhead(imagename="temp.radius", mode="put", hdkey="BMIN", hdvalue=str(bmin)+"arcsec")
+        imhead(imagename="temp.radius", mode="put", hdkey="BMAJ", hdvalue=str(bmaj)+"arcsec")
+        imhead(imagename="temp.radius", mode="put", hdkey="BPA", hdvalue=str(bpa)+"deg")
 
     immath(imagename=[psfImage,"temp.radius"], mode="evalexpr", expr="iif(IM0 > 0.1,1/IM1,0.0)", outfile="temp.beam.extent.image")
 
@@ -1116,7 +1129,7 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
        ia.done()
 
        # Catch when one plane doesn't have mask and is zero RMS.
-       SNR = np.where(rms == 0, -99.0, rms)
+       SNR = np.where(rms == 0, -99.0, SNR)
        rms = np.where(rms == 0, -99.0, rms)
 
     if save_near_field_mask:
@@ -1127,9 +1140,14 @@ def estimate_near_field_SNR(imagename,las=None,maskname=None,verbose=True, mosai
 
 def get_intflux(imagename,rms,maskname=None,mosaic_sub_field=False):
    headerlist = imhead(imagename, mode = 'list')
-   beammajor = headerlist['beammajor']['value']
-   beamminor = headerlist['beamminor']['value']
-   beampa = headerlist['beampa']['value']
+   if 'beammajor' in headerlist:
+       beammajor = headerlist['beammajor']['value']
+       beamminor = headerlist['beamminor']['value']
+       beampa = headerlist['beampa']['value']
+   else:
+       beammajor = headerlist['perplanebeams']['*0']['major']['value']
+       beamminor = headerlist['perplanebeams']['*0']['minor']['value']
+       beampa = headerlist['perplanebeams']['*0']['positionangle']['value']
    cell = headerlist['cdelt2']*180.0/3.14159*3600.0
    beamarea=3.14159*beammajor*beamminor/(4.0*np.log(2.0))
    pix_per_beam=beamarea/(cell**2)
@@ -1296,7 +1314,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,integration_ti
       else:
          polscale=1.0
 
-      SNR = max(selfcal_library['SNR_orig'], selfcal_library['intflux_orig']/selfcal_library['e_intflux_orig'])
+      SNR = max(selfcal_library['SNR_orig'][0], selfcal_library['intflux_orig'][0]/selfcal_library['e_intflux_orig'][0])
 
       solint_snr = {}
       solint_snr_per_spw = {}
@@ -1384,9 +1402,9 @@ def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_ne
       if selfcal_library[vis]['n_spws'] >= maxspws:
          maxspws=selfcal_library[vis]['n_spws']
          maxspwvis=vis+''
-   SNR = max(selfcal_library[selfcal_library['vislist'][0]][solint_curr]['SNR_post'],selfcal_library[selfcal_library['vislist'][0]][solint_curr]['intflux_post']/selfcal_library[selfcal_library['vislist'][0]][solint_curr]['e_intflux_post'])
+   SNR = max(selfcal_library[selfcal_library['vislist'][0]][solint_curr]['SNR_post'][0],selfcal_library[selfcal_library['vislist'][0]][solint_curr]['intflux_post'][0]/selfcal_library[selfcal_library['vislist'][0]][solint_curr]['e_intflux_post'][0])
 
-   SNR_orig = max(selfcal_library['SNR_orig'],selfcal_library['intflux_orig']/selfcal_library['e_intflux_orig'])
+   SNR_orig = max(selfcal_library['SNR_orig'][0],selfcal_library['intflux_orig'][0]/selfcal_library['e_intflux_orig'][0])
 
    SNR_ratio = SNR / SNR_orig
 
@@ -1970,9 +1988,9 @@ def get_image_parameters(vislist,telescope,target,field_ids,band,selfcal_library
 def check_image_nterms(fracbw, SNR):
    if fracbw >=0.1:
       nterms=2
-   elif (SNR > 10.0) and (fracbw < 0.1):   # estimate the gain of going to nterms=2 based on nterms=1 S/N and fracbw
+   elif (SNR[0] > 10.0) and (fracbw < 0.1):   # estimate the gain of going to nterms=2 based on nterms=1 S/N and fracbw
       #coefficients come from a empirical fit using simulated data with a spectral index of 3
-      X=[fracbw,np.log10(SNR)]
+      X=[fracbw,np.log10(SNR[0])]
       A = 2336.415
       B = 0.051
       C = -306.590
@@ -2504,11 +2522,11 @@ def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
    tb.open(filename)
    image_data=np.rot90(tb.getcol('map').squeeze())   # rotate the image 90 degrees and get rid of degenerate axes
    tb.close()
+   if len(image_data.shape) == 2:
+      image_data = image_data[:,:,np.newaxis]
    size=np.max(header['shape'])
    cell=header['incr'][1]*3600.0*180.0/3.14159        #get pixel size from header declination direction
    halfsize_arcsec=size/zoom/2.0*cell
-   fig=plt.figure(figsize=(8.5,8))
-   ax=fig.add_subplot(1,1,1)
 
    ll=int(size/zoom-size/(zoom*2))
    ul=int(size/zoom+size/(zoom*2))
@@ -2519,28 +2537,35 @@ def plot_image(filename,outname,min_val=None,max_val=None,zoom=2):
       mask_data=np.flipud(np.rot90(tb.getcol('map').squeeze()))   # rotate the image 90 degrees and get rid of degenerate axes
                                                                   #extra flip is needed for the mask data for some reason to match the casaviewer view
       tb.close()
+      if len(mask_data.shape) == 2:
+         mask_data = mask_data[:,:,np.newaxis]
 
-   if min_val == None:
-      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
-      if mask_exists:
-         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
-   else:
-      img=ax.imshow(image_data[ll:ul,ll:ul],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec],vmin=min_val,vmax=max_val)
-      if mask_exists:
-         conts=ax.contour(mask_data[ll:ul,ll:ul],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+   stokes = ['I', 'Q', 'U', 'V']
+   for i in range(image_data.shape[-1]):
+      fig=plt.figure(figsize=(8.5,8))
+      ax=fig.add_subplot(1,1,1)
 
-   ax.set_xlabel('Offset (arcsec)',fontsize=18)
-   ax.set_ylabel('Offset (arcsec)',fontsize=18)
-   ax.tick_params(axis='both', which='major', labelsize=16)
-   cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
-   cbar=plt.colorbar(img,cax=cax)
-   cbar.ax.tick_params(labelsize=16)
-   if 'final_initial_div' in filename:
-      cbar.set_label('Dimensionless Ratio')
-   else:
-      cbar.set_label('Intensity (Jy/beam)')
-   plt.savefig(outname,dpi=300.0)
-   plt.close()
+      if min_val == None:
+         img=ax.imshow(image_data[ll:ul,ll:ul,i],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+         if mask_exists:
+            conts=ax.contour(mask_data[ll:ul,ll:ul,i],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+      else:
+         img=ax.imshow(image_data[ll:ul,ll:ul,i],extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec],vmin=min_val,vmax=max_val)
+         if mask_exists:
+            conts=ax.contour(mask_data[ll:ul,ll:ul,i],levels=[0.5], colors='white', extent=[halfsize_arcsec,-halfsize_arcsec,-halfsize_arcsec,halfsize_arcsec])
+
+      ax.set_xlabel('Offset (arcsec)',fontsize=18)
+      ax.set_ylabel('Offset (arcsec)',fontsize=18)
+      ax.tick_params(axis='both', which='major', labelsize=16)
+      cax = fig.add_axes([ax.get_position().x1+0.01,ax.get_position().y0,0.02,ax.get_position().height])
+      cbar=plt.colorbar(img,cax=cax)
+      cbar.ax.tick_params(labelsize=16)
+      if 'final_initial_div' in filename:
+         cbar.set_label('Dimensionless Ratio')
+      else:
+         cbar.set_label('Intensity (Jy/beam)')
+      plt.savefig(outname.replace('.png', f'.{stokes[i]}.png'),dpi=300.0)
+      plt.close()
 
 def get_flagged_solns_per_ant(gaintable,vis):
      # Get the antenna names and offsets.
@@ -2590,9 +2615,6 @@ def create_noise_histogram(imagename):
     MADtoRMS =  1.4826
     headerlist = imhead(imagename, mode = 'list')
     telescope=headerlist['telescope']
-    beammajor = headerlist['beammajor']['value']
-    beamminor = headerlist['beamminor']['value']
-    beampa = headerlist['beampa']['value']
     image_stats= imstat(imagename = imagename)
     maskImage=imagename.replace('image','mask').replace('.tt0','')
     residualImage=imagename.replace('image','residual')

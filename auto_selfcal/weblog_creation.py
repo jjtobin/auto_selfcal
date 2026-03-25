@@ -170,37 +170,37 @@ def render_summary_table(htmlOut,sclib,target,band,directory='weblog'):
                if data_type !='comp':
                   if key =='Image':
                      if data_type=='orig':
-                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.I.png"><img src="images/'+sanitize_string(target)+'_'+band+'_initial.image.tt0.I.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                      if data_type=='final':
-                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.I.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final.image.tt0.I.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                   if key =='SNR':
-                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_'+data_type][0])
                   if key =='intflux':
-                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0,sclib[target][band]['e_'+key+'_'+data_type]*1000.0)
+                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][key+'_'+data_type][0]*1000.0,sclib[target][band]['e_'+key+'_'+data_type][0]*1000.0)
                   if key =='SNR_NF':
-                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_'+data_type])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_'+data_type][0])
                   if key =='RMS':
-                     line+='    <td>{:0.3f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
+                     line+='    <td>{:0.3f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type][0]*1000.0)
                   if key =='RMS_NF':
-                     line+='    <td>{:0.3f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type]*1000.0)
+                     line+='    <td>{:0.3f} mJy/beam </td>\n'.format(sclib[target][band][key+'_'+data_type][0]*1000.0)
                   if key=='Beam':
                      line+='    <td>{:0.3f}"x{:0.3f}" {:0.3f} deg </td>\n'.format(sclib[target][band][key+'_major'+'_'+data_type],sclib[target][band][key+'_minor'+'_'+data_type],sclib[target][band][key+'_PA'+'_'+data_type])
                else:
                   if key =='Image':
-                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
+                        line+='<td><a href="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.I.png"><img src="images/'+sanitize_string(target)+'_'+band+'_final_initial_div_final.image.tt0.I.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a> </td>\n'
                   if key =='intflux':
-                     if sclib[target][band][key+'_orig'] == 0:
+                     if sclib[target][band][key+'_orig'][0] == 0:
                          line+='    <td>{:0.3f} </td>\n'.format(1.0)
                      else:
-                         line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                         line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final'][0]/sclib[target][band][key+'_orig'][0])
                   if key =='SNR':
-                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final'][0]/sclib[target][band][key+'_orig'][0])
                   if key =='SNR_NF':
-                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final']/sclib[target][band][key+'_orig'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_final'][0]/sclib[target][band][key+'_orig'][0])
                   if key =='RMS':
-                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_orig'][0]/sclib[target][band][key+'_final'][0])
                   if key =='RMS_NF':
-                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_orig']/sclib[target][band][key+'_final'])
+                     line+='    <td>{:0.3f} </td>\n'.format(sclib[target][band][key+'_orig'][0]/sclib[target][band][key+'_final'][0])
                   if key=='Beam':
                      line+='    <td>{:0.3f}</td>\n'.format((sclib[target][band][key+'_major_final']*sclib[target][band][key+'_minor_final'])/(sclib[target][band][key+'_major_orig']*sclib[target][band][key+'_minor_orig']))
             line+='</tr>\n    '
@@ -271,29 +271,29 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                     else:
                         line+='    <td><font color="green">{}</font></td>\n'.format('None')
                   if key=='intflux_final':
-                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
+                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post'][0]*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post'][0]*1000.0)
                   if key=='intflux_improvement':
-                     if sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'] == 0:
+                     if sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'][0] == 0:
                         line+='    <td>{:0.3f}</td>\n'.format(1.0)
                      else:
-                        line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
+                        line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post'][0]/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'][0])                      
                   if key=='SNR_final':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'][0])
                   if key=='SNR_Improvement':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_pre'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'][0]/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_pre'][0])
                   if key=='SNR_NF_final':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post'][0])
                   if key=='SNR_NF_Improvement':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_pre'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post'][0]/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_pre'][0])
 
                   if key=='RMS_final':
-                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']*1000.0)
+                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'][0]*1000.0)
                   if key=='RMS_Improvement':
-                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'])
+                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre'][0]/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'][0])
                   if key=='RMS_NF_final':
-                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post']*1000.0)
+                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'][0]*1000.0)
                   if key=='RMS_NF_Improvement':
-                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
+                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre'][0]/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'][0])
 
                   if key=='Beam_Ratio':
                      line+='    <td>{:0.3e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))
@@ -537,10 +537,10 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                       directory+'/images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png',min_val=image_stats['min'][0],max_val=image_stats['max'][0], \
                       zoom=2 if directory=="weblog" else 1) 
 
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
-            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_pre'])+'<br><br>\n')
-            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_pre'])+' Jy/beam<br>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.I.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.I.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
+            htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.I.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.I.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
+            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_post'][0])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_pre'][0])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_post'][0])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_pre'][0])+' Jy/beam<br>\n')
             htmlOutSolint.writelines('Post Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_post'])+'<br>\n')
             htmlOutSolint.writelines('Pre Beam: {:0.3f}"x{:0.3f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_pre'])+'<br><br>\n')
 

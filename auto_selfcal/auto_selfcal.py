@@ -343,14 +343,14 @@ def auto_selfcal(
           selfcal_library[target][band]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
 
        selfcal_library[target][band]['RMS_curr']=initial_RMS
-       selfcal_library[target][band]['RMS_NF_curr']=initial_NF_RMS if initial_NF_RMS > 0 else initial_RMS
+       selfcal_library[target][band]['RMS_NF_curr']=initial_NF_RMS if initial_NF_RMS[0] > 0 else initial_RMS
 
        for fid in selfcal_library[target][band]['sub-fields']:
-           if selfcal_library[target][band][fid]['SNR_orig'] > 500.0:
-              selfcal_library[target][band][fid]['nterms']=2
+           if selfcal_library[target][band][fid]['nterms'] == 1:
+              selfcal_library[target][band][fid]['nterms']=check_image_nterms(selfcal_library[target][band]['fracbw'],selfcal_library[target][band]['SNR_orig'])
 
            selfcal_library[target][band][fid]['RMS_curr']=mosaic_initial_RMS[fid]
-           selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid] if mosaic_initial_NF_RMS[fid] > 0 else mosaic_initial_RMS[fid]
+           selfcal_library[target][band][fid]['RMS_NF_curr']=mosaic_initial_NF_RMS[fid] if mosaic_initial_NF_RMS[fid][0] > 0 else mosaic_initial_RMS[fid]
 
      #update selfcal library after each
      with open('selfcal_library.pickle', 'wb') as handle:
@@ -589,8 +589,8 @@ def auto_selfcal(
      sani_target=sanitize_string(target)
      for band in selfcal_library[target].keys():
        nfsnr_modifier = selfcal_library[target][band]['RMS_NF_curr'] / selfcal_library[target][band]['RMS_curr']
-       clean_threshold = min(selfcal_library[target][band]['clean_threshold_orig'], selfcal_library[target][band]['RMS_NF_curr']*3.0)
-       if selfcal_library[target][band]['clean_threshold_orig'] < selfcal_library[target][band]['RMS_NF_curr']*3.0:
+       clean_threshold = min(selfcal_library[target][band]['clean_threshold_orig'], selfcal_library[target][band]['RMS_NF_curr'][0]*3.0)
+       if selfcal_library[target][band]['clean_threshold_orig'] < selfcal_library[target][band]['RMS_NF_curr'][0]*3.0:
            print("WARNING: The clean threshold used for the initial image was less than 3*RMS_NF_curr, using that for the final image threshold instead.")
        tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_final',\
                    band,telescope=telescope,nsigma=3.0, threshold=str(clean_threshold)+'Jy',scales=[0],\
