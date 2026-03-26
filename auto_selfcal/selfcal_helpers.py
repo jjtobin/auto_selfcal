@@ -4430,8 +4430,8 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, telescope, flagged_fra
         return
     kernel = scipy.stats.gaussian_kde(flagged_offsets,
             bw_method=kernal2.factor*offsets.std()/flagged_offsets.std())
-    normalized = kernel(test_r) * len(flagged_offsets) / divisor / np.trapz(kernel(test_r), test_r)
-    normalized2 = kernal2(test_r) * antennas.size * multiplier / np.trapz(kernal2(test_r), test_r)
+    normalized = kernel(test_r) * len(flagged_offsets) / divisor / np.trapezoid(kernel(test_r), test_r)
+    normalized2 = kernal2(test_r) * antennas.size * multiplier / np.trapezoid(kernal2(test_r), test_r)
     fraction_flagged_antennas = normalized / normalized2
 
     # Calculate the derivatives to see where flagged fraction is sharply changing.
