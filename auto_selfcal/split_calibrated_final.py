@@ -1,5 +1,6 @@
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
+from casatasks import split
 import glob
 import os
 import numpy as np
@@ -42,7 +43,7 @@ def split_calibrated_final(vislist=[], overwrite=True):
         # Check whether a CORRECTED_DATA column exists. If not, use the DATA column.
 
         tb.open(vis)
-        if "CORRECTED" in tb.colnames():
+        if "CORRECTED_DATA" in tb.colnames():
             datacolumn="corrected"
         else:
             datacolumn="data"
@@ -67,16 +68,20 @@ def split_calibrated_final(vislist=[], overwrite=True):
             # TDM and FDM spws for that scan, in case some of the other types of spw that can exist are left over.
 
             output_spw = ','.join(np.intersect1d(msmd.spwsforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i), \
-                    np.concatenate((msmd.tdmspws(),msmd.fdmspws()))).astype(str)), \
+                    np.concatenate((msmd.tdmspws(),msmd.fdmspws()))).astype(str))
 
             # Only take the antennas used for a scan on a relevant target from the relevant observation ID.
 
-            output_antennas = ','.join(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i).astype(str)), \
+            output_antennas = ','.join(msmd.antennasforscan(msmd.scansforintent("*OBSERVE_TARGET*", obsid=i)[0], obsid=i).astype(str))
 
             # Do the split
 
-            split(vis, outputvis=outputvis, observation=i, intent="*OBSERVE_TARGET*", spw=output_spw, antenna=output_antennas, \
-                    datacolumn=datacolumn)
+            try:
+                split(vis, outputvis=outputvis, observation=i, intent="*OBSERVE_TARGET*", spw=output_spw, antenna=output_antennas, \
+                        datacolumn=datacolumn)
+            except IndexError:
+                print(f"No target scans in {outputvis}, skipping.")
+                continue
 
         msmd.close()
 
