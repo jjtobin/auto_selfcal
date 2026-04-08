@@ -43,7 +43,7 @@ def split_calibrated_final(vislist=[], overwrite=True):
         # Check whether a CORRECTED_DATA column exists. If not, use the DATA column.
 
         tb.open(vis)
-        if "CORRECTED" in tb.colnames():
+        if "CORRECTED_DATA" in tb.colnames():
             datacolumn="corrected"
         else:
             datacolumn="data"

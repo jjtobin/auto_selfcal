@@ -21,7 +21,7 @@ auto_selfcal can be installed into any Python environment using the pip package 
 
 .. code-block:: bash
 
-    pip install auto_selfcal
+    pip install auto-selfcal
 
 Note that auto_selfcal depends on casatasks and casatools, both of which are available only in limited Python versions, so be sure to check your Python version before attempting to install. For further details, please see the `CASA compatibility matrix <https://casadocs.readthedocs.io/en/stable/notebooks/introduction.html#Compatibility>`_.
 
@@ -29,7 +29,7 @@ To install auto_selfcal with support for casampi:
 
 .. code-block:: bash
 
-    pip install auto_selfcal[mpi]
+    pip install auto-selfcal[mpi]
 
 A note: casampi can be quite particular about versions of mpi4py and other libraries. If you are having trouble, check the included environment.yaml file, which should document a configuration that works for casa 6.6.5 (and can be used to directly create a working environment within the Anaconda package manager, see below).
 
@@ -47,7 +47,7 @@ Once the environment is created, auto_selfcal can be pip installed into it:
 .. code-block:: bash
 
     conda activate casa-6.6.5
-    pip install auto_selfcal
+    pip install auto-selfcal
 
 A note on CASA versions
 -----------------------
