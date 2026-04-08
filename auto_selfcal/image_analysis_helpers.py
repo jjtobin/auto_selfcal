@@ -12,7 +12,12 @@ def get_image_stats(image, mask, backup_mask, selfcal_library, use_nfmask, solin
     else:
        SNR_NF, RMS_NF = SNR, RMS
 
-    for vis in selfcal_library['vislist']:
+    if suffix in ['dirty','orig','initial','final']:
+        vislist = selfcal_library['vislist']
+    else:
+        vislist = selfcal_library['vislist-to-gaincal']
+
+    for vis in vislist:
        if suffix in ['dirty','orig','initial','final']:
            if spw == 'all':
                update_dict = selfcal_library

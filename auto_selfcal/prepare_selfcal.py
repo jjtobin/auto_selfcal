@@ -11,6 +11,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
         inf_EB_gaintype='G',
         apply_cal_mode_default='calflag',
         do_amp_selfcal=True,
+        uniform_solints=False,
         usermask={},
         usermodel={},
         max_solint=4500.0,
@@ -502,16 +503,77 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
        selfcal_plan[target] = {}
 
        for band in selfcal_library[target]:
-          selfcal_plan[target][band] = {}
           if band in selfcal_library[target]:
-             selfcal_plan[target][band]['solints'],selfcal_plan[target][band]['integration_time'],selfcal_plan[target][band]['gaincal_combine'], \
-                    selfcal_plan[target][band]['solmode'],selfcal_plan[target][band]['solint_interval']=get_solints_simple(selfcal_library[target][band]['vislist'],scantimesdict[band],\
-                    scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
-                    inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic',do_scan_inf=do_scan_inf,\
-                    max_solint=max_solint,iscalibrator=iscalibrator,shorter_amp_solints=shorter_amp_solints,do_delay_cal=do_delay_cal,n_solints=n_solints)
+             selfcal_plan[target][band] = {}
+             selfcal_plan[target][band]['solints'] = []
+             selfcal_plan[target][band]['solmode'] = []
+
+             if uniform_solints:
+                 solints,tmp_integration_time,tmp_gaincal_combine, \
+                        tmp_solmodes,tmp_solint_interval=get_solints_simple(vislist,scantimesdict[band],
+                        scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
+                        inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic',do_scan_inf=do_scan_inf,\
+                        max_solint=max_solint,iscalibrator=iscalibrator,shorter_amp_solints=shorter_amp_solints,do_delay_cal=do_delay_cal,n_solints=n_solints)
+
+             for vis in selfcal_library[target][band]['vislist']:
+                 selfcal_plan[target][band][vis] = {}
+
+                 if not uniform_solints:
+                     solints,selfcal_plan[target][band][vis]['integration_time'],selfcal_plan[target][band][vis]['gaincal_combine'], \
+                           tmp_solmodes,tmp_solint_interval=get_solints_simple([vis],scantimesdict[band],
+                           scannfieldsdict[band],scanstartsdict[band],scanendsdict[band],integrationtimesdict[band],\
+                           inf_EB_gaincal_combine,do_amp_selfcal=do_amp_selfcal,mosaic=selfcal_library[target][band]['obstype'] == 'mosaic',do_scan_inf=do_scan_inf,\
+                           max_solint=max_solint,iscalibrator=iscalibrator,shorter_amp_solints=shorter_amp_solints,do_delay_cal=do_delay_cal,n_solints=n_solints)
+                 else:
+                    selfcal_plan[target][band][vis]['integration_time'] = tmp_integration_time
+                    selfcal_plan[target][band][vis]['gaincal_combine'] = tmp_gaincal_combine
+
+                 selfcal_plan[target][band][vis]['solint_settings']={}
+
+                 subscan_count = 0
+                 for solint, solint_interval in zip(solints, tmp_solint_interval):
+                     """
+                     if 'inf' in solint or 'int' in solint or 'ap' in solint:
+                         solint_name = solint
+                     else:
+                         solint_name = 'subscan'+str(subscan_count)
+                         subscan_count += 1
+                     """
+                     if solint == "inf_EB" or solint == "inf_EB_delay":
+                         solint_name = solint
+                     else:
+                         if 'ap' in solint:
+                             solint_name = 'ap'
+                         elif 'delay' in solint:
+                             solint_name = 'd'
+                         else:
+                             solint_name = 'p'
+                         solint_name += str(subscan_count)
+                         if solint == 'int':
+                             subscan_count = 0
+                         else:
+                             subscan_count += 1
+
+                     if solint_name not in selfcal_plan[target][band]['solints']:
+                         if 'ap' not in solint_name and 'ap' in selfcal_plan[target][band]['solmode']:
+                             insert_loc = np.where(np.array(selfcal_plan[target][band]['solmode']) == 'ap')[0][0]
+                         else:
+                             insert_loc = len(selfcal_plan[target][band]['solmode'])
+
+                         selfcal_plan[target][band]['solints'].insert(insert_loc,solint_name)
+                         if 'ap' in solint_name:
+                             selfcal_plan[target][band]['solmode'].insert(insert_loc,'ap')
+                         else:
+                             selfcal_plan[target][band]['solmode'].insert(insert_loc,'p')
+
+                     selfcal_plan[target][band][vis]['solint_settings'][solint_name]={}
+                     selfcal_plan[target][band][vis]['solint_settings'][solint_name]['interval'] = solint_interval
+
+                 selfcal_plan[target][band]['applycal_mode']=[apply_cal_mode_default]*len(selfcal_plan[target][band]['solints'])
+
              print(band,target,selfcal_plan[target][band]['solints'])
-             print(band,target,selfcal_plan[target][band]['solint_interval'])
-             selfcal_plan[target][band]['applycal_mode']=[apply_cal_mode_default]*len(selfcal_plan[target][band]['solints'])
+             for vis in vislist:
+                print(vis,[selfcal_plan[target][band][vis]['solint_settings'][solint]['interval'] for solint in selfcal_plan[target][band]['solints'] if solint in selfcal_plan[target][band][vis]['solint_settings']])
 
     ##
     ## estimate per scan/EB S/N using time on source and median scan times
@@ -520,7 +582,6 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
     for target in selfcal_plan:
      for band in selfcal_plan[target]:
        for vis in selfcal_library[target][band]['vislist']:
-        selfcal_plan[target][band][vis] = {}
         selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']=inf_EB_gaincal_combine #'scan'
         if selfcal_library[target][band]['obstype']=='mosaic':
            selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']+=',field'   
@@ -559,11 +620,13 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 if selfcal_library[target][band][vis]['baseband'][baseband]['nspws']> maxspws_per_bb:
                    maxspws_per_bb=selfcal_library[target][band][vis]['baseband'][baseband]['nspws']+0.0
 
-             selfcal_plan[target][band][vis]['solint_settings']={}
+             #selfcal_plan[target][band][vis]['solint_settings']={}
              for solint in selfcal_plan[target][band]['solints']:
+                if solint not in selfcal_plan[target][band][vis]['solint_settings']:
+                    continue
                 gaincal_combine=''
                 filename_append=''
-                selfcal_plan[target][band][vis]['solint_settings'][solint]={}
+                #selfcal_plan[target][band][vis]['solint_settings'][solint]={}
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=False
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_preapply_gaintable']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_spwmap']=[]
@@ -575,21 +638,21 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_gaintable']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_spwmap']=[]
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']={}
-                if 'delay' not in solint:
+                if 'd' not in solint:
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_interpolate']=applycal_interp
                 else:
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['applycal_interpolate']='linear'
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['final_mode']=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['accepted_gaintable']=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=[]
-                min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_spw'][solint])
-                min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_bb'][solint])
+                min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band][vis]['solint_snr_per_spw'][solint])
+                min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band][vis]['solint_snr_per_bb'][solint])
                 print('Nspws: {}, spws per BB: {}, basebands: {}'.format(nspws,maxspws_per_bb,n_basebands))
-                if selfcal_library[target][band]['telescope'] == 'VLBA' and 'delay' in solint and maxspws_per_bb > 1.0:
+                if selfcal_library[target][band]['telescope'] == 'VLBA' and 'd' in solint and maxspws_per_bb > 1.0:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
-                if 'delay' not in solint and nspws > 1.0:
+                if 'd' not in solint and nspws > 1.0:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')    
-                if 'delay' in solint and n_basebands > 1:
+                if 'd' in solint and n_basebands > 1:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
                 if solint == 'inf_EB':
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespwpol')
@@ -645,7 +708,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='T'
                     if selfcal_library[target][band]['telescope'] == 'VLBA':  # do G by default for VLBA
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='G'
-                    if '_delay' in solint :   # delay solints should always use K and be preapplied
+                    if 'd' in solint :   # delay solints should always use K and be preapplied
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_gaintype'][mode]='K'
                        #consider if improvement from delay is neglegible or harms to continume selfcal but then turning off the preapply 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True

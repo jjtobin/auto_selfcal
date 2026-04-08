@@ -74,7 +74,7 @@ def applycal_to_orig_MSes(selfcal_library='selfcal_library.pickle', write_only=T
        for band in selfcal_library[target].keys():
           if selfcal_library[target][band]['SC_success']:
              for vis in selfcal_library[target][band]['vislist']: 
-                solint=selfcal_library[target][band]['final_solint']
+                solint=selfcal_library[target][band][vis]['final_solint']
                 iteration=selfcal_library[target][band][vis][solint]['iteration']    
 
                 # Write the line to the command log

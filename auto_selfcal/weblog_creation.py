@@ -14,7 +14,7 @@ from casatools import image, imager
 from casatools import msmetadata as msmdtool
 from casatools import table as tbtool
 from casatools import ms as mstool
-from casaviewer import imview
+#from casaviewer import imview
 from PIL import Image
 
 ms = mstool()
@@ -223,7 +223,17 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
             line+='<th>'+solint+'</th>\n    '
          line+='</tr>\n'
          htmlOut.writelines(line)
-         vis_keys=list(sclib[target][band][vislist[len(vislist)-1]].keys())
+         htmlOut.writelines('<tr bgcolor="#ffffff">\n    <td colspan="'+str(len(solint_list)+1)+'">Solution interval by EB: </td></tr>\n')
+         for vis in vislist:
+             line=f'<tr bgcolor="#ffffff">\n   <td>{vis}: </td>\n'
+             for solint in solint_list:
+                 if solint in selfcal_plan[target][band][vis]['solint_settings']:
+                     line += f'    <td> {selfcal_plan[target][band][vis]["solint_settings"][solint]["interval"]} </td>\n'
+                 else:
+                     line += '    <td> - </td>\n'
+             line += '</tr>\n'
+             htmlOut.writelines(line)
+         htmlOut.writelines('<tr bgcolor="#ffffff">\n    <td colspan="'+str(len(solint_list)+1)+'">Selfcal stats: </td></tr>\n')
          quantities=['Pass','intflux_final','intflux_improvement','SNR_final','SNR_Improvement','SNR_NF_final','SNR_NF_Improvement','RMS_final','RMS_Improvement','RMS_NF_final','RMS_NF_Improvement','Beam_Ratio','clean_threshold','Plots']
          for key in quantities:
             if key =='Pass':
@@ -255,51 +265,58 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
             if key =='Plots':
                line='<tr bgcolor="#ffffff">\n    <td>Plots: </td>\n'
             for solint in solint_list:
+               if np.any([solint in sclib[target][band][vis] for vis in vislist]):
+                   ivis = np.where([solint in sclib[target][band][vis] for vis in vislist])[0][0]
+               else:
+                   ivis = len(vislist)-1
+
+               vis_keys=list(sclib[target][band][vislist[ivis]].keys())
+
                if solint in vis_keys:
-                  vis_solint_keys=sclib[target][band][vislist[len(vislist)-1]][solint].keys()
-                  if key != 'Pass' and sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == 'None':
+                  vis_solint_keys=sclib[target][band][vislist[ivis]][solint].keys()
+                  if key != 'Pass' and sclib[target][band][vislist[ivis]][solint]['Pass'] == 'None':
                       line+='    <td> - </td>\n'
                       continue
                   if key=='Pass':
-                    if key in sclib[target][band][vislist[len(vislist)-1]][solint]:
-                     if sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == False:
-                        line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
-                     elif sclib[target][band][vislist[len(vislist)-1]][solint]['Pass'] == 'None':
-                        line+='    <td><font color="green">{}</font> {}</td>\n'.format('Not attempted',sclib[target][band][vislist[len(vislist)-1]][solint]['Fail_Reason'])
+                    if key in sclib[target][band][vislist[ivis]][solint]:
+                     if sclib[target][band][vislist[ivis]][solint]['Pass'] == False:
+                        line+='    <td><font color="red">{}</font> {}</td>\n'.format('Fail',sclib[target][band][vislist[ivis]][solint]['Fail_Reason'])
+                     elif sclib[target][band][vislist[ivis]][solint]['Pass'] == 'None':
+                        line+='    <td><font color="green">{}</font> {}</td>\n'.format('Not attempted',sclib[target][band][vislist[ivis]][solint]['Fail_Reason'])
                      else:
                         line+='    <td><font color="blue">{}</font></td>\n'.format('Pass')
                     else:
                         line+='    <td><font color="green">{}</font></td>\n'.format('None')
                   if key=='intflux_final':
-                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[len(vislist)-1]][solint]['e_intflux_post']*1000.0)
+                     line+='    <td>{:0.3f} +/- {:0.3f} mJy</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['intflux_post']*1000.0,sclib[target][band][vislist[ivis]][solint]['e_intflux_post']*1000.0)
                   if key=='intflux_improvement':
-                     if sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'] == 0:
+                     if sclib[target][band][vislist[ivis]][solint]['intflux_pre'] == 0:
                         line+='    <td>{:0.3f}</td>\n'.format(1.0)
                      else:
-                        line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['intflux_pre'])                      
+                        line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['intflux_post']/sclib[target][band][vislist[ivis]][solint]['intflux_pre'])                      
                   if key=='SNR_final':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['SNR_post'])
                   if key=='SNR_Improvement':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_pre'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['SNR_post']/sclib[target][band][vislist[ivis]][solint]['SNR_pre'])
                   if key=='SNR_NF_final':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['SNR_NF_post'])
                   if key=='SNR_NF_Improvement':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['SNR_NF_pre'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['SNR_NF_post']/sclib[target][band][vislist[ivis]][solint]['SNR_NF_pre'])
 
                   if key=='RMS_final':
-                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']*1000.0)
+                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_post']*1000.0)
                   if key=='RMS_Improvement':
-                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'])
+                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_pre']/sclib[target][band][vislist[ivis]][solint]['RMS_post'])
                   if key=='RMS_NF_final':
-                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post']*1000.0)
+                     line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_NF_post']*1000.0)
                   if key=='RMS_NF_Improvement':
-                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
+                     line+='    <td>{:0.3e}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_NF_pre']/sclib[target][band][vislist[ivis]][solint]['RMS_NF_post'])
 
                   if key=='Beam_Ratio':
-                     line+='    <td>{:0.3e}</td>\n'.format((sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_major_post']*sclib[target][band][vislist[len(vislist)-1]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))
+                     line+='    <td>{:0.3e}</td>\n'.format((sclib[target][band][vislist[ivis]][solint]['Beam_major_post']*sclib[target][band][vislist[ivis]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))
                   if key =='clean_threshold':
                      if key in vis_solint_keys:
-                        line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['clean_threshold']*1000.0)
+                        line+='    <td>{:0.3e} mJy/bm</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['clean_threshold']*1000.0)
                      else:
                         line+='    <td>Not Available</td>\n'
                   if key =='Plots':
@@ -313,7 +330,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
          for vis in vislist:
             line='<tr bgcolor="#ffffff">\n    <td>'+vis+': </td>\n'
             for solint in solint_list:
-               if solint in vis_keys and sclib[target][band][vis][solint]['Pass'] != 'None' and 'gaintable' in sclib[target][band][vis][solint]:
+               if solint in sclib[target][band][vis] and sclib[target][band][vis][solint]['Pass'] != 'None' and 'gaintable' in sclib[target][band][vis][solint]:
                   # only evaluate last gaintable not the pre-apply table
                   gaintable=sclib[target][band][vis][solint]['gaintable'][len(sclib[target][band][vis][solint]['gaintable'])-1]
                   line+='<td><a href="images/plot_ants_'+gaintable+'.png"><img src="images/plot_ants_'+gaintable+'.png" ALT="antenna positions with flagging plot" WIDTH=200 HEIGHT=200></a></td>\n'
@@ -468,7 +485,8 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
          
 
          final_solint_to_plot=selfcal_plan[target][band]['solints'][final_solint_index+index_addition-1]
-         keylist=sclib[target][band][vislist[0]].keys()
+         #keylist=sclib[target][band][vislist[0]].keys()
+         keylist = [solint for solint in selfcal_plan[target][band]['solints'] if np.any([solint in sclib[target][band][vis] for vis in vislist])]
          if index_addition == 2 and final_solint_to_plot not in keylist:
            index_addition=index_addition-1
 
@@ -477,7 +495,10 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
          #for i in range(final_solint_index+index_addition):
          for i in range(len(selfcal_plan[target][band]['solints'])):
 
-            if selfcal_plan[target][band]['solints'][i] not in keylist or sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]['Pass'] == 'None':
+            representative_vislist = [vis for vis in vislist if selfcal_plan[target][band]['solints'][i] in sclib[target][band][vis]]
+            if len(representative_vislist) == 0:
+               continue
+            if selfcal_plan[target][band]['solints'][i] not in keylist or sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['Pass'] == 'None':
                continue
             htmlOutSolint=open(directory+'/'+target+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'.html','w')
             htmlOutSolint.writelines('<html>\n')
@@ -489,22 +510,29 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
             htmlOutSolint.writelines('<h2>'+target+' Plots</h2>\n')
             htmlOutSolint.writelines('<h2>'+band+'</h2>\n')
             htmlOutSolint.writelines('<h2>Targets:</h2>\n')
-            keylist=sclib[target][band][vislist[0]].keys()
+            #keylist=sclib[target][band][vislist[0]].keys()
             solints_string=''
+            print(keylist)
             for j in range(final_solint_index+index_addition):
                if selfcal_plan[target][band]['solints'][j] not in keylist:
                   continue
                solints_string+='<a href="'+target+'_'+band+'_'+selfcal_plan[target][band]['solints'][j]+'.html">'+selfcal_plan[target][band]['solints'][j]+'  </a><br>\n'
             htmlOutSolint.writelines('<br>Solints: '+solints_string)
 
-            htmlOutSolint.writelines('<h3>Solint: '+selfcal_plan[target][band]['solints'][i]+'</h3>\n')       
+            htmlOutSolint.writelines('<h3 style="margin-bottom:0;">Solint: '+selfcal_plan[target][band]['solints'][i]+'</h3>\n')       
+            for ivis, vis in enumerate(representative_vislist):
+                if ivis == len(representative_vislist)-1:
+                    margin_string = 'style="margin-top: 0; padding-top:0;"'
+                else:
+                    margin_string = 'style="margin : 0; padding-top:0;"'
+                htmlOutSolint.writelines(f'<p {margin_string}>{vis}: {selfcal_plan[target][band][vis]["solint_settings"][selfcal_plan[target][band]["solints"][i]]["interval"]}</p>\n')
             keylist_top=sclib[target][band].keys()
             htmlOutSolint.writelines('<a href="index.html#'+target+'_'+band+'">Back to Main Target/Band</a><br>\n')
 
 
             #must select last key for pre Jan 14th runs since they only wrote pass to the last MS dictionary entry
-            if "Pass" in sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]:
-                passed=sclib[target][band][vislist[len(vislist)-1]][selfcal_plan[target][band]['solints'][i]]['Pass']
+            if "Pass" in sclib[target][band][representative_vislist[-1]][selfcal_plan[target][band]['solints'][i]]:
+                passed=sclib[target][band][representative_vislist[-1]][selfcal_plan[target][band]['solints'][i]]['Pass']
             else:
                 passed = 'None'
 
@@ -540,19 +568,19 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
 
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a>\n')
             htmlOutSolint.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png"><img src="images/'+sanitize_string(target)+'_'+band+'_'+selfcal_plan[target][band]['solints'][i]+'_'+str(i)+'_post.image.tt0.png" ALT="pre-SC-solint image" WIDTH=400 HEIGHT=400></a><br>\n')
-            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_pre'])+'<br><br>\n')
-            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_pre'])+' Jy/beam<br>\n')
-            htmlOutSolint.writelines('Post Beam: {:0.4f}"x{:0.4f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_post'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_post'])+'<br>\n')
-            htmlOutSolint.writelines('Pre Beam: {:0.4f}"x{:0.4f}" {:0.3f} deg'.format(sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_pre'],sclib[target][band][vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC SNR: {:0.3f}'.format(sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_post'])+'<br>Pre SC SNR: {:0.3f}'.format(sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['SNR_pre'])+'<br><br>\n')
+            htmlOutSolint.writelines('Post SC RMS: {:0.7f}'.format(sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_post'])+' Jy/beam<br>Pre SC RMS: {:0.7f}'.format(sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['RMS_pre'])+' Jy/beam<br>\n')
+            htmlOutSolint.writelines('Post Beam: {:0.4f}"x{:0.4f}" {:0.3f} deg'.format(sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_post'],sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_post'],sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_post'])+'<br>\n')
+            htmlOutSolint.writelines('Pre Beam: {:0.4f}"x{:0.4f}" {:0.3f} deg'.format(sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_major_pre'],sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_minor_pre'],sclib[target][band][representative_vislist[0]][selfcal_plan[target][band]['solints'][i]]['Beam_PA_pre'])+'<br><br>\n')
 
 
             if 'inf_EB' in selfcal_plan[target][band]['solints'][i]:
                htmlOutSolint.writelines('<h3>Phase vs. Frequency Plots:</h3>\n')
             else:
                htmlOutSolint.writelines('<h3>Phase vs. Time Plots:</h3>\n')
-            for vis in vislist:
+            for vis in representative_vislist:
                htmlOutSolint.writelines('<h4>MS: '+vis+'</h4>\n')
-               if 'gaintable' not in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
+               if selfcal_plan[target][band]['solints'][i] not in sclib[target][band][vis] or 'gaintable' not in sclib[target][band][vis][selfcal_plan[target][band]['solints'][i]]:
                     htmlOutSolint.writelines('No gaintable available <br><br>')
                     continue
                ant_list=get_ant_list(vis)
