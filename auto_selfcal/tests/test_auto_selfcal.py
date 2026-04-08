@@ -116,7 +116,14 @@ def test_on_github(tmp_path, request, zip_file, link):
                     if solint not in solint_map:
                         solint_map[solint] = []
 
-                    solint_map[solint].append(selfcal_plan[target][band][vis]['solint_settings'][solint]['interval'])
+                    mapped_solint = selfcal_plan[target][band][vis]['solint_settings'][solint]['interval']
+                    if solint == 'inf_EB':
+                        mapped_solint += '_EB'
+                    elif 'ap' in solint:
+                        mapped_solint += '_ap'
+
+                    solint_map[solint].append(mapped_solint)
+    print(solint_map)
 
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001, key_map=solint_map,
                                                 exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal"])
@@ -134,6 +141,8 @@ def compare_values(list1, list2, tol=1e-3):
         else:
             return np.all([compare_values(list1[i], list2[i], tol=tol) for i in range(len(list1))])
     elif type(list1) == str or type(list1) == np.str_ or type(list1) == bool:
+        return list1 == list2
+    elif type(list1) == type(None):
         return list1 == list2
     else:
         if list1 == 0:
