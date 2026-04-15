@@ -38,12 +38,12 @@ Love auto_selfcal and want to cite it? Please use:
 
 ```tex
 @software{auto_selfcal,
-    author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Austen Fourkas},
+    author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Ryan Loomis and Austen Fourkas and Sam Federman},
     title        = {jjtobin/auto\_selfcal: v2.0.0},
     month        = dec,
     year         = 2025,
     publisher    = {Zenodo},
-    version      = {v2.0.0},
+    version      = {v2.0},
     doi          = {10.5281/zenodo.17871742},
     url          = {https://doi.org/10.5281/zenodo.17871742},
 }

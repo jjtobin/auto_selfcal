@@ -1,0 +1,30 @@
+{
+    "title": "auto-selfcal",
+    "description": "Automated self-calibration of interferometric data",
+    "creators": [
+        {
+            "name": "Tobin, John J."
+        }
+    ],
+    "contributors": [
+        {
+            "name": "Sheehan, Patrick D."
+        },
+        {
+            "name": "Xue, Rui"
+        },
+	{
+	    "name": "Loomis, Ryan A."
+	},
+        {
+            "name": "Fourkas, Austen"
+        },
+        {
+            "name": "Federman, Sam"
+        }
+    ],
+    "upload_type": "software",
+    "license": "MIT",
+    "access_type": "open",
+    "keywords": []
+}
