@@ -490,7 +490,7 @@ def auto_selfcal(
                # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
                # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_dirty',
-                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              band,nsigma=4.0, scales=[0],
                               threshold='0.0Jy',niter=1, gain=0.00001,
                               savemodel='none',parallel=parallel,
                               field=target, vis_to_image=[vis])
@@ -499,7 +499,7 @@ def auto_selfcal(
                         '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
 
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_initial',
-                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              band,nsigma=4.0, scales=[0],
                               threshold='theoretical_with_drmod',
                               savemodel='modelcolumn',parallel=parallel,
                               field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS, vis_to_image=[vis])
@@ -536,7 +536,7 @@ def auto_selfcal(
                # we can get an estimate of the NF modifier for the auto-masking thresholds. To do this, we need to create a very basic mask
                # with the dirty image. So we just use one iteration with a tiny gain so that nothing is really subtracted off.
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_dirty_after',
-                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              band,nsigma=4.0, scales=[0],
                               threshold='0.0Jy',niter=1, gain=0.00001,
                               savemodel='none',parallel=parallel,
                               field=target, vis_to_image=[vis])
@@ -545,7 +545,7 @@ def auto_selfcal(
                         sani_target+'_'+band+'_'+vis+'_dirty_after.mask', '', selfcal_library[target][band], (telescope != 'ACA' or aca_use_nfmask), 'dirty', 'dirty')
 
                tclean_wrapper(selfcal_library[target][band],sani_target+'_'+band+'_'+vis+'_initial_after',
-                              band,telescope=telescope,nsigma=4.0, scales=[0],
+                              band,nsigma=4.0, scales=[0],
                               threshold='theoretical_with_drmod',
                               savemodel='none',parallel=parallel,
                               field=target,nfrms_multiplier=dirty_NF_RMS/dirty_RMS, vis_to_image=[vis])
