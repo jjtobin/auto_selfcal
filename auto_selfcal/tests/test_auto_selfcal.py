@@ -84,7 +84,7 @@ def test_benchmark(tmp_path, dataset):
         pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAnFUlx_SR0SLdj_vX8MVUWAbMu9BveHCsb9NB07-OD3bo?e=zMGxOJ&download=1', id="Band8-7m-2"),
         pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCT-CkbAW7YT5LIev5CrDSOAZt5uC_tUIReMwlA14Tu9y4?e=2zF126&download=1', id="M82-C-conf-C-band_small"),
         pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=7adSCD&download=1', id='K-band-mini-mosaic'),
-        pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=xyU2MO&download=1', id='2019.1.00691.S_SB')
+        pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=MMXCaT&download=1', id='2019.1.00691.S_SB')
     ]
 )
 def test_on_github(tmp_path, request, zip_file, link):
