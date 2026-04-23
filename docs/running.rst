@@ -1,10 +1,10 @@
 Running auto_selfcal
 ====================
 
-auto_selfcal can be run in two different modes, depending on whether you are using a modular CASA environment or a monolithic CASA distribution:
+auto_selfcal can be run in multiple ways, depending on whether you are using a modular CASA environment or a monolithic CASA distribution, and whether the code was pip-installed or you are using the scripted version:
 
-Running in Monolithic CASA
---------------------------
+Running the scripted version in Monolithic CASA
+-----------------------------------------------
 
 Although the structure is a little different, support remains for running auto_selfcal in a manner similar to versions 1.X within a monolithic CASA distribution. To do so, follow the instructions for :ref:`Installing into Monolithic CASA` and run:
 
@@ -31,6 +31,47 @@ We also provide a tool to do continuum subtraction of the original MS files usin
     casa -c <path/to/auto_selfcal>/bin/uvcontsub_orig_MSes.py
 
 Note that with these scripts there is no support for command line arguments; to change these options, edit the bin/\*.py files directly. For details about the available parameters for each of these functions, see our :ref:`Top Level API`.
+
+Running when pip-installed into Monolithic CASA
+-----------------------------------------------
+
+If you pip install auto_selfcal into Monolithic CASA and properly setup the symbolic links (see :ref:`Installing into Monolithic CASA`) then the auto_selfcal command line tool should be available:
+
+.. code-block:: bash
+
+    </path/to/CASA>/bin/auto_selfcal --<command line option> <argument> ...
+
+or with mpicasa:
+
+.. code-block:: bash
+
+    </path/to/CASA>/bin/mpicasa -n <N> </path/to/CASA>/bin/auto_selfcal --<command line option> <argument> ...
+
+For the same examples as above,
+
+.. code-block:: bash
+
+    </path/to/CASA>/bin/mpicasa -n 5 </path/to/CASA>/bin/auto_selfcal --action run
+    </path/to/CASA>/bin/auto_selfcal --action apply
+    </path/to/CASA>/bin/auto_selfcal --action contsub
+
+Alternatively, auto_selfcal can be imported into an interactive CASA session as with any Python package:
+
+.. code-block:: python
+
+    from auto_selfcal import auto_selfcal, applycal_to_orig_MSes, uvcontsub_orig_MSes
+
+    auto_selfcal(vislist=<list of MSes>)
+    applycal_to_orig_MSes()
+    uvcontsub_orig_MSes()
+
+For a full list of command line options, run:
+
+.. code-block:: bash
+
+    </path/to/CASA>/bin/auto_selfcal --help
+
+or see the API documentation for the :meth:`auto_selfcal<auto_selfcal.auto_selfcal>` function.
 
 Running in Modular CASA
 -----------------------
