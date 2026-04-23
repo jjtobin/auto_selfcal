@@ -458,14 +458,16 @@ def tclean_wrapper(selfcal_library, imagename, band, scales=[0], smallscalebias 
                             break
 
                     im.open(v)
+                    spws_for_pb = [selfcal_library[field_id][v]['spws']]
                 else:
                     fid = selfcal_library['sub-fields-fid_map'][vis_to_image][field_id]
-                    im.open(vis)
+                    im.open(selfcal_library['vislist'])
+                    spws_for_pb = [selfcal_library[field_id][selfcal_library['vislist']]['spws']]
 
                 nx, ny, nfreq, npol = imhead(imagename=imagename.replace(target,target+"_field_"+str(field_id))+".image.tt0", mode="get", \
                         hdkey="shape")
 
-                im.selectvis(field=str(fid), spw=spws_per_vis)
+                im.selectvis(field=str(fid), spw=spws_for_pb)
                 im.defineimage(nx=nx, ny=ny, cellx=selfcal_library['cellsize'], celly=selfcal_library['cellsize'], phasecenter=fid, mode="mfs")
                 im.setvp(dovp=True)
                 im.makeimage(type="pb", image=imagename.replace(target,target+"_field_"+str(field_id)) + ".pb.tt0")
@@ -2583,6 +2585,7 @@ def check_image_nterms(fracbw, SNR):
    return nterms
 
 def get_mean_freq(vis,spwsarray):
+   print(vis, spwsarray)
    tb.open(vis[0]+'/SPECTRAL_WINDOW')
    freqarray=tb.getcol('REF_FREQUENCY')
    tb.close()
@@ -2764,7 +2767,7 @@ def get_bands(vislist,fields,telescope):
             observed_bands[vis][band]['ncorrs']=msmd.ncorrforpol(msmd.polidfordatadesc(observed_bands[vis][band]['spwarray'][0]))
             msmd.close()
       if telescope == 'ALMA' or telescope == 'ACA':
-         meanfreq, maxfreq,minfreq,fracbw=get_mean_freq(vislist,spws_for_field)
+         meanfreq, maxfreq,minfreq,fracbw=get_mean_freq([vis],spws_for_field)
          band=get_ALMA_band_string(meanfreq)
          bands=[band]
          observed_bands[vis]['bands']=[band]
