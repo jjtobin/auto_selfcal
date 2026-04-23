@@ -61,11 +61,11 @@ Love auto_selfcal and want to cite it in your paper? Please include the followin
 
    @software{auto_selfcal,
       author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Ryan Loomis and Austen Fourkas and Samuel Fielder},
-      title        = {jjtobin/auto\_selfcal: v2.0.0},
-      month        = dec,
-      year         = 2025,
+      title        = {jjtobin/auto\_selfcal: v2.1.0},
+      month        = apr,
+      year         = 2026,
       publisher    = {Zenodo},
-      version      = {v2.0.0},
+      version      = {v2.1.0},
       doi          = {10.5281/zenodo.17871742},
       url          = {https://doi.org/10.5281/zenodo.17871742},
    }
