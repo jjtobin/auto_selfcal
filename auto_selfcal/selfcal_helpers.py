@@ -2585,7 +2585,6 @@ def check_image_nterms(fracbw, SNR):
    return nterms
 
 def get_mean_freq(vis,spwsarray):
-   print(vis, spwsarray)
    tb.open(vis[0]+'/SPECTRAL_WINDOW')
    freqarray=tb.getcol('REF_FREQUENCY')
    tb.close()
