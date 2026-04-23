@@ -50,7 +50,11 @@ def test_benchmark(tmp_path, dataset):
     os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/cont.dat .")
     os.system(f"cp -r /lustre/cv/projects/SRDP/selfcal-prototyping/datasets/{dataset}/selfcal_library_reference.pickle .")
 
-    ex = submitit.SlurmExecutor(folder=".", python=f"OMP_NUM_THREADS=1 xvfb-run -d mpirun -n 8 {sys.executable}")
+    if os.getenv("CASAPATH") == None:
+        ex = submitit.SlurmExecutor(folder=".", python=f"OMP_NUM_THREADS=1 xvfb-run -d mpirun -n 8 {sys.executable}")
+    else:
+        casa_path = os.getenv("CASAPATH").split(" ")[0]
+        ex = submitit.SlurmExecutor(folder=".", python=f"xvfb-run -d {casa_path}/bin/mpicasa -n 8 {casa_path}/bin/python3")
     ex.update_parameters(partition="batch2", nodes=1, ntasks_per_node=8, cpus_per_task=1, use_srun=False, time=10080, \
             mem="128gb", job_name=dataset)
 
@@ -81,7 +85,7 @@ def test_benchmark(tmp_path, dataset):
     "zip_file,link",
     [
         pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCvDRlo5TabTZ8qoP-tscZnAdJZOuCKQew3ewIH5bZzZF0?e=XWOGxH&download=1', id="2018.1.01284.S_HOPS-384"),
-        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAnFUlx_SR0SLdj_vX8MVUWAbMu9BveHCsb9NB07-OD3bo?e=zMGxOJ&download=1', id="Band8-7m-2"),
+        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAnFUlx_SR0SLdj_vX8MVUWAbMu9BveHCsb9NB07-OD3bo?e=TNBTXq&download=1', id="Band8-7m-2"),
         pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCT-CkbAW7YT5LIev5CrDSOAZt5uC_tUIReMwlA14Tu9y4?e=2zF126&download=1', id="M82-C-conf-C-band_small"),
         pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=7adSCD&download=1', id='K-band-mini-mosaic'),
         pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=MMXCaT&download=1', id='2019.1.00691.S_SB')
@@ -107,7 +111,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     else:
         usermodel = {}
 
-    auto_selfcal(sort_targets_and_EBs=True, weblog=True, usermask=usermask, usermodel=usermodel)
+    auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, weblog=True, usermask=usermask, usermodel=usermodel)
 
     os.system('rm -rf *.ms*') # Delete MS files as space is limited on GitHub.
 

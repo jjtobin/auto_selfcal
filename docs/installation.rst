@@ -4,7 +4,7 @@ Installation
 Installing into Monolithic CASA
 -------------------------------
 
-Formal installation into monolithic CASA is not required, as we provide script versions of the main functionality of this package (see :ref:`Running in Monolithic CASA` for further details on usage). To use auto_selfcal in this way, simply download stable versions of the code on our `GitHub releases page <https://github.com/jjtobin/auto_selfcal/releases>`_. For the latest developmental version, run
+Formal installation into monolithic CASA is not required, as we provide script versions of the main functionality of this package (see :ref:`Running the scripted version in Monolithic CASA` for further details on usage). To use auto_selfcal in this way, simply download stable versions of the code on our `GitHub releases page <https://github.com/jjtobin/auto_selfcal/releases>`_. For the latest developmental version, run
 
 .. code-block:: bash
 
@@ -12,10 +12,23 @@ Formal installation into monolithic CASA is not required, as we provide script v
 
 in a terminal. The core auto_selfcal scripts now exist in the ``auto_selfcal/bin`` directory.
 
-If you do, however, want to install into monolithic CASA, see below, under :ref:`Installing with pip`. If you opt for this route, be sure to use the ``pip`` installed with your monolithic CASA distribution (i.e. ``</path/to/monolithic/CASA>/bin/pip``).
+It is, however, possible to pip install into monolithic CASA. If you opt for this route, be sure to use the ``pip`` installed with your monolithic CASA distribution:
+
+.. code-block:: bash
+    
+    </path/to/monolithic/CASA>/bin/pip3 install auto-selfcal
+
+With that done, you can also run the following command to properly set up the auto_selfcal command line tool:
+
+.. code-block:: bash
+
+    </path/to/monolithic/CASA/>/bin/casa -c "import auto_selfcal; auto_selfcal.setup_monolithic_CASA()"
+
+Installing into Modular CASA
+----------------------------
 
 Installing with pip
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 auto_selfcal can be installed into any Python environment using the pip package manager:
 
@@ -34,7 +47,7 @@ To install auto_selfcal with support for casampi:
 A note: casampi can be quite particular about versions of mpi4py and other libraries. If you are having trouble, check the included environment.yaml file, which should document a configuration that works for casa 6.6.5 (and can be used to directly create a working environment within the Anaconda package manager, see below).
 
 Installing with conda
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 To create an Anaconda environment into which auto_selfcal can be installed, we provide an Anaconda environment file that is capable of reproducing the necessary environment. To create an environment from this file, run:
 
@@ -53,3 +66,15 @@ A note on CASA versions
 -----------------------
 
 There may be specific CASA version requirements matched to specific versions of auto_selfcal, but one overarching requirement is that his code should only be executed within the CASA 6.4+ environment. CASA versions earlier that 6.4.0 are likely to encounter problems due to a gaincal bug that was fixed in CASA 6.4.0. Current testing of this code was conducted using CASA 6.5.4 and CASA 6.5.6, but we fully expect this code to run properly on CASA 6.6 and should aso run properly back to CASA 6.4.0.
+
+Installation options
+--------------------
+
+To keep auto_selfcal slim and easy to install, when installing via pip, the dependencies for using mpicasa and for EB
+alignment are not installed by default. To install auto_selfcal with the necessary dependencies, use:
+
+.. code-block:: bash
+
+    pip install auto-selfcal[mpi]
+    pip install auto-selfcal[align]
+

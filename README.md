@@ -38,12 +38,12 @@ Love auto_selfcal and want to cite it? Please use:
 
 ```tex
 @software{auto_selfcal,
-    author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Austen Fourkas},
+    author       = {John J. Tobin and Patrick Sheehan and Rui Xue and Ryan Loomis and Austen Fourkas and Samuel Fielder},
     title        = {jjtobin/auto\_selfcal: v2.0.0},
     month        = dec,
     year         = 2025,
     publisher    = {Zenodo},
-    version      = {v2.0.0},
+    version      = {v2.0},
     doi          = {10.5281/zenodo.17871742},
     url          = {https://doi.org/10.5281/zenodo.17871742},
 }
@@ -55,3 +55,5 @@ Acknowledgements:
 Certain functions to convert from LSRK to channel, S/N estimates, and tclean wrapper have their origins from the ALMA DSHARP large program reduction scripts.
 
 The functions to parse the cont.dat file and convert to channel ranges (used the routine from above) was adapted from a function written by Patrick Sheehan for the ALMA eDisk large program
+
+The EB-alignment functionality is based off of scripts kindly donated by the exoALMA Large Program, described in [exoALMA II: Data Calibration and Imaging Pipeline](https://arxiv.org/abs/2504.19870).
