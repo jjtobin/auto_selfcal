@@ -1,7 +1,7 @@
 import numpy as np
 from .selfcal_helpers import *
 
-def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, applymode, iteration, 
+def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, applymode, iteration, 
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, 
         calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3,
@@ -26,6 +26,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
     ## Solve gain solutions per MS, target, solint, and band
     ##
 
+    print(selfcal_plan['solmode'])
+    print(iteration)
     os.system('rm -rf '+sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'*.g')
 
     ## Reset the gaincal return dictionaries, in case this is a repeat of the current solution interval.
@@ -54,7 +56,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             if selfcal_plan['solmode'][iteration]=='p':
                 previous_solint = "inf_EB"
             else:
-                previous_solint = selfcal_library['final_phase_solint']
+                previous_solint = selfcal_library[vis]['final_phase_solint']
         gaincal_spwmap=[]
         gaincal_preapply_gaintable=[]
         gaincal_interpolate=[]
@@ -88,7 +90,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
         # Revert back to applying the inf_EB solution if calculate_inf_EB_fb_anyways, i.e. we just use the inf_EB_fb solution
         # for gaincal.
         if mode == "cocal":
-            if selfcal_library['final_solint'] == 'inf_EB' and calculate_inf_EB_fb_anyways:
+            if selfcal_library[vis]['final_solint'] == 'inf_EB' and calculate_inf_EB_fb_anyways:
                 previous_solint = "inf_EB"
 
         fallback=''
@@ -329,12 +331,13 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                             spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
                       else:
                          spwselect=selfcal_library[vis]['spws']
+
                       gaintable_name=sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'
                       print('prior to gaincal',gaintable_name, mode)
                       if mode != 'per_bb':      
                          gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect,
                                 refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                                solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
+                                solint=selfcal_plan[vis]['solint_settings'][solint]['interval'].replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
                                 minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                                 field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                                 interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
@@ -345,7 +348,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                              spwselect_bb=selfcal_library[vis]['baseband'][baseband]['spwstring']
                              gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect_bb,
                                   refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                                  solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
+                                  solint=selfcal_plan[vis]['solint_settings'][solint]['interval'].replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
                                   minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                                   field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                                   interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
@@ -360,7 +363,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                    #   break
         gaintable_prefix=sani_target+'_'+vis+'_'+band+'_'
         # assume that if there is only one mode to attempt, that it is combinespw and don't bother checking.
-        if 'delay' not in solint:
+        if 'd' not in solint:
             if len(selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']) > 1:
                 get_gaincalmode_flagging_stats(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
                 preferred_mode,fallback,spwmap,spwmapping_for_applycal = \
@@ -435,6 +438,8 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             applycal_interpolate=[]
             applycal_spwmap=[]
             for j in range(current_solint_index):
+              if not selfcal_plan['solints'][j] in selfcal_plan[vis]['solint_settings']:
+                  continue
               if selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['preapply_this_gaintable']: #allow amplitude and phase to be pre-applied
                  # and selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['solmode']=='p':
                  gaincal_preapply_gaintable.append(selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][j]]['accepted_gaintable'])
@@ -470,11 +475,12 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                         spwselect=','.join(str(spw) for spw in selfcal_library['spws_set'][vis][i].tolist())
                   else:
                      spwselect=selfcal_library[vis]['spws']
+
                   gaintable_name='temp_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'
                   if mode != 'per_bb':      
                      gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect,
                             refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                            solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_',''),\
+                            solint=selfcal_plan[vis]['solint_settings'][solint]['interval'].replace('_EB','').replace('_ap','').replace('scan_',''),\
                             minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                             field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                             interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
@@ -485,7 +491,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                          spwselect_bb=selfcal_library[vis]['baseband'][baseband]['spwstring']
                          gcdict=call_gaincal(vis=vis, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][mode], spw=spwselect_bb,
                               refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
-                              solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_',''),\
+                              solint=selfcal_plan[vis]['solint_settings'][solint]['interval'].replace('_EB','').replace('_ap','').replace('scan_',''),\
                               minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
                               field=str(selfcal_library['sub-fields-fid_map'][vis][fid]),gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                               interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
@@ -501,7 +507,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                            select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint,spectral_solution_fraction,minsnr_to_proceed)
         else:
             preferred_mode=selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt'][0]
-            if 'delay' not in solint:
+            if 'd' not in solint:
                 get_gaincalmode_flagging_stats(selfcal_library,selfcal_plan,vis,gaintable_prefix,solint)
             fallback=''
             spwmapping_for_applycal=[]
@@ -673,7 +679,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
 def generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, target, band, vis, solint, iteration): 
     sani_target=sanitize_string(target)
     current_solint_index=selfcal_plan['solints'].index(solint)
-    if selfcal_library['telescope'] == 'VLBA' or 'delay' in solint:  # use per_bb in place of combinespw for VLBA fall back'
+    if selfcal_library['telescope'] == 'VLBA' or 'd' in solint:  # use per_bb in place of combinespw for VLBA fall back'
         preferred_mode='per_bb'
     else:
         preferred_mode='combinespw'

@@ -36,6 +36,7 @@ def auto_selfcal(
         inf_EB_gaintype='G',
         inf_EB_override=False,
         optimize_spw_combine=True,      # if False, will not attempt per spw or per baseband solutions for any solint except inf_EB
+        uniform_solints=False,
         gaincal_minsnr=2.0,
         gaincal_unflag_minsnr=5.0,
         minsnr_to_proceed=2.95,
@@ -449,7 +450,7 @@ def auto_selfcal(
                     vis_for_targets[target][band]['vislist'], 
                     spectral_average=spectral_average, sort_targets_and_EBs=sort_targets_and_EBs, scale_fov=scale_fov, inf_EB_gaincal_combine=inf_EB_gaincal_combine, 
                     inf_EB_gaintype=inf_EB_gaintype, apply_cal_mode_default=apply_cal_mode_default, do_amp_selfcal=do_amp_selfcal, 
-                    usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,max_solint=max_solint,
+                    uniform_solints=uniform_solints, usermask=usermask, usermodel=usermodel,guess_scan_combine=guess_scan_combine,max_solint=max_solint,
                     iscalibrator=iscalibrator, do_delay_cal=do_delay_cal, shorter_amp_solints=shorter_amp_solints,
                     imsize=imsize, cell=cell, refant=refant, debug=debug)
 

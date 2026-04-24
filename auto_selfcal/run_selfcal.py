@@ -44,8 +44,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    else:
        iteration = 0
 
-   vislist=selfcal_library['vislist'].copy()
-
    if mode == "cocal":
        # Check whether there are suitable calibrators, otherwise skip this target/band.
        include_targets, include_scans = triage_calibrators(vislist[0], target, calibrators[band][0])
@@ -70,8 +68,13 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    print('Starting selfcal procedure on: '+target+' '+band)
    while iteration  < len(selfcal_plan['solints']):
 
-      print("Solving for solint="+selfcal_plan['solints'][iteration]+' with interval '+selfcal_plan['solint_interval'][iteration])
-      
+      vislist=[vis for vis in selfcal_library['vislist'] if selfcal_plan['solints'][iteration] in selfcal_plan[vis]['solint_settings']]
+
+      print("Solving for solint="+selfcal_plan['solints'][iteration]+' with intervals:')
+      for vis in vislist:
+          print("    "+vis+": "+selfcal_plan[vis]['solint_settings'][selfcal_plan['solints'][iteration]]['interval'])
+
+
       # Set some cocal parameters.
       if selfcal_plan['solints'][iteration] in ["inf_EB_fb","inf_fb1"]:
           calculate_inf_EB_fb_anyways = True
@@ -97,11 +100,24 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
          # make sure the last phase-only selfcal table gets pre-applied
          # solints that use combinespw don't get pre-apply label by default
          for vis in vislist:
-             selfcal_plan[vis]['solint_settings'][selfcal_library['final_phase_solint']]['preapply_this_gaintable']=True
+             selfcal_plan[vis]['solint_settings'][selfcal_library[vis]['final_phase_solint']]['preapply_this_gaintable']=True
          
+      if mode == "selfcal":
+          remove_vis = []
+          for vis in vislist:
+              if selfcal_plan[vis]['solint_snr'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed and \
+                      np.all([selfcal_plan[fid][vis]['solint_snr_per_field'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed for fid in \
+                      selfcal_library['sub-fields']]):
+                  print('*********** estimated SNR for EB='+vis+' for solint='+selfcal_plan['solints'][iteration]+' too low, measured: '+\
+                          str(selfcal_plan[vis]['solint_snr'][selfcal_plan['solints'][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+\
+                          ' **************')
+                  remove_vis.append(vis)
 
-      if mode == "selfcal" and selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
-         print('*********** estimated SNR for solint='+selfcal_plan['solints'][iteration]+' too low, measured: '+str(selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration]])+', Min SNR Required: '+str(minsnr_to_proceed)+' **************')
+          for rvis in remove_vis:
+              vislist.remove(rvis)
+
+      if len(vislist) == 0:
+         print('*********** estimated SNR for solint='+selfcal_plan['solints'][iteration]+' too low for all EBs **************')
          if iteration > 1 and selfcal_plan['solmode'][iteration] !='ap' and do_amp_selfcal:  # if a solution interval shorter than inf for phase-only SC has passed, attempt amplitude selfcal
             iteration=selfcal_plan['solmode'].index('ap') 
             print('****************Attempting amplitude selfcal*************')
@@ -112,8 +128,12 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
              selfcal_library[fid]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
          break
       else:
+         selfcal_library['vislist-to-gaincal'] = vislist
+         for fid in selfcal_library['sub-fields']:
+             selfcal_library[fid]['vislist-to-gaincal'] = [vis for vis in selfcal_library['vislist-to-gaincal'] if vis in 
+                     selfcal_library[fid]['vislist']]
+
          solint=selfcal_plan['solints'][iteration]
-         solint_interval=selfcal_plan['solint_interval'][iteration]
          if iteration == 0:
             print('Starting with solint: '+solint)
          else:
@@ -243,7 +263,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                        list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                     continue
 
-               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, solint_interval, selfcal_plan['applycal_mode'][iteration], \
+               gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, selfcal_plan['applycal_mode'][iteration], \
                        iteration, gaincal_minsnr, \
                        gaincal_unflag_minsnr=gaincal_unflag_minsnr, minsnr_to_proceed=minsnr_to_proceed, rerank_refants=rerank_refants, \
                        unflag_only_lbants=unflag_only_lbants, unflag_only_lbants_onlyap=unflag_only_lbants_onlyap, calonly_max_flagged=calonly_max_flagged, 
@@ -358,7 +378,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                      (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] > 1.05) and \
                      selfcal_plan[fid]['solint_snr_per_field'][solint] > 5)
 
-         if 'inf_EB' in solint or 'delay' in solint:
+         if 'inf_EB' in solint or 'd' in solint:
              # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
              # fields because there's a good chance that those are just noise being pushed around.
              field_by_field_success = numpy.logical_and(numpy.logical_and(loose_field_by_field_success, beam_field_by_field_success), \
@@ -436,20 +456,20 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
          #run a pre-check as to whether a marginal inf_EB result will go on to attempt inf, if not we will fail a marginal inf_EB
 
          marginal_inf_EB_will_attempt_next_solint=False
-         if (solint =='inf_EB' or 'delay' in solint) and ((((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00)) or (((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00))) and (delta_beamarea < delta_beam_thresh):
+         if (solint =='inf_EB' or 'd' in solint) and ((((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00)) or (((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00))) and (delta_beamarea < delta_beam_thresh):
             if selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
                marginal_inf_EB_will_attempt_next_solint = False
             else:
                marginal_inf_EB_will_attempt_next_solint =  True
 
          RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
-                 ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and selfcal_plan['solint_snr'][solint] > 5)
+                 ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and np.any([selfcal_plan[vis]['solint_snr'][solint] > 5 for vis in selfcal_library['vislist-to-gaincal']]))
 
-         if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((('inf_EB' in solint) or 'delay' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
+         if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((('inf_EB' in solint) or 'd' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
 
             if do_fallback_combinespw:
                 for vis in vislist:
-                    if 'delay' in solint:
+                    if 'd' in solint:
                         selfcal_plan[vis]['solint_settings'][solint]['final_mode']='per_bb'                    
                     else:
                         selfcal_plan[vis]['solint_settings'][solint]['final_mode']='combinespw'
@@ -474,9 +494,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
             selfcal_library['SC_success']=True
             selfcal_library['Stop_Reason']='None'
             #keep track of whether inf_EB had a S/N decrease
-            if (solint =='inf_EB' or 'delay' in solint) and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
+            if (solint =='inf_EB' or 'd' in solint) and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
                selfcal_library['inf_EB_SNR_decrease']=True
-            elif (solint =='inf_EB' or 'delay' in solint) and (((post_SNR-SNR)/SNR >= 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF >= 0.0)):
+            elif (solint =='inf_EB' or 'd' in solint) and (((post_SNR-SNR)/SNR >= 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF >= 0.0)):
                selfcal_library['inf_EB_SNR_decrease']=False
             for vis in vislist:
                selfcal_library[vis]['gaintable_final']=selfcal_library[vis][solint]['gaintable']
@@ -486,8 +506,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                selfcal_library[vis]['gaincal_combine_final']=selfcal_library[vis][solint]['gaincal_combine']
                selfcal_library[vis][solint]['Pass']=True
                selfcal_library[vis][solint]['Fail_Reason']='None'
-            if selfcal_plan['solmode'][iteration]=='p':            
-               selfcal_library['final_phase_solint']=solint
+               if selfcal_plan['solmode'][iteration]=='p':            
+                   selfcal_library[vis]['final_phase_solint']=solint
+                   selfcal_library[vis]['final_solint']=solint
 
             selfcal_library['final_solint']=solint
             selfcal_library['final_solint_mode']=selfcal_plan['solmode'][iteration]
@@ -502,7 +523,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                     elif (solint =='inf_EB') and strict_field_by_field_success[ind]:
                        selfcal_library[fid]['inf_EB_SNR_decrease']=False
 
-                    for vis in selfcal_library[fid]['vislist']:
+                    for vis in selfcal_library[fid]['vislist-to-gaincal']:
                        selfcal_library[fid][vis]['gaintable_final']=selfcal_library[fid][vis][solint]['gaintable']
                        selfcal_library[fid][vis]['spwmap_final']=selfcal_library[fid][vis][solint]['spwmap'].copy()
                        selfcal_library[fid][vis]['applycal_mode_final']=selfcal_library[fid][vis][solint]['applycal_mode']
@@ -510,8 +531,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                        selfcal_library[fid][vis]['gaincal_combine_final']=selfcal_library[fid][vis][solint]['gaincal_combine']
                        selfcal_library[fid][vis][solint]['Pass']=True
                        selfcal_library[fid][vis][solint]['Fail_Reason']='None'
-                    if selfcal_plan['solmode'][iteration]=='p':            
-                       selfcal_library[fid]['final_phase_solint']=solint
+                       if selfcal_plan['solmode'][iteration]=='p':            
+                           selfcal_library[fid][vis]['final_phase_solint']=solint
+                           selfcal_library[fid][vis]['final_solint']=solint
                     selfcal_library[fid]['final_solint']=solint
                     selfcal_library[fid]['final_solint_mode']=selfcal_plan['solmode'][iteration]
                     selfcal_library[fid]['iteration']=iteration
@@ -579,7 +601,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                selfcal_library[vis][solint]['Pass']=False
 
             for fid in selfcal_library['sub-fields-to-selfcal']:
-                for vis in selfcal_library[fid]['vislist']:
+                for vis in selfcal_library[fid]['vislist-to-gaincal']:
                     selfcal_library[fid][vis][solint]['Pass']=False
 
             repeat_solint = False
@@ -592,7 +614,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
          ## if S/N worsens, and/or beam area increases reject current solutions and reapply previous (or revert to origional data)
          ##
 
-         if not selfcal_library[vislist[0]][solint]['Pass'] or (solint == 'inf_EB' and selfcal_library['inf_EB_SNR_decrease']):
+         if not selfcal_library[selfcal_library['vislist-to-gaincal'][0]][solint]['Pass'] or (solint == 'inf_EB' and selfcal_library['inf_EB_SNR_decrease']):
             reason=''
             if (post_SNR <= SNR):
                reason=reason+' S/N decrease'
@@ -604,11 +626,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
-            if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+            if (post_RMS/RMS > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library['vislist-to-gaincal']])):
                if reason != '':
                   reason=reason+'; '
                reason=reason+'RMS increase beyond 5%'
-            if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+            if (post_RMS_NF/RMS_NF > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library['vislist-to-gaincal']])):
                if reason != '':
                   reason=reason+'; '
                reason=reason+'NF RMS increase beyond 5%'
@@ -623,7 +645,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
          mosaic_reason = {}
          for fid in selfcal_library['sub-fields-to-selfcal']:
-             if not selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] or \
+             if not selfcal_library[fid][selfcal_library[fid]['vislist-to-gaincal'][0]][solint]['Pass'] or \
                      (solint == "inf_EB" and selfcal_library[fid]['inf_EB_SNR_decrease']):
                  mosaic_reason[fid]=''
                  if (post_mosaic_SNR[fid] <= mosaic_SNR[fid]):
@@ -636,24 +658,24 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                     if mosaic_reason[fid] !='':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'Beam change beyond '+str(delta_beam_thresh)
-                 if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                 if (post_RMS/RMS > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library[fid]['vislist-to-gaincal']])):
                     if mosaic_reason[fid] != '':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'RMS increase beyond 5%'
-                 if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                 if (post_RMS_NF/RMS_NF > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library[fid]['vislist-to-gaincal']])):
                     if mosaic_reason[fid] != '':
                        mosaic_reason[fid]=mosaic_reason[fid]+'; '
                     mosaic_reason[fid]=mosaic_reason[fid]+'NF RMS increase beyond 5%'
                  if mosaic_reason[fid] == '':
                      mosaic_reason[fid] = "Global selfcal failed"
                  selfcal_library[fid]['Stop_Reason']=mosaic_reason[fid]
-                 for vis in selfcal_library[fid]['vislist']:
+                 for vis in selfcal_library[fid]['vislist-to-gaincal']:
                     #selfcal_library[fid][vis][solint]['Pass']=False
                     selfcal_library[fid][vis][solint]['Fail_Reason']=mosaic_reason[fid]
 
          # If any of the fields failed self-calibration, we need to re-apply calibrations for all fields because we need to revert flagging back
          # to the starting point.
-         if np.any([selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] == False for fid in \
+         if np.any([selfcal_library[fid][selfcal_library[fid]['vislist-to-gaincal'][0]][solint]['Pass'] == False for fid in \
                  selfcal_library['sub-fields-to-selfcal']]) or len(selfcal_library['sub-fields-to-selfcal']) < \
                  len(selfcal_library['sub-fields']):
              print('****************Selfcal failed for some sub-fields:*************')
@@ -706,25 +728,31 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
          # If any of the sub-fields passed, and the whole mosaic passed, then we can move on to the next solint, otherwise we have to back out.
          if selfcal_library[vislist[0]][solint]['Pass'] == True and \
-                 np.any([selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] == True for fid in \
+                 np.any([selfcal_library[fid][selfcal_library[fid]['vislist-to-gaincal'][0]][solint]['Pass'] == True for fid in \
                  selfcal_library['sub-fields-to-selfcal']]):
              if mode == "selfcal" and (iteration < len(selfcal_plan['solints'])-1) and (selfcal_library[vis][solint]['SNR_post'] > \
                      selfcal_library['SNR_orig']): #(iteration == 0) and 
                 print('Updating solint = '+selfcal_plan['solints'][iteration+1]+' SNR')
-                print('Was: ',selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]])
-                get_SNR_self_update(selfcal_library,selfcal_plan,n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan['integration_time'],
-                        selfcal_plan['solint_snr'])
-                print('Now: ',selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]])
+                for vis in vislist:
+                    if selfcal_plan['solints'][iteration+1] not in selfcal_plan[vis]['solint_snr']:
+                        continue
+                    print(vis+' was: ',selfcal_plan[vis]['solint_snr'][selfcal_plan['solints'][iteration+1]])
+                    get_SNR_self_update(vis, selfcal_library,selfcal_plan,n_ants,solint,selfcal_plan['solints'][iteration+1],selfcal_plan[vis]['integration_time'],
+                            selfcal_plan[vis]['solint_snr'])
+                    print(vis+' now: ',selfcal_plan[vis]['solint_snr'][selfcal_plan['solints'][iteration+1]])
 
                 for fid in selfcal_library['sub-fields-to-selfcal']:
-                    print('Field '+str(fid)+' Was: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
-                    get_SNR_self_update(selfcal_library[fid],selfcal_plan,n_ants,solint,selfcal_plan['solints'][iteration+1],
-                            selfcal_plan['integration_time'],selfcal_plan[fid]['solint_snr_per_field'])
-                    print('Field '+str(fid)+' Now: ',selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
+                    for vis in vislist:
+                        if selfcal_plan['solints'][iteration+1] not in selfcal_plan[fid][vis]['solint_snr_per_field']:
+                            continue
+                        print('Field '+str(fid)+' '+vis+' was: ',selfcal_plan[fid][vis]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
+                        get_SNR_self_update(vis, selfcal_library[fid],selfcal_plan,n_ants,solint,selfcal_plan['solints'][iteration+1],
+                                selfcal_plan[vis]['integration_time'],selfcal_plan[fid][vis]['solint_snr_per_field'])
+                        print('Field '+str(fid)+' '+vis+' now: ',selfcal_plan[fid][vis]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]])
 
              # If not all fields succeed for inf_EB or scan_inf/inf, depending on mosaic or single field, then don't go on to amplitude selfcal,
              # even if *some* fields succeeded.
-             if iteration <= 1 and ((not np.all([selfcal_library[fid][selfcal_library[fid]['vislist'][0]][solint]['Pass'] == True for fid in \
+             if iteration <= 1 and ((not np.all([selfcal_library[fid][selfcal_library[fid]['vislist-to-gaincal'][0]][solint]['Pass'] == True for fid in \
                     selfcal_library['sub-fields-to-selfcal']])) or len(selfcal_library['sub-fields-to-selfcal']) < \
                     len(selfcal_library['sub-fields'])) and do_amp_selfcal:
                  print("***** NOTE: Amplitude self-calibration turned off because not all fields succeeded at non-inf_EB phase self-calibration")

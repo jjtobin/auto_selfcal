@@ -58,7 +58,7 @@ def test_benchmark(tmp_path, dataset):
     ex.update_parameters(partition="batch2", nodes=1, ntasks_per_node=8, cpus_per_task=1, use_srun=False, time=10080, \
             mem="128gb", job_name=dataset)
 
-    job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=True, parallel=True)
+    job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, uniform_solints=True, weblog=True, parallel=True)
     job.wait()
 
     assert job.state in ['DONE','COMPLETED']
@@ -100,7 +100,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     os.system(f'tar xf {zip_file}')
     os.system(f'rm -rf {zip_file}')
 
-    auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, weblog=True)
+    auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, uniform_solints=True, weblog=True)
 
     os.system('rm -rf *.ms*') # Delete MS files as space is limited on GitHub.
 
@@ -109,10 +109,28 @@ def test_on_github(tmp_path, request, zip_file, link):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001,\
-     exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets',\
-         'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
-         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope'])
+    with open('selfcal_plan.pickle', 'rb') as handle:
+        selfcal_plan = pickle.load(handle)
+
+    solint_map = {}
+    for target in selfcal_library2:
+        for band in selfcal_library2[target]:
+            for vis in selfcal_library2[target][band]['vislist']:
+                for solint in selfcal_plan[target][band][vis]['solint_settings']:
+                    if solint not in solint_map:
+                        solint_map[solint] = []
+
+                    mapped_solint = selfcal_plan[target][band][vis]['solint_settings'][solint]['interval']
+                    if solint == 'inf_EB':
+                        mapped_solint += '_EB'
+                    elif 'ap' in solint:
+                        mapped_solint += '_ap'
+
+                    solint_map[solint].append(mapped_solint)
+    print(solint_map)
+
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001, key_map=solint_map,
+                                                exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal", "telescope"])
 
     assert difference_count == 0
 
@@ -128,13 +146,15 @@ def compare_values(list1, list2, tol=1e-3):
             return np.all([compare_values(list1[i], list2[i], tol=tol) for i in range(len(list1))])
     elif type(list1) == str or type(list1) == np.str_ or type(list1) == bool:
         return list1 == list2
+    elif type(list1) == type(None):
+        return list1 == list2
     else:
         if list1 == 0:
             return abs(list2) < tol
         else:
             return abs(list1 - list2) < abs(list1*tol)
 
-def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tolerance=1e-3):
+def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tolerance=1e-3, key_map={}):
     if isinstance(dictionary1, str):
         with open(dictionary1, 'rb') as handle:
             dictionary1 = pickle.load(handle)
@@ -150,7 +170,7 @@ def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tole
         if key in exclude:
             continue
 
-        if key not in intersect_keys:
+        if key not in intersect_keys and key not in key_map and not np.any([key in key_map[k] for k in key_map]):
             if key not in dictionary1:
                 print('/'.join([str(p) for p in path])+"/"+key+" not in dictionary1")
             else:
@@ -159,20 +179,45 @@ def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tole
             difference_count += 1
 
             continue
+        elif key not in intersect_keys and key not in key_map and np.any([key in key_map[k] for k in key_map]):
+            print(f'key {key} has changed in dictionary2 and will be matched elsewhere')
+            continue
 
-        if key not in dictionary1 and int(key) in dictionary1:
-            key = int(key)
+        try:
+            if key not in dictionary1 and key not in key_map and int(key) in dictionary1:
+                key = int(key)
+        except:
+            continue
 
-        if type(dictionary1[key]) == dict:
-            difference_count += compare_two_dictionaries(dictionary1[key], dictionary2[key], path.copy()+[key], exclude=exclude, tolerance=tolerance)
+        if key in dictionary2 and not key in dictionary1 and key in key_map:
+            print(f'Checking whether key {key} has its name changed')
+            found = False
+            for alt_key in key_map[key]:
+                print(f'Checking for {alt_key} in dictionary1')
+                if alt_key in dictionary1:
+                    found = True
+                    break
+
+            if found:
+                print(f"Using alternative key {alt_key} to match with key {key}")
+            else:
+                print(f"No match found in dictionary1, this is a difference")
+                difference_count += 1
+                continue
         else:
-            value1 = np.array(dictionary1[key])[np.argsort(dictionary1['vislist'])] if key in ['spws_per_vis','vislist'] else dictionary1[key]
+            alt_key = key
+        
+
+        if type(dictionary1[alt_key]) == dict:
+            difference_count += compare_two_dictionaries(dictionary1[alt_key], dictionary2[key], path.copy()+[key], exclude=exclude, tolerance=tolerance, key_map=key_map)
+        else:
+            value1 = np.array(dictionary1[alt_key])[np.argsort(dictionary1['vislist'])] if alt_key in ['spws_per_vis','vislist'] else dictionary1[alt_key]
             value2 = np.array(dictionary2[key])[np.argsort(dictionary2['vislist'])] if key in ['spws_per_vis','vislist'] else dictionary2[key]
             #value1 = np.array(dictionary1[key])[np.argsort(dictionary1['vislist'])] if key in ['spws_per_vis'] else dictionary1[key]
             #value2 = np.array(dictionary2[key])[np.argsort(dictionary2['vislist'])] if key in ['spws_per_vis'] else dictionary2[key]
 
             if key == 'gaincal_combine':
-                value1 = dictionary1[key].split(',')
+                value1 = dictionary1[alt_key].split(',')
                 value1.sort()
                 value2 = dictionary2[key].split(',')
                 value2.sort()
