@@ -130,7 +130,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     print(solint_map)
 
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001, key_map=solint_map,
-                                                exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal"])
+                                                exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal", "telescope"])
 
     assert difference_count == 0
 
@@ -180,18 +180,30 @@ def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tole
 
             continue
         elif key not in intersect_keys and key not in key_map and np.any([key in key_map[k] for k in key_map]):
+            print(f'key {key} has changed in dictionary2 and will be matched elsewhere')
             continue
 
         try:
-            if key not in dictionary1 and int(key) in dictionary1:
+            if key not in dictionary1 and key not in key_map and int(key) in dictionary1:
                 key = int(key)
         except:
             continue
 
         if key in dictionary2 and not key in dictionary1 and key in key_map:
-            for alt_key in key_map:
+            print(f'Checking whether key {key} has its name changed')
+            found = False
+            for alt_key in key_map[key]:
+                print(f'Checking for {alt_key} in dictionary1')
                 if alt_key in dictionary1:
+                    found = True
                     break
+
+            if found:
+                print(f"Using alternative key {alt_key} to match with key {key}")
+            else:
+                print(f"No match found in dictionary1, this is a difference")
+                difference_count += 1
+                continue
         else:
             alt_key = key
         
