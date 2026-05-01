@@ -751,7 +751,7 @@ def auto_selfcal(
         inf_fields = {}
         fallback_fields = {}
         calibrators = {}
-        for band in bands:
+        for band in vis_for_targets[target]['Bands']:
             # Initialize the lists for this band.
             inf_EB_fields[band] = []
             inf_fields[band] = []
@@ -773,7 +773,8 @@ def auto_selfcal(
                     selfcal_plan[target][band]['solints'] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
                     selfcal_plan[target][band]['solmode'] += ["p","p","p","p"]
                     selfcal_plan[target][band]['gaincal_combine'] += [selfcal_plan[target][band]['gaincal_combine'][0], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1]]
-                    applycal_mode[band][target] += [applycal_mode[band][target][0], applycal_mode[band][target][1], applycal_mode[band][target][1], applycal_mode[band][target][1]]
+                    selfcal_plan[target][band]['applycal_mode'] += [selfcal_plan[target][band]['applycal_mode'][0], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1]]
+                    #applycal_mode[band][target] += [applycal_mode[band][target][0], applycal_mode[band][target][1], applycal_mode[band][target][1], applycal_mode[band][target][1]]
                     calibrators[band] = [inf_EB_fields[band], inf_fields[band], inf_fields[band], inf_fields[band]]
                     selfcal_library[target][band]["nsigma"] = np.concatenate((selfcal_library[target][band]["nsigma"],[selfcal_library[target][band]["nsigma"][0], \
                             selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1], selfcal_library[target][band]["nsigma"][1]]))
@@ -787,7 +788,7 @@ def auto_selfcal(
         ##
         
         for target in selfcal_library:
-         for band in solint_snr[target].keys():
+         for band in selfcal_library[target].keys():
            # If the target had a successful inf_EB solution, no need to reset.
            if target in inf_EB_fields[band]:
                continue
@@ -812,7 +813,7 @@ def auto_selfcal(
          for band in selfcal_library[target].keys():
            if target not in fallback_fields[band]:
                continue
-           if 'gaintable_final' in selfcal_library[target][band][vislist[0]]:
+           if 'gaintable_final' in selfcal_library[target][band]['vislist'][0]:
               print('****************Reapplying previous solint solutions*************')
               for vis in selfcal_library[target][band]['vislist']:
                  print('****************Applying '+str(selfcal_library[target][band][vis]['gaintable_final'])+' to '+target+' '+band+'*************')
