@@ -4655,7 +4655,7 @@ def triage_calibrators(vis, target, band, potential_calibrators, max_distance=10
 
     # original visibilities, with all sources have a different filename now
 
-    orig_targets_vis=vis.replace(".selfcal.ms",".ms").replace(sani_target+'_'+band+'_')
+    orig_targets_vis=vis.replace(".selfcal.ms",".ms").replace(sani_target+'_'+band+'_','')
     vis=orig_targets_vis
 
     if orig_vis !='':
