@@ -48,7 +48,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
    if mode == "cocal":
        # Check whether there are suitable calibrators, otherwise skip this target/band.
-       include_targets, include_scans = triage_calibrators(vislist[0], target, calibrators[band][0])
+       include_targets, include_scans = triage_calibrators(vislist[0], target, band, calibrators[band][0])
        if include_targets == "":
            print("No suitable calibrators found, skipping "+target)
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
