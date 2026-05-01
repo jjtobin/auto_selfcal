@@ -4650,8 +4650,8 @@ def triage_calibrators(vis, target, band, potential_calibrators, max_distance=10
     orig_vis=''
     if os.path.exists(vis.replace("_target.selfcal.ms",".ms").replace(sani_target+'_'+band+'_','')):
         orig_vis=os.path.exists(vis.replace("_target.selfcal.ms",".ms").replace(sani_target+'_'+band+'_'))
-    elif os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_')):
-        orig_vis=os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_'))
+    elif os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_','')):
+        orig_vis=os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_',''))
 
     # original visibilities, with all sources have a different filename now
 

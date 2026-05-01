@@ -69,7 +69,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    do_fallback_calonly=False
    print('Starting selfcal procedure on: '+target+' '+band)
    while iteration  < len(selfcal_plan['solints']):
-
+      print(selfcal_plan['solints'])
+      print(selfcal_plan['solint_interval'][iteration])
       print("Solving for solint="+selfcal_plan['solints'][iteration]+' with interval '+selfcal_plan['solint_interval'][iteration])
       
       # Set some cocal parameters.
