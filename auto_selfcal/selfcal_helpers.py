@@ -4648,7 +4648,7 @@ def triage_calibrators(vis, target, band, potential_calibrators, max_distance=10
     # account for possible different naming conventions in original visibilities
     sani_target=sanitize_string(target)
     orig_vis=''
-    if os.path.exists(vis.replace("_target.selfcal.ms",".ms").replace(sani_target+'_'+band+'_')):
+    if os.path.exists(vis.replace("_target.selfcal.ms",".ms").replace(sani_target+'_'+band+'_','')):
         orig_vis=os.path.exists(vis.replace("_target.selfcal.ms",".ms").replace(sani_target+'_'+band+'_'))
     elif os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_')):
         orig_vis=os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_'))
