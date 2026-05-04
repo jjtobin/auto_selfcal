@@ -13,5 +13,5 @@ except:
 
 vislist = [] # Edit manually, or leave and let auto_selfcal automatically detect.
 
-auto_selfcal(vislist, allow_cocal=True,do_amp_selfcal=False,parallel=parallel)
+auto_selfcal(vislist, allow_cocal=True, delta_beam_thresh=0.2,do_amp_selfcal=False,parallel=parallel)
 

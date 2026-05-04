@@ -608,14 +608,26 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
-            if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
-               if reason != '':
-                  reason=reason+'; '
-               reason=reason+'RMS increase beyond 5%'
-            if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
-               if reason != '':
-                  reason=reason+'; '
-               reason=reason+'NF RMS increase beyond 5%'
+
+            if mode != 'cocal':
+                if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'RMS increase beyond 5%'
+                if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'NF RMS increase beyond 5%'
+            else:
+                if (post_RMS/RMS > 1.05):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'RMS increase beyond 5%'
+                if (post_RMS_NF/RMS_NF > 1.05):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'NF RMS increase beyond 5%'
+        
             if not np.any(field_by_field_success):
                 if reason != '':
                     reason=reason+'; '
