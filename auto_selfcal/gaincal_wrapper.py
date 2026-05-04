@@ -5,7 +5,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
         gaincal_minsnr, gaincal_unflag_minsnr=5.0, minsnr_to_proceed=3.0, rerank_refants=False, unflag_only_lbants=False, unflag_only_lbants_onlyap=False, 
         calonly_max_flagged=0.0, second_iter_solmode="", unflag_fb_to_prev_solint=False, \
         refantmode="flex", mode="selfcal", calibrators="", gaincalibrator_dict={}, allow_gain_interpolation=False,spectral_solution_fraction=0.3,
-        guess_scan_combine=False, do_fallback_calonly=False):
+        guess_scan_combine=False, do_fallback_calonly=False, preapply_targets_own_inf_EB=False):
     """
     This function runs gaincal for a given target, band, and solint, and updates the selfcal_library and selfcal_plan dictionaries with the results.
     It also handles the pre-application of inf_EB solutions if necessary.
