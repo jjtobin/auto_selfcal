@@ -48,7 +48,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
    if mode == "cocal":
        # Check whether there are suitable calibrators, otherwise skip this target/band.
-       include_targets, include_scans = triage_calibrators(vislist[0], target, calibrators[band][0])
+       include_targets, include_scans = triage_calibrators(vislist[0], target, band, calibrators[band][0])
        if include_targets == "":
            print("No suitable calibrators found, skipping "+target)
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
@@ -69,7 +69,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    do_fallback_calonly=False
    print('Starting selfcal procedure on: '+target+' '+band)
    while iteration  < len(selfcal_plan['solints']):
-
+      print(selfcal_plan['solints'])
+      print(selfcal_plan['solint_interval'][iteration])
       print("Solving for solint="+selfcal_plan['solints'][iteration]+' with interval '+selfcal_plan['solint_interval'][iteration])
       
       # Set some cocal parameters.
@@ -441,9 +442,12 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                marginal_inf_EB_will_attempt_next_solint = False
             else:
                marginal_inf_EB_will_attempt_next_solint =  True
-
-         RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
-                 ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and selfcal_plan['solint_snr'][solint] > 5)
+         RMS_change_acceptable= False
+         if mode != 'cocal':
+            RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
+                      ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and selfcal_plan['solint_snr'][solint] > 5)
+         else:
+            RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05)
 
          if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((('inf_EB' in solint) or 'delay' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
 
@@ -604,14 +608,26 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
-            if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
-               if reason != '':
-                  reason=reason+'; '
-               reason=reason+'RMS increase beyond 5%'
-            if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
-               if reason != '':
-                  reason=reason+'; '
-               reason=reason+'NF RMS increase beyond 5%'
+
+            if mode != 'cocal':
+                if (post_RMS/RMS > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'RMS increase beyond 5%'
+                if (post_RMS_NF/RMS_NF > 1.05 and selfcal_plan['solint_snr'][solint] <= 5):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'NF RMS increase beyond 5%'
+            else:
+                if (post_RMS/RMS > 1.05):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'RMS increase beyond 5%'
+                if (post_RMS_NF/RMS_NF > 1.05):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'NF RMS increase beyond 5%'
+        
             if not np.any(field_by_field_success):
                 if reason != '':
                     reason=reason+'; '

@@ -516,7 +516,7 @@ def tclean_wrapper(selfcal_library, imagename, band, scales=[0], smallscalebias 
                  uvrange=selfcal_library['uvrange'],
                  reffreq = reffreq,
                  threshold=threshold,
-                 parallel=parallel,
+                 parallel=False,
                  phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
     
     elif savemodel=='modelcolumn' and selfcal_library['usermodel'] !='':
@@ -4643,11 +4643,23 @@ def unflag_failed_antennas(vis, caltable, gaincal_return, telescope, flagged_fra
 
 
 
-def triage_calibrators(vis, target, potential_calibrators, max_distance=10.0, max_time=600.):
+def triage_calibrators(vis, target, band, potential_calibrators, max_distance=10.0, max_time=600.):
     gaincalibrator_dict = {}
+    # account for possible different naming conventions in original visibilities
+    sani_target=sanitize_string(target)
+    orig_vis=''
+    if os.path.exists(vis.replace("_target.selfcal.ms",".ms").replace(sani_target+'_'+band+'_','')):
+        orig_vis=os.path.exists(vis.replace("_target.selfcal.ms",".ms").replace(sani_target+'_'+band+'_'))
+    elif os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_','')):
+        orig_vis=os.path.exists(vis.replace("_targets.selfcal.ms",".ms").replace(sani_target+'_'+band+'_',''))
 
-    if os.path.exists(vis.replace("_target.selfcal.ms",".ms")):
-        msmd.open(vis.replace("_target.selfcal.ms",".ms"))
+    # original visibilities, with all sources have a different filename now
+
+    orig_targets_vis=vis.replace(".selfcal.ms",".ms").replace(sani_target+'_'+band+'_','')
+    vis=orig_targets_vis
+
+    if orig_vis !='':
+        msmd.open(orig_vis)
 
         for field in msmd.fieldsforintent("*CALIBRATE_PHASE*"):
             scans_for_field = msmd.scansforfield(field)
