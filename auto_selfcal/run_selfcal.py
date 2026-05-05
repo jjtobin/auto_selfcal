@@ -49,11 +49,22 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    if mode == "cocal":
        # Check whether there are suitable calibrators, otherwise skip this target/band.
        include_targets, include_scans = triage_calibrators(vislist[0], target, band, calibrators[band][0])
+       print('Co-calibrators: ',include_targets)
+       print('Co-calibrator scans: ',include_scans)
        if include_targets == "":
            print("No suitable calibrators found, skipping "+target)
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
-
+       else:
+           for vis in vislist:
+               os.system('mv '+vis+' '+vis.replace('.ms','_orig.ms'))
+               os.system('mv '+vis+'.flagversions '+vis.replace('.ms','_orig.ms.flagversions'))
+               concatvislist=[]
+               for cal_target in include_targets.split(','):
+                   concatvislist.append(vis.replace(target,cal_target))
+               concatvislist.append(vis.replace('.ms','_orig.ms'))
+               print('Concat vislist: ',concatvislist)
+               concat(vis=concatvislist,concatvis=vis)
    if selfcal_library['usermodel'] != '':
       print('Setting model column to user model')
       usermodel_wrapper(selfcal_library,sani_target+'_'+band,
@@ -194,8 +205,10 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                flagmanager(vis=vis, mode = 'restore', versionname = versionname, comment = 'Flag states at start of reduction')
 
             if mode == "cocal":
-               flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags', comment = 'Flag states at start of the reduction')
-
+               if os.path.exists(vis+".flagversions/flags.selfcal_starting_flags"):
+                   flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags', comment = 'Flag states at start of the reduction')
+               else:
+                   flagmanager(vis=vis,mode='save',versionname='selfcal_starting_flags')
          if not do_fallback_combinespw:
             # We need to redo saving the model now that we have potentially unflagged some data.
             if not do_fallback_calonly:

@@ -336,8 +336,9 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                       print('prior to gaincal',gaintable_name, gc_mode)
                       if mode == "cocal" and selfcal_library['obstype'] != 'mosaic':  
                           print('in cocal if statement')
-                          for incl_target in include_targets:
-                              vis_to_gaincal = sanitize_string(incl_target)+vis.replace(sanitize_string(target),'')
+                          for incl_target in include_targets[0].split(','):
+                              #vis_to_gaincal = sanitize_string(incl_target)+vis.replace(sanitize_string(target),'')
+                              vis_to_gaincal = vis
                               print('Vis to gaincal: ',vis_to_gaincal)
                               if gc_mode != 'per_bb':      
                                  gcdict=call_gaincal(vis=vis_to_gaincal, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][gc_mode], spw=spwselect,
