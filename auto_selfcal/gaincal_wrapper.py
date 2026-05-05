@@ -311,6 +311,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             for incl_scans, incl_targets in zip(include_scans, include_targets):
                 for gc_mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
                    print(incl_targets)
+                   print(incl_scans)
                    print(vis,solint,gc_mode)
                    print(selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'])
                    gaincal_combine=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][gc_mode]
@@ -335,15 +336,15 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                       print('prior to gaincal',gaintable_name, gc_mode)
                       if mode == "cocal" and selfcal_library['obstype'] != 'mosaic':  
                           print('in cocal if statement')
-                          for incl_target in incl_targets:
-                              vis_to_gaincal = sanitize_target(incl_target)+vis.replace(sanitize_target(target),'')
+                          for incl_target in include_targets:
+                              vis_to_gaincal = sanitize_string(incl_target)+vis.replace(sanitize_string(target),'')
                               print('Vis to gaincal: ',vis_to_gaincal)
                               if gc_mode != 'per_bb':      
                                  gcdict=call_gaincal(vis=vis_to_gaincal, caltable=gaintable_name, gaintype=selfcal_plan[vis]['solint_settings'][solint]['gaincal_gaintype'][gc_mode], spw=spwselect,
                                         refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
                                         solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
                                         minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
-                                        field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
+                                        field=incl_target,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                                         interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
                                         append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'))
                                  selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][gc_mode].append(gcdict.copy())
@@ -354,7 +355,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
                                           refant=selfcal_library[vis]['refant'], calmode=selfcal_plan['solmode'][iteration], solnorm=solnorm if not do_fallback_calonly else False,
                                           solint=solint_interval.replace('_EB','').replace('_ap','').replace('scan_','').replace('_fb1','').replace('_fb2','').replace('_fb3',''),\
                                           minsnr=gaincal_minsnr if not do_fallback_calonly else max(gaincal_minsnr,gaincal_unflag_minsnr), minblperant=4,combine=gaincal_combine,\
-                                          field=incl_targets,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
+                                          field=incl_target,scan=incl_scans,gaintable=gaincal_preapply_gaintable,spwmap=gaincal_spwmap,uvrange=selfcal_library['uvrange'],\
                                           interp=gaincal_interpolate, solmode=gaincal_solmode, refantmode='flex',\
                                           append=os.path.exists(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'))
                                      selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][gc_mode].append(gcdict.copy())
