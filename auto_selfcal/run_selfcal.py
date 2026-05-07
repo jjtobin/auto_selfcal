@@ -61,7 +61,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                os.system('mv '+vis+'.flagversions '+vis.replace('.ms','_orig.ms.flagversions'))
                concatvislist=[]
                for cal_target in include_targets.split(','):
-                   concatvislist.append(vis.replace(target,cal_target))
+                   concatvislist.append(vis.replace(sanitize_string(target),sanitize_string(cal_target)))
                concatvislist.append(vis.replace('.ms','_orig.ms'))
                print('Concat vislist: ',concatvislist)
                concat(vis=concatvislist,concatvis=vis)
