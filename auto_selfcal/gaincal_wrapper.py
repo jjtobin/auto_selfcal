@@ -231,49 +231,57 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             ## If we want to pre-apply inf_EB solution from each calibrator to itself, all we do is combine all of thier
             ## individual inf tables, as these were pre-calculated in that way.
             ##
-            destination_table = sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'.g'
-            for t in include_targets.split(","):
-                if os.path.exists(sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+selfcal_plan['solmode'][iteration]+\
-                        '.pre-pass.g'):
-                    table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+selfcal_plan['solmode'][iteration]+\
-                            '.pre-pass.g'
-                else:
-                    table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+selfcal_plan['solmode'][iteration]+'.g'
-                #t_final_solint = selfcal_library[t][band]["final_phase_solint"]
-                #t_iteration = selfcal_library[t][band][vislist[0]][t_final_solint]["iteration"]
-                #table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+t_final_solint+'_'+str(t_iteration)+'_'+solmode[band][iteration]+'.g'
+            for gc_mode in selfcal_plan[vis]['solint_settings'][solint]['modes_to_attempt']:
+                filename_append=selfcal_plan[vis]['solint_settings'][solint]['filename_append'][gc_mode]
 
-                rerefant(vis, table_name, caltable="tmp0.g", refantmode="strict", refant=selfcal_library[vis]['refant'])
+                destination_table = sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+selfcal_plan['solmode'][iteration]+'_'+filename_append+'.g'
+                for t in include_targets.split(","):
+                    sani_t = sanitize_string(t)
+                    if os.path.exists(sani_t+'_'+vis.replace(sani_target, sani_t)+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+selfcal_plan['solmode'][iteration]+\
+                            '_'+filename_append+'.pre-pass.g'):
+                        table_name = sani_t+'_'+vis.replace(sani_target, sani_t)+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+selfcal_plan['solmode'][iteration]+\
+                                '_'+filename_append+'.pre-pass.g'
+                    else:
+                        table_name = sani_t+'_'+vis.replace(sani_target, sani_t)+'_'+band+'_'+solint.replace('_fb1','').replace('_fb2','').replace('_fb3','')+'_'+str(1)+'_'+selfcal_plan['solmode'][iteration]+\
+                                '_'+filename_append+'.g'
+                    #t_final_solint = selfcal_library[t][band]["final_phase_solint"]
+                    #t_iteration = selfcal_library[t][band][vislist[0]][t_final_solint]["iteration"]
+                    #table_name = sanitize_string(t)+'_'+vis+'_'+band+'_'+t_final_solint+'_'+str(t_iteration)+'_'+solmode[band][iteration]+'.g'
 
-                tb.open("tmp0.g")
-                if not os.path.exists("tmp1.g"):
-                    tb.copy("tmp1.g", deep=True)
-                else:
-                    tb.copyrows("tmp1.g")
+                    if not os.path.exists(table_name):
+                        continue
+
+                    rerefant(vis, table_name, caltable="tmp0.g", refantmode="strict", refant=selfcal_library[vis]['refant'])
+
+                    tb.open("tmp0.g")
+                    if not os.path.exists("tmp1.g"):
+                        tb.copy("tmp1.g", deep=True)
+                    else:
+                        tb.copyrows("tmp1.g")
+                    tb.close()
+
+                    os.system("rm -rf tmp0.g")
+
+                tb.open("tmp1.g")
+                subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
+                copyt = subt.copy(destination_table, deep=True)
                 tb.close()
+                subt.close()
+                copyt.close()
 
-                os.system("rm -rf tmp0.g")
+                os.system("rm -rf tmp1.g")
 
-            tb.open("tmp1.g")
-            subt = tb.query("OBSERVATION_ID==0", sortlist="TIME,ANTENNA1")
-            copyt = subt.copy(destination_table, deep=True)
-            tb.close()
-            subt.close()
-            copyt.close()
+                # Remove all of the scans that failed the triage above.
+                tb.open(destination_table, nomodify=False)
+                scans = tb.getcol("SCAN_NUMBER")
 
-            os.system("rm -rf tmp1.g")
+                bad_scans = np.repeat(True, scans.size)
+                for scan in include_scans[0].split(","):
+                    bad_scans[scans == int(scan)] = False
 
-            # Remove all of the scans that failed the triage above.
-            tb.open(destination_table, nomodify=False)
-            scans = tb.getcol("SCAN_NUMBER")
-
-            bad_scans = np.repeat(True, scans.size)
-            for scan in include_scans[0].split(","):
-                bad_scans[scans == int(scan)] = False
-
-            tb.removerows(rownrs=np.where(bad_scans)[0])
-            tb.flush()
-            tb.close()
+                tb.removerows(rownrs=np.where(bad_scans)[0])
+                tb.flush()
+                tb.close()
         else:
             # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
             gaincal_solmode=""
