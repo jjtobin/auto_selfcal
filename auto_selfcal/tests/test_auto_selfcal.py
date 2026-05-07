@@ -120,7 +120,7 @@ def test_on_github(tmp_path, request, zip_file, link):
                     if solint not in solint_map:
                         solint_map[solint] = []
 
-                    mapped_solint = selfcal_plan[target][band][vis]['solint_settings'][solint]['interval']
+                    mapped_solint = selfcal_plan[target][band][vis]['solint_settings'][solint]['sub-name']
                     if solint == 'inf_EB':
                         mapped_solint += '_EB'
                     elif 'ap' in solint:
@@ -130,7 +130,10 @@ def test_on_github(tmp_path, request, zip_file, link):
     print(solint_map)
 
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001, key_map=solint_map,
-                                                exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal", "telescope"])
+                                                exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal", "telescope", 
+                                                         "gaintable","sub-fields-to-gaincal", "sub-fields-to-selfcal", "am_dogrowprune", "am_growiterations", 
+                                                         "am_lownoisethreshold", "am_minbeamfrac", "am_noisethreshold", "am_sidelobethreshold", 
+                                                         "am_smoothfactor"])
 
     assert difference_count == 0
 

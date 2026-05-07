@@ -1906,7 +1906,7 @@ def get_SNR_self_individual(vislist,selfcal_library,n_ant,solints,solint_setting
                solint_snr_per_bb[solint][baseband]=mean_SNR_bb
             solint_snr[solint]=np.mean(SNR_self_EB)
             selfcal_library['per_EB_SNR']=np.mean(SNR_self_EB)
-         elif solint_settings[solint]['interval'] =='scan_inf':
+         elif solint_settings[solint]['sub-name'] =='scan_inf':
                selfcal_library['per_scan_SNR']=SNR/((n_ant-3)**0.5*(selfcal_library['Total_TOS']/selfcal_library[vislist[0]]['Median_scan_time'])**0.5)
                solint_snr[solint]=selfcal_library['per_scan_SNR']
                for spw in selfcal_library['spw_map']:
@@ -3799,7 +3799,7 @@ def select_best_gaincal_mode(selfcal_library,selfcal_plan,vis,gaintable_prefix,s
        for i in range(len(spwlist)):
           # use >= to not always map if an spw has flagged solutions for a given antenna
           if np.min(selfcal_plan[vis]['solint_settings'][solint]['delta_nflags']['per_spw'][i]) >= max_flagged_ants_spwmap or \
-                selfcal_plan['solint_snr_per_spw'][coarsest_solint][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed or \
+                selfcal_plan[vis]['solint_snr_per_spw'][coarsest_solint][str(selfcal_library['reverse_spw_map'][vis][int(spwlist[i])])] < minsnr_to_proceed or \
                 selfcal_plan[vis]['solint_settings'][solint]['fracflagged']['per_spw'][i] == 1.0:
              fallback='spwmap'
              spwmap[i]=1.0

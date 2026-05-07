@@ -109,7 +109,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             include_targets = selfcal_library['bands_for_targets'][vis]['field_str']
             include_scans = ""
 
-        if solint == "scan_inf":
+        if selfcal_plan[vis]['solint_settings'][solint]['sub-name'] == "scan_inf":
             if len(gaincalibrator_dict[vis]) > 0:
                 print("Determining scan_inf from calibrator scans in full MS")
                 scans = []
@@ -285,10 +285,10 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                 for incl_scan in include_scans:
                     scan_targets = []
                     for fid in [selfcal_library['sub-fields-fid_map'][vis][fid] for fid in \
-                            np.intersect1d(selfcal_library['sub-fields-to-gaincal'],list(selfcal_library['sub-fields-fid_map'][vis].keys()))] if incl_scan == '' else \
+                            np.intersect1d(selfcal_library[vis]['sub-fields-to-gaincal'],list(selfcal_library['sub-fields-fid_map'][vis].keys()))] if incl_scan == '' else \
                             np.intersect1d(msmd.fieldsforscans(np.array(incl_scan.split(",")).astype(int)), \
                             [selfcal_library['sub-fields-fid_map'][vis][fid] for fid in \
-                            numpy.intersect1d(selfcal_library['sub-fields-to-gaincal'],list(selfcal_library['sub-fields-fid_map'][vis].keys()))]):
+                            numpy.intersect1d(selfcal_library[vis]['sub-fields-to-gaincal'],list(selfcal_library['sub-fields-fid_map'][vis].keys()))]):
                         # Note: because of the msmd above getting actual fids from the MS, we just need to append fid below.
                         scan_targets.append(fid)
 
@@ -412,7 +412,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             remove_modes(selfcal_plan,vis,current_solint_index)
 
 
-        for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+        for fid in np.intersect1d(selfcal_library[vis]['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             selfcal_library[fid][vis][solint]['final_mode']=preferred_mode+''
             selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap.copy()
             selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
@@ -430,7 +430,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
 
     else:  # this else is for ap selfcal
         os.system('rm -rf temp*.g')
-        for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+        for fid in np.intersect1d(selfcal_library[vis]['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             gaincal_spwmap=[]
             gaincal_preapply_gaintable=[]
             gaincal_interpolate=[] 
@@ -537,7 +537,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
             remove_modes(selfcal_plan,vis,current_solint_index)
 
 
-        for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+        for fid in np.intersect1d(selfcal_library[vis]['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
             selfcal_library[fid][vis][solint]['final_mode']=preferred_mode+''
             selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap.copy()
             selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
@@ -612,7 +612,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
                     refant=selfcal_library[vis]["refant"], refantmode=refantmode if 'inf_EB' not in solint else 'flex')
 
     selfcal_library[vis][solint]['fallback']=fallback+''
-    for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+    for fid in np.intersect1d(selfcal_library[vis]['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
         selfcal_library[fid][vis][solint]['fallback']=fallback+''
 
     # If iteration two, try restricting to just the antennas with enough unflagged data.
@@ -656,7 +656,7 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, ap
         if (solint != "inf_EB" and not allow_gain_interpolation) or (allow_gain_interpolation and "inf" not in solint):
             # If a given field has > 25% of its solutions flagged then just flag the whole field because it will have too much 
             # interpolation.
-            if solint == "scan_inf":
+            if selfcal_plan[vis]['solint_settings'][solint]['sub-name'] == "scan_inf":
                 max_n_solutions = max([(scans == scan).sum() for scan in np.unique(scans)])
                 for scan in np.unique(scans):
                     scan_n_solutions = (flags[0,0,scans == scan] == False).sum()
@@ -714,7 +714,7 @@ def generate_settings_for_combinespw_fallback(selfcal_library, selfcal_plan, tar
     selfcal_library[vis][solint]['applycal_interpolate']=applycal_interpolate
     selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
     selfcal_library[vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''
-    for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+    for fid in np.intersect1d(selfcal_library[vis]['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
         selfcal_library[fid][vis][solint]['final_mode']=preferred_mode+'_fallback'
         selfcal_library[fid][vis][solint]['spwmap']=applycal_spwmap
         selfcal_library[fid][vis][solint]['gaincal_combine']=selfcal_plan[vis]['solint_settings'][solint]['gaincal_combine'][preferred_mode]+''

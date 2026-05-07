@@ -152,6 +152,8 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
 
           selfcal_library[target][band]['sub-fields'] = list(range(len(all_phasecenters)))
           selfcal_library[target][band]['sub-fields-to-selfcal'] = list(range(len(all_phasecenters)))
+          for vis in vislist:
+              selfcal_library[target][band][vis]['sub-fields-to-selfcal'] = list(range(len(all_phasecenters)))
           selfcal_library[target][band]['sub-fields-phasecenters'] = dict(zip(selfcal_library[target][band]['sub-fields'], all_phasecenters))
 
           # Now we can start to create a sub-field selfcal_library entry for each sub-field.
@@ -161,6 +163,8 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
 
               for vis in vislist:
                   if not fid in selfcal_library[target][band]['sub-fields-fid_map'][vis]:
+                      # If a sub-field is not in an EB, it shouldn't be considered for selfcal for that EB
+                      selfcal_library[target][band][vis]['sub-fields-to-selfcal'].pop(fid)
                       continue
 
                   selfcal_library[target][band][fid][vis] = {}
@@ -568,6 +572,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
 
                      selfcal_plan[target][band][vis]['solint_settings'][solint_name]={}
                      selfcal_plan[target][band][vis]['solint_settings'][solint_name]['interval'] = solint_interval
+                     selfcal_plan[target][band][vis]['solint_settings'][solint_name]['sub-name'] = solint
 
                  selfcal_plan[target][band]['applycal_mode']=[apply_cal_mode_default]*len(selfcal_plan[target][band]['solints'])
 
@@ -690,11 +695,11 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        gaincal_combine='spw'
                        filename_append='per_bb'
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']['per_bb']=selfcal_library[target][band][vis]['baseband_spwmap']
-                    if solint in ['inf_EB','inf_EB_delay','scan_inf','300s_ap']:
+                    if selfcal_plan[target][band][vis]['solint_settings'][solint]['sub-name'] in ['inf_EB','inf_EB_delay','scan_inf','300s_ap']:
                        if gaincal_combine!='':
                           gaincal_combine+=','
                        gaincal_combine+='scan'
-                       if solint in ['inf_EB','inf_EB_delay','scan_inf'] and selfcal_library[target][band]['obstype'] == 'mosaic':
+                       if selfcal_plan[target][band][vis]['solint_settings'][solint]['sub-name'] in ['inf_EB','inf_EB_delay','scan_inf'] and selfcal_library[target][band]['obstype'] == 'mosaic':
                            gaincal_combine+=',field'
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_combine'][mode]=gaincal_combine
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['filename_append'][mode]=filename_append
