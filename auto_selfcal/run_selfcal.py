@@ -93,14 +93,17 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
           preapply_targets_own_inf_EB = False
           # If there was not a successful inf_EB solint, then this duplicates inf_fb1 so skip
           if "inf_EB" not in selfcal_library[vislist[0]]:
+              iteration += 1
               continue
           elif not selfcal_library[vislist[0]]["inf_EB"]['Pass']:
+              iteration += 1
               continue
       elif selfcal_plan['solints'][iteration] == "inf_fb3":
           calculate_inf_EB_fb_anyways = False
           preapply_targets_own_inf_EB = True
           # If there was no inf solint (e.g. because each source was observed only a single time, skip this as there are no gain tables to stick together.
           if "inf" not in selfcal_plan['solints']:
+              iteration += 1
               continue
 
       if 'ap' in selfcal_plan['solints'][iteration]:
@@ -779,6 +782,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                continue
             elif mode == "cocal" and "inf_fb" in solint:
                print('****************Cocal failed, attempting next inf_fb option*************')
+               iteration += 1
                continue
             else:
                print('****************Aborting further self-calibration attempts for '+target+' '+band+'**************')
