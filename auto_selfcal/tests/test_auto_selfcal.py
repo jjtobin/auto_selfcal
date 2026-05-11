@@ -121,10 +121,6 @@ def test_on_github(tmp_path, request, zip_file, link):
                         solint_map[solint] = []
 
                     mapped_solint = selfcal_plan[target][band][vis]['solint_settings'][solint]['sub-name']
-                    if solint == 'inf_EB':
-                        mapped_solint += '_EB'
-                    elif 'ap' in solint:
-                        mapped_solint += '_ap'
 
                     solint_map[solint].append(mapped_solint)
     print(solint_map)
