@@ -126,9 +126,10 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
             print('****************Attempting amplitude selfcal*************')
             continue
 
-         selfcal_library['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
-         for fid in selfcal_library['sub-fields-to-selfcal']:
-             selfcal_library[fid]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
+         for vis in vislist:
+            selfcal_library[vis]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
+            for fid in selfcal_library['sub-fields-to-selfcal']:
+                selfcal_library[fid][vis]['Stop_Reason']='Estimated_SNR_too_low_for_solint '+selfcal_plan['solints'][iteration]
          break
       else:
          selfcal_library['vislist-to-gaincal'] = vislist
@@ -191,14 +192,13 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
              # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
              # code will break.
-             if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
-                 selfcal_library['Stop_Reason'] = 'Empty model for solint '+solint
-                 for fid in selfcal_library['sub-fields-to-selfcal']:
-                    selfcal_library[fid]['Stop_Reason'] = 'Empty model for solint '+solint
+             if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):                        
                  for vis in vislist:
+                    selfcal_library[vis]['Stop_Reason'] = 'Empty model for solint '+solint
                     selfcal_library[vis][solint]['Pass'] = False
                     selfcal_library[vis][solint]['Fail_Reason'] = 'Empty model for solint '+solint
                     for fid in np.intersect1d(selfcal_library[vis]['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
+                       selfcal_library[fid][vis]['Stop_Reason'] = 'Empty model for solint '+solint
                        selfcal_library[fid][vis][solint]['Pass'] = False
                        selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Empty model for solint '+solint
                  break # breakout of loop because the model is empty and gaincal will therefore fail
@@ -246,17 +246,16 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                     print(f'{vis}:', selfcal_library[vis]['sub-fields-to-gaincal'])
 
                 if len(selfcal_library['sub-fields-to-gaincal']) == 0:
-                    print('No fields to selfcal, exiting solution interval an selfcal for current target')
-                    selfcal_library['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
-                    for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
-                        selfcal_library[fid]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
+                    print('No fields to selfcal, exiting solution interval an selfcal for current target')                        
 
                     for vis in vislist:
+                        selfcal_library[vis]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
                         selfcal_library[vis][solint]['Pass'] = 'None'
                         selfcal_library[vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
                         #for fid in np.intersect1d(selfcal_library['sub-fields-to-selfcal'],list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                         for fid in list(selfcal_library['sub-fields-fid_map'][vis].keys()):
                            if solint in selfcal_library[fid][vis].keys():
+                              selfcal_library[fid][vis]['Stop_Reason']='Missing_flux_in_all_sub-fields_for_solint '+selfcal_plan['solints'][iteration]
                               selfcal_library[fid][vis][solint]['Pass'] = 'None'
                               selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Missing_flux_in_all_sub-fields_for_solint '+solint
 
@@ -518,13 +517,13 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                 continue
 
             selfcal_library['SC_success']=True
-            selfcal_library['Stop_Reason']='None'
             #keep track of whether inf_EB had a S/N decrease
             if (solint =='inf_EB' or 'd' in solint) and (((post_SNR-SNR)/SNR < 0.0) or ((post_SNR_NF - SNR_NF)/SNR_NF < 0.0)):
                selfcal_library['inf_EB_SNR_decrease']=True
             elif (solint =='inf_EB' or 'd' in solint) and (((post_SNR-SNR)/SNR >= 0.0) and ((post_SNR_NF - SNR_NF)/SNR_NF >= 0.0)):
                selfcal_library['inf_EB_SNR_decrease']=False
             for vis in vislist:
+               selfcal_library[vis]['Stop_Reason']='None'
                selfcal_library[vis]['gaintable_final']=selfcal_library[vis][solint]['gaintable']
                selfcal_library[vis]['spwmap_final']=selfcal_library[vis][solint]['spwmap'].copy()
                selfcal_library[vis]['applycal_mode_final']=selfcal_library[vis][solint]['applycal_mode']
@@ -543,7 +542,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
             for ind, fid in enumerate(selfcal_library['sub-fields-to-selfcal']):
                 if field_by_field_success[ind]:
                     selfcal_library[fid]['SC_success']=True
-                    selfcal_library[fid]['Stop_Reason']='None'
                     if (solint =='inf_EB') and not strict_field_by_field_success[ind]:
                        selfcal_library[fid]['inf_EB_SNR_decrease']=True
                     elif (solint =='inf_EB') and strict_field_by_field_success[ind]:
@@ -554,6 +552,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                        # I think this needs:
                        # if fid not in selfcal_library[vis]['sub-fields-to-selfcal']:
                        #     continue
+                       selfcal_library[fid][vis]['Stop_Reason']='None'
                        selfcal_library[fid][vis]['gaintable_final']=selfcal_library[fid][vis][solint]['gaintable']
                        selfcal_library[fid][vis]['spwmap_final']=selfcal_library[fid][vis][solint]['spwmap'].copy()
                        selfcal_library[fid][vis]['applycal_mode_final']=selfcal_library[fid][vis][solint]['applycal_mode']
@@ -668,8 +667,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                 if reason != '':
                     reason=reason+'; '
                 reason=reason+'All sub-fields failed'
-            selfcal_library['Stop_Reason']=reason
             for vis in vislist:
+               selfcal_library['Stop_Reason']=reason
                #selfcal_library[vis][solint]['Pass']=False
                selfcal_library[vis][solint]['Fail_Reason']=reason
 
@@ -698,8 +697,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                     mosaic_reason[fid]=mosaic_reason[fid]+'NF RMS increase beyond 5%'
                  if mosaic_reason[fid] == '':
                      mosaic_reason[fid] = "Global selfcal failed"
-                 selfcal_library[fid]['Stop_Reason']=mosaic_reason[fid]
                  for vis in selfcal_library[fid]['vislist-to-gaincal']:
+                    selfcal_library[fid][vis]['Stop_Reason']=mosaic_reason[fid]
                     #selfcal_library[fid][vis][solint]['Pass']=False
                     selfcal_library[fid][vis][solint]['Fail_Reason']=mosaic_reason[fid]
 

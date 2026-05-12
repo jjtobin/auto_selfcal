@@ -55,7 +55,7 @@ def evaluate_subfields_to_gaincal(vis, selfcal_library, target, band, solint, it
          if fid not in new_fields_to_selfcal and solint != "inf_EB" and not allow_gain_interpolation:
              #selfcal_library[fid][vis][solint]['interpolated_gains'] = True
              #selfcal_library[fid]['Stop_Reason'] = "Gaincal solutions would be interpolated"
-             #selfcal_library[fid]['Stop_Reason'] = skip_reason
+             selfcal_library[fid][vis]['Stop_Reason'] = skip_reason
              selfcal_library[fid][vis][solint]['Pass'] = "None"
              selfcal_library[fid][vis][solint]['Fail_Reason'] = skip_reason
 
@@ -83,7 +83,7 @@ def evaluate_subfields_after_gaincal(vis, selfcal_library, selfcal_plan, target,
                 for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                     new_fields_to_selfcal.remove(fid)
 
-                    selfcal_library[fid]['Stop_Reason'] = 'No viable calibrator fields in at least 1 EB'
+                    selfcal_library[fid][vis]['Stop_Reason'] = 'No viable calibrator fields in at least 1 EB'
                     selfcal_library[fid][vis][solint]['Pass'] = 'None'
                     if 'Fail_Reason' in selfcal_library[fid][vis][solint]:
                         selfcal_library[fid][vis][solint]['Fail_Reason'] += '; '
@@ -142,7 +142,7 @@ def evaluate_subfields_after_gaincal(vis, selfcal_library, selfcal_plan, target,
                 for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                     new_fields_to_selfcal.remove(fid)
 
-                    selfcal_library[fid]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
+                    selfcal_library[fid][vis]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
                     selfcal_library[fid][vis][solint]['Pass'] = 'None'
                     selfcal_library[fid][vis][solint]['Fail_Reason'] = 'No viable inf_EB fields'
 

@@ -140,7 +140,7 @@ def test_on_github(tmp_path, request, zip_file, link):
                                                 exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal", "telescope", 
                                                          "gaintable","sub-fields-to-gaincal", "sub-fields-to-selfcal", "am_dogrowprune", "am_growiterations", 
                                                          "am_lownoisethreshold", "am_minbeamfrac", "am_noisethreshold", "am_sidelobethreshold", 
-                                                         "am_smoothfactor"])
+                                                         "am_smoothfactor", "Stop_Reason"])
 
     assert difference_count == 0
 

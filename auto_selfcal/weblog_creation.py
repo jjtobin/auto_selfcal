@@ -79,15 +79,17 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
             htmlOut.writelines('Aligned EBs?: False\n')
          htmlOut.writelines('Selfcal Success?: '+str(sclib[target][band]['SC_success'])+'<br>\n')
          keylist=sclib[target][band].keys()
-         if 'Stop_Reason' not in keylist:
+         if np.all(['Stop_Reason' not in sclib[target][band][vis].keys() for vis in sclib[target][band]['vislist']]):
             htmlOut.writelines('Stop Reason: Estimated Selfcal S/N too low for solint<br><br>\n')
             if sclib[target][band]['SC_success']==False:
                render_summary_table(htmlOut,sclib,target,band,directory=directory)
                continue
          else:   
-            htmlOut.writelines('Stop Reason: '+str(sclib[target][band]['Stop_Reason'])+'<br><br>\n')
-            print(target,band,sclib[target][band]['Stop_Reason'])
-            if (('Estimated_SNR_too_low_for_solint' in sclib[target][band]['Stop_Reason']) or ('Selfcal_Not_Attempted' in sclib[target][band]['Stop_Reason'])) and sclib[target][band]['final_solint']=='None':
+            for vis in sclib[target][band]['vislist']:
+               htmlOut.writelines(vis + 'Stop Reason: '+str(sclib[target][band][vis]['Stop_Reason'])+'<br><br>\n')
+               print(vis, target,band,sclib[target][band][vis]['Stop_Reason'])
+            if ((np.all(['Estimated_SNR_too_low_for_solint' in sclib[target][band][vis]['Stop_Reason'] for vis in sclib[target][band][vis]])) or \
+                (np.all(['Selfcal_Not_Attempted' in sclib[target][band][vis]['Stop_Reason'] for vis in sclib[target][band]['vislist']]))) and sclib[target][band]['final_solint']=='None':
                render_summary_table(htmlOut,sclib,target,band,directory=directory)
                continue
          htmlOut.writelines('Final Successful solint: '+str(sclib[target][band]['final_solint'])+'<br><br>\n')
@@ -115,7 +117,7 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
          htmlOut.writelines('<a href="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png"><img src="images/'+sanitize_string(target)+'_'+band+'_noise_plot.png" ALT="Noise Characteristics" WIDTH=300 HEIGHT=300></a><br>\n')
          
          # Solint summary table
-         if 'Empty model' not in sclib[target][band]['Stop_Reason']:
+         if 'Empty model' not in sclib[target][band][sclib[target][band]['vislist'][0]]['Stop_Reason']:
             render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan)
 
          # PER SPW STATS TABLE
@@ -128,7 +130,7 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
    htmlOut.close()
    
    # Pages for each solint
-   if 'Empty model' not in sclib[target][band]['Stop_Reason']:
+   if 'Empty model' not in sclib[target][band][sclib[target][band]['vislist'][0]]['Stop_Reason']:
       render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory=directory)
  
 
@@ -566,7 +568,7 @@ def render_per_solint_QA_pages(sclib,selfcal_plan,bands,directory='weblog'):
                htmlOutSolint.writelines('<h4>Passed: <font color="blue">True</font></h4>\n')
             else:
                htmlOutSolint.writelines('<h4>Passed: <font color="red">False</font></h4>\n')
-            if 'Empty model' in sclib[target][band]['Stop_Reason']:
+            if 'Empty model' in sclib[target][band][sclib[target][band]['vislist'][0]]['Stop_Reason']:
                htmlOutSolint.writelines('Empty model image, no gains solved<br>\n')
                htmlOutSolint.writelines('</body>\n')
                htmlOutSolint.writelines('</html>\n')
