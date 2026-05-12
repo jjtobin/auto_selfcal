@@ -239,7 +239,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                 if solint != 'inf_EB' and not allow_gain_interpolation:
                     selfcal_library['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
                     for vis in vislist:
-                        selfcal_library['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
+                        selfcal_library[vis]['sub-fields-to-selfcal'] = selfcal_library['sub-fields-to-gaincal']
 
                 print('Fields to gaincal: ')
                 for vis in vislist:
