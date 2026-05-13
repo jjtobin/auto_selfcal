@@ -88,7 +88,7 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
             for vis in sclib[target][band]['vislist']:
                htmlOut.writelines(vis + 'Stop Reason: '+str(sclib[target][band][vis]['Stop_Reason'])+'<br><br>\n')
                print(vis, target,band,sclib[target][band][vis]['Stop_Reason'])
-            if ((np.all(['Estimated_SNR_too_low_for_solint' in sclib[target][band][vis]['Stop_Reason'] for vis in sclib[target][band][vis]])) or \
+            if ((np.all(['Estimated_SNR_too_low_for_solint' in sclib[target][band][vis]['Stop_Reason'] for vis in sclib[target][band]['vislist']])) or \
                 (np.all(['Selfcal_Not_Attempted' in sclib[target][band][vis]['Stop_Reason'] for vis in sclib[target][band]['vislist']]))) and sclib[target][band]['final_solint']=='None':
                render_summary_table(htmlOut,sclib,target,band,directory=directory)
                continue
