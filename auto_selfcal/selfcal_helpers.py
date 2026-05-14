@@ -3058,6 +3058,7 @@ def plot_ants_flagging_colored(filename,vis,gaintable):
 def get_flagged_solns_per_ant_from_dict(gc_dict_list,spwlist,vis):
    msmd.open(vis)
    antids=[]
+   print("len(gc_dict_list)", len(gc_dict_list))
    for ant in [idant for idant in gc_dict_list[0]['solvestats']['spw'+str(spwlist[0])].keys() if idant.startswith('ant')]:
       antids.append(int(ant.replace('ant','')))
    antids.sort()
@@ -3124,6 +3125,8 @@ def plot_ants_flagging_colored_from_dict(filename,selfcal_library,selfcal_plan,s
        spwlist_pass=spwlist_bb.copy()
 
 
+   print(selfcal_plan.keys())
+   print("plot_ants_flagging_colored_from_dict", solint, final_mode, len(selfcal_plan['solint_settings'][solint]['gaincal_return_dict'][final_mode]))
    names, offset_x, offset_y, apriori_flagged, nflagged, nunflagged, ntotal, fracflagged, nflagged_non_apriori, ntotal_non_apriori_flagged, fracflagged_non_apriori=get_flagged_solns_per_ant_from_dict(selfcal_plan['solint_settings'][solint]['gaincal_return_dict'][final_mode],spwlist_pass,vis)
    fracflagged=fracflagged_non_apriori
    print(fracflagged)
@@ -3628,8 +3631,11 @@ def get_gaincalmode_flagging_stats(selfcal_library,selfcal_plan,vis,gaintable_pr
          selfcal_plan[vis]['solint_settings'][solint]['nflags_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags'][mode],selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged'][mode],selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['ntotal_non_apriori'][mode],selfcal_plan[vis]['solint_settings'][solint]['fracflagged_non_apriori'][mode]=get_gaintable_flagging_stats(selfcal_plan[vis]['solint_settings'][solint]['gaincal_return_dict'][mode],spwlist_bb)
       else:
          baseband_scale=1.0
-      if solint == 'inf_EB':
+      if 'inf_EB' in solint:
          n_solutions=1.0
+      elif 'inf_EB_fb' in selfcal_plan[vis]['solint_settings'].keys():
+         n_antennas=selfcal_plan[vis]['solint_settings']['inf_EB_fb']['ntotal_non_apriori'][coarsest_mode][0]/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]
+         n_solutions=(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][coarsest_mode][0]+selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][coarsest_mode][0])/n_antennas
       elif 'inf_EB' in selfcal_plan[vis]['solint_settings'].keys():
          n_antennas=selfcal_plan[vis]['solint_settings']['inf_EB']['ntotal_non_apriori'][coarsest_mode][0]/selfcal_plan[vis]['solint_settings'][solint]['polscale'][mode]
          n_solutions=(selfcal_plan[vis]['solint_settings'][solint]['nflags_non_apriori'][coarsest_mode][0]+selfcal_plan[vis]['solint_settings'][solint]['nunflagged'][coarsest_mode][0])/n_antennas
