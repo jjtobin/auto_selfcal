@@ -57,11 +57,12 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
            return
        else:
            for vis in vislist:
+               clearcal(vis=vis,addmodel=True)
                os.system('mv '+vis+' '+vis.replace('.ms','_orig.ms'))
                os.system('mv '+vis+'.flagversions '+vis.replace('.ms','_orig.ms.flagversions'))
                concatvislist=[]
                for cal_target in include_targets.split(','):
-                   concatvislist.append(vis.replace(target,cal_target))
+                   concatvislist.append(vis.replace(sanitize_string(target),sanitize_string(cal_target)))
                concatvislist.append(vis.replace('.ms','_orig.ms'))
                print('Concat vislist: ',concatvislist)
                concat(vis=concatvislist,concatvis=vis)
@@ -183,7 +184,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
              # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
              # code will break.
-             if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
+             if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0') and mode !="cocal":
                  selfcal_library['Stop_Reason'] = 'Empty model for solint '+solint
                  for fid in selfcal_library['sub-fields-to-selfcal']:
                     selfcal_library[fid]['Stop_Reason'] = 'Empty model for solint '+solint
