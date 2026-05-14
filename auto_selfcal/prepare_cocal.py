@@ -65,24 +65,14 @@ def prepare_cocal(selfcal_library, selfcal_plan, inf_EB_gaincal_combine, inf_EB_
         for target in selfcal_library:
             for band in selfcal_library[target]:
                 for vis in selfcal_library[target][band]['vislist']:
-                    """selfcal_plan[target][band][vis]['solint_settings']["inf_EB_fb"] = {}
-                    selfcal_plan[target][band][vis]['solint_settings']["inf_fb1"] = copy.deepcopy(selfcal_plan[target][band][vis]['solint_settings']["inf"])
-                    selfcal_plan[target][band][vis]['solint_settings']["inf_fb2"] = copy.deepcopy(selfcal_plan[target][band][vis]['solint_settings']["inf_fb1"])
-                    selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"] = copy.deepcopy(selfcal_plan[target][band][vis]['solint_settings']["inf_fb2"])"""
-
                     selfcal_plan[target][band][vis]['solint_settings']["inf_EB_fb"]["preapply_solints"] = []
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb1"]["preapply_solints"] = ["inf_EB_fb"]
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb2"]["preapply_solints"] = ["inf_EB"]
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_solints"] = ["inf_EB"]
 
-                    """selfcal_plan[target][band][vis]['solint_settings']["inf_EB_fb"]["modes_to_attempt"] = ["combinespw","combinespwpol"]
-                    selfcal_plan[target][band][vis]['solint_settings']["inf_fb1"]["modes_to_attempt"] = ["combinespw"]
-                    selfcal_plan[target][band][vis]['solint_settings']["inf_fb2"]["modes_to_attempt"] = ["combinespw"]
-                    selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["modes_to_attempt"] = ["combinespw"]"""
-
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"] = {}
                     for cal_target in inf_fields[band]:
-                        selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"][cal_target] = selfcal_plan[cal_target][band][vis.replace(target, cal_target)]['solint_settings']['inf']['accepted_gaintable']
+                        selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"][cal_target] = selfcal_plan[cal_target][band][vis.replace(target, cal_target)]['solint_settings']['inf_EB']['accepted_gaintable']
                 
                 selfcal_plan[target][band]['gaincal_combine'] += [selfcal_plan[target][band]['gaincal_combine'][0], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1]]
                 selfcal_plan[target][band]['applycal_mode'] += [selfcal_plan[target][band]['applycal_mode'][0], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1]]
