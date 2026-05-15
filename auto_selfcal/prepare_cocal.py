@@ -72,7 +72,7 @@ def prepare_cocal(selfcal_library, selfcal_plan, inf_EB_gaincal_combine, inf_EB_
 
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"] = {}
                     for cal_target in inf_fields[band]:
-                        selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"][cal_target] = selfcal_plan[cal_target][band][vis.replace(target, cal_target)]['solint_settings']['inf_EB']['accepted_gaintable']
+                        selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"][cal_target] = selfcal_plan[cal_target][band][vis.replace(sanitize_string(target),  sanitize_string(cal_target))]['solint_settings']['inf_EB']['accepted_gaintable']
                 
                 selfcal_plan[target][band]['gaincal_combine'] += [selfcal_plan[target][band]['gaincal_combine'][0], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1]]
                 selfcal_plan[target][band]['applycal_mode'] += [selfcal_plan[target][band]['applycal_mode'][0], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1]]
