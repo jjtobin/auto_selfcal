@@ -632,6 +632,7 @@ def auto_selfcal(
      with open('selfcal_library.pickle', 'wb') as handle:
         pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+
     import json
 
     class NpEncoder(json.JSONEncoder):
@@ -711,7 +712,8 @@ def auto_selfcal(
     with open('selfcal_library.pickle', 'wb') as handle:
         pickle.dump(selfcal_library, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-
+    with open('selfcal_plan.pickle', 'wb') as handle:
+        pickle.dump(selfcal_plan, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     ##
     ## Begin Self-cal loops
