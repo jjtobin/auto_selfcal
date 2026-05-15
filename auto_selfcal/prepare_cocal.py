@@ -70,6 +70,15 @@ def prepare_cocal(selfcal_library, selfcal_plan, inf_EB_gaincal_combine, inf_EB_
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb2"]["preapply_solints"] = ["inf_EB"]
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_solints"] = ["inf_EB"]
 
+                    if selfcal_library[target][band]['SC_success']:
+                       selfcal_plan[target][band][vis]['solint_settings']["inf_fb1"]["applycal_solint"] = ["inf_EB"]
+                       selfcal_plan[target][band][vis]['solint_settings']["inf_fb2"]["applycal_solint"] = ["inf_EB"]
+                       selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["applycal_solint"] = ["inf_EB"]
+                    else:
+                       selfcal_plan[target][band][vis]['solint_settings']["inf_fb1"]["applycal_solint"] = ["inf_EB_fb"]
+                       selfcal_plan[target][band][vis]['solint_settings']["inf_fb2"]["applycal_solint"] = ["inf_EB_fb"]
+                       selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["applycal_solint"] = ["inf_EB_fb"]
+
                     selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"] = {}
                     for cal_target in inf_fields[band]:
                         selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"][cal_target] = selfcal_plan[cal_target][band][vis.replace(sanitize_string(target),  sanitize_string(cal_target))]['solint_settings']['inf_EB']['accepted_gaintable']

@@ -58,9 +58,18 @@ def gaincal_wrapper(selfcal_library, selfcal_plan, target, band, vis, solint, so
             gaincal_preapply_gaintable.append(selfcal_plan[vis]['solint_settings'][incl_solint]['accepted_gaintable'])
             gaincal_spwmap.append(selfcal_plan[vis]['solint_settings'][incl_solint]['applycal_spwmap'])
             gaincal_interpolate.append(selfcal_plan[vis]['solint_settings'][incl_solint]['applycal_interpolate'])
+            
+            # If we manually specify that applycal should use a different solint reference than gaincal (cocal), change
+            # to that solint here.
+            if "applycal_solint" in selfcal_plan[vis]['solint_settings'][incl_solint]:
+                incl_solint = selfcal_plan[vis]['solint_settings'][incl_solint]["applycal_solint"]
+            
             applycal_spwmap.append(selfcal_plan[vis]['solint_settings'][incl_solint]['applycal_spwmap'])
             applycal_interpolate.append(selfcal_plan[vis]['solint_settings'][incl_solint]['applycal_interpolate'])
-            applycal_gaintable.append(selfcal_plan[vis]['solint_settings'][incl_solint]['accepted_gaintable'])
+            if solint == "inf_fb3":
+                applycal_gaintable.append(selfcal_plan[vis]['solint_settings']["inf_EB_fb"]['accepted_gaintable'])
+            else:
+                applycal_gaintable.append(selfcal_plan[vis]['solint_settings'][incl_solint]['accepted_gaintable'])
 
 
         if solint != 'inf_EB':
