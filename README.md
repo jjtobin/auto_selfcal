@@ -1,5 +1,5 @@
-![build and test](https://github.com/psheehan/auto_selfcal/actions/workflows/run_E2E_test.yml/badge.svg)
-[![codecov](https://codecov.io/github/psheehan/auto_selfcal/graph/badge.svg?token=6PLBR79LWF)](https://codecov.io/github/psheehan/auto_selfcal)
+![build and test](https://github.com/jjtobin/auto_selfcal/actions/workflows/run_E2E_test.yml/badge.svg)
+[![codecov](https://codecov.io/gh/jjtobin/auto_selfcal/graph/badge.svg?token=J3H1NARQW1)](https://codecov.io/gh/jjtobin/auto_selfcal)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17603062.svg)](https://doi.org/10.5281/zenodo.17603062)
 
 
