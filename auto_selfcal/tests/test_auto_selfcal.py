@@ -100,7 +100,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     d = tmp_path
     os.chdir(d)
     if 'https' in link:
-        os.system(f'wget -q "{link}" -O {zip_file} )
+        os.system(f'wget -q "{link}" -O {zip_file}')
     else:
         os.system(f'cp {link}/{zip_file} .')
     os.system(f'tar xf {zip_file}')
