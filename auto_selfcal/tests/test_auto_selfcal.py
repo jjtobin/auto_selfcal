@@ -119,7 +119,7 @@ def test_on_github(tmp_path, request, zip_file, link):
         usermodel = {}
     if 'VLBA' in zip_file:
         auto_selfcal(iscalibrator=True, refant='FD,NL,PT', do_delay_cal=True, shorter_amp_solints=True,
-            targets='J1154+6022', applytargets='J1203+6031', imsize=640, cell='0.0002arcsec', parallel=parallel)
+            targets='J1154+6022', applytargets='J1203+6031', imsize=640, cell='0.0002arcsec')
     else:
         auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, weblog=True, usermask=usermask, usermodel=usermodel)
 
