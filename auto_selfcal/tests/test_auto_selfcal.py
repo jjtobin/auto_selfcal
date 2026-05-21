@@ -100,7 +100,7 @@ def test_on_github(tmp_path, request, zip_file, link):
     d = tmp_path
     os.chdir(d)
     if 'https' in link:
-        os.system(f'wget "{link}" -O {zip_file}')
+        os.system(f'wget -q "{link}" -O {zip_file} )
     else:
         os.system(f'cp {link}/{zip_file} .')
     os.system(f'tar xf {zip_file}')
@@ -115,7 +115,7 @@ def test_on_github(tmp_path, request, zip_file, link):
         usermodel = {"HOPS_358": {"Band_7": ["usermodel.model.tt0", "usermodel.model.tt1"]}}
     else:
         usermodel = {}
-    if 'VLBA' in dataset:
+    if 'VLBA' in zip_file:
         auto_selfcal(vislist, iscalibrator=True, refant='FD,NL,PT', do_delay_cal=True, shorter_amp_solints=True,
             targets='J1154+6022', applytargets='J1203+6031', imsize=640, cell='0.0002arcsec', parallel=parallel)
     else:
