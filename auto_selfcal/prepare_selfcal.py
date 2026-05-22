@@ -599,6 +599,9 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                     if min_SNR_spw > 2.0: 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
+                    elif nspws == 1: # make sure we populate when only single spectral window, otherwise can errorr
+                       selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
+ 
                     if min_SNR_bb > 2.0 and maxspws_per_bb > 1.0 and selfcal_library[target][band]['spectral_scan']==False and n_basebands > 1:  # only do the per baseband solutions if there are more than 1 spw and more than 1 baseband
                        if 'per_bb' not in selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']:
                           selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
