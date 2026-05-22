@@ -35,6 +35,8 @@ import os
         pytest.param('2023.1.01643.S', id='2023.1.01643.S'), # tests mosaics with hanging scans in scan_inf
         pytest.param('disjoint_missing_spwfid_combo', id='disjoint_missing_spwfid_combo'), # tests spw-mapping, particularly in cases where spws and sub-fields are missing
         pytest.param('EE11.1.00032.S', id='EE11.1.00032.S'), # tests a dataset with spw names crossing a naming scheme change
+        pytest.param('VLBA_CASA_Guide', id='VLBA_CASA_Guide'), # VLBA dataset
+
     ]
 )
 def test_benchmark(tmp_path, dataset):
@@ -57,8 +59,10 @@ def test_benchmark(tmp_path, dataset):
         ex = submitit.SlurmExecutor(folder=".", python=f"xvfb-run -d {casa_path}/bin/mpicasa -n 8 {casa_path}/bin/python3")
     ex.update_parameters(partition="batch2", nodes=1, ntasks_per_node=8, cpus_per_task=1, use_srun=False, time=10080, \
             mem="128gb", job_name=dataset)
-
-    job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=True, parallel=True)
+    if 'VLBA' in dataset:
+        job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=True, parallel=True, iscalibrator=True, targets='J1154+6022',applytargets='J1203+6031',imsize=640,cell='0.0002arcsec')
+    else:
+        job = ex.submit(auto_selfcal, sort_targets_and_EBs=True, weblog=True, parallel=True)
     job.wait()
 
     assert job.state in ['DONE','COMPLETED']
@@ -79,7 +83,7 @@ def test_benchmark(tmp_path, dataset):
     assert difference_count == 0
 
 # Note for future reference: to create the tar file properly, update the files in the folder on OneDrive, and then run:
-# tar czf Band8-7m-2.tar.gz -c Band8-7m-2 .
+# tar czf Band8-7m-2.tar.gz -C Band8-7m-2 .
 @pytest.mark.ghtest
 @pytest.mark.parametrize(
     "zip_file,link",
@@ -89,14 +93,17 @@ def test_benchmark(tmp_path, dataset):
         pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCT-CkbAW7YT5LIev5CrDSOAZt5uC_tUIReMwlA14Tu9y4?e=2zF126&download=1', id="M82-C-conf-C-band_small"),
         pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=7adSCD&download=1', id='K-band-mini-mosaic'),
         pytest.param("Band8-7m-cocal.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAjUGmKxJpoSq25LNp6qnhUAfhcQ-o3RnP7q13r0OgPCfc?e=rX9LaN&download=1', id='Band8-7m-cocal'),
-        pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=MMXCaT&download=1', id='2019.1.00691.S_SB')
+        pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=MMXCaT&download=1', id='2019.1.00691.S_SB'),
+        pytest.param("VLBA-1-spw.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQATgZY3r_6MS50DqJaFu4QIAVn9jnOq2X-oubxzGtY8-bM?e=fBnvSh&download=1', id='VLBA-1-spw')
     ]
 )
 def test_on_github(tmp_path, request, zip_file, link):
     d = tmp_path
     os.chdir(d)
     if 'https' in link:
-        os.system(f'wget "{link}" -O {zip_file}')
+        print(f'Downloading {zip_file}')
+        os.system(f'wget -q "{link}" -O {zip_file}')
+        print(f'Download compelete {zip_file}')
     else:
         os.system(f'cp {link}/{zip_file} .')
     os.system(f'tar xf {zip_file}')
@@ -111,8 +118,11 @@ def test_on_github(tmp_path, request, zip_file, link):
         usermodel = {"HOPS_358": {"Band_7": ["usermodel.model.tt0", "usermodel.model.tt1"]}}
     else:
         usermodel = {}
-
-    auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, weblog=True, allow_cocal=True, usermask=usermask, usermodel=usermodel)
+    if 'VLBA' in zip_file:
+        auto_selfcal(iscalibrator=True, refant='FD,NL,PT', do_delay_cal=True, shorter_amp_solints=True,
+            targets='J1154+6022', applytargets='J1203+6031', imsize=640, cell='0.0002arcsec')
+    else:
+        auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, weblog=True, usermask=usermask, usermodel=usermodel)
 
     os.system('rm -rf *.ms*') # Delete MS files as space is limited on GitHub.
 
