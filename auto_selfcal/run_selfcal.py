@@ -82,8 +82,6 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    for vis in selfcal_library['vislist']:
         print('selfcal_library[vis]["sub-fields-to-selfcal"] = ', selfcal_library[vis]['sub-fields-to-selfcal'])
    while iteration  < len(selfcal_plan['solints']):
-      print(selfcal_plan['solints'])
-      print(selfcal_plan['solint_interval'][iteration])
       vislist=[vis for vis in selfcal_library['vislist'] if selfcal_plan['solints'][iteration] in selfcal_plan[vis]['solint_settings']]
 
       print("Solving for solint="+selfcal_plan['solints'][iteration]+' with intervals:')
