@@ -46,12 +46,24 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
    if mode == "cocal":
        # Check whether there are suitable calibrators, otherwise skip this target/band.
-       include_targets, include_scans = triage_calibrators(vislist[0], target, calibrators[band][0])
+       include_targets, include_scans = triage_calibrators(vislist[0], target, band, calibrators[band][0])
+       print('Co-calibrators: ',include_targets)
+       print('Co-calibrator scans: ',include_scans)
        if include_targets == "":
            print("No suitable calibrators found, skipping "+target)
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
-
+       else:
+           for vis in vislist:
+               clearcal(vis=vis,addmodel=True)
+               os.system('mv '+vis+' '+vis.replace('.ms','_orig.ms'))
+               os.system('mv '+vis+'.flagversions '+vis.replace('.ms','_orig.ms.flagversions'))
+               concatvislist=[]
+               for cal_target in include_targets.split(','):
+                   concatvislist.append(vis.replace(sanitize_string(target),sanitize_string(cal_target)))
+               concatvislist.append(vis.replace('.ms','_orig.ms'))
+               print('Concat vislist: ',concatvislist)
+               concat(vis=concatvislist,concatvis=vis)
    if selfcal_library['usermodel'] != '':
       print('Setting model column to user model')
       usermodel_wrapper(selfcal_library,sani_target+'_'+band,
@@ -70,7 +82,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
    for vis in selfcal_library['vislist']:
         print('selfcal_library[vis]["sub-fields-to-selfcal"] = ', selfcal_library[vis]['sub-fields-to-selfcal'])
    while iteration  < len(selfcal_plan['solints']):
-
+      print(selfcal_plan['solints'])
+      print(selfcal_plan['solint_interval'][iteration])
       vislist=[vis for vis in selfcal_library['vislist'] if selfcal_plan['solints'][iteration] in selfcal_plan[vis]['solint_settings']]
 
       print("Solving for solint="+selfcal_plan['solints'][iteration]+' with intervals:')
@@ -87,14 +100,17 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
           preapply_targets_own_inf_EB = False
           # If there was not a successful inf_EB solint, then this duplicates inf_fb1 so skip
           if "inf_EB" not in selfcal_library[vislist[0]]:
+              iteration += 1
               continue
           elif not selfcal_library[vislist[0]]["inf_EB"]['Pass']:
+              iteration += 1
               continue
       elif selfcal_plan['solints'][iteration] == "inf_fb3":
           calculate_inf_EB_fb_anyways = False
           preapply_targets_own_inf_EB = True
           # If there was no inf solint (e.g. because each source was observed only a single time, skip this as there are no gain tables to stick together.
           if "inf" not in selfcal_plan['solints']:
+              iteration += 1
               continue
 
       if 'ap' in selfcal_plan['solints'][iteration]:
@@ -192,7 +208,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
              # Check that a mask was actually created, because if not the model will be empty and gaincal will do bad things and the 
              # code will break.
-             if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):                        
+             if not checkmask(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0') and mode !="cocal":
                  for vis in vislist:
                     selfcal_library[vis]['Stop_Reason'] = 'Empty model for solint '+solint
                     selfcal_library[vis][solint]['Pass'] = False
@@ -216,8 +232,10 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                flagmanager(vis=vis, mode = 'restore', versionname = versionname, comment = 'Flag states at start of reduction')
 
             if mode == "cocal":
-               flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags', comment = 'Flag states at start of the reduction')
-
+               if os.path.exists(vis+".flagversions/flags.selfcal_starting_flags"):
+                   flagmanager(vis=vis, mode = 'restore', versionname = 'selfcal_starting_flags', comment = 'Flag states at start of the reduction')
+               else:
+                   flagmanager(vis=vis,mode='save',versionname='selfcal_starting_flags')
          if not do_fallback_combinespw:
             # We need to redo saving the model now that we have potentially unflagged some data.
             if not do_fallback_calonly:
@@ -285,7 +303,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                        second_iter_solmode=second_iter_solmode, unflag_fb_to_prev_solint=unflag_fb_to_prev_solint, \
                        refantmode=refantmode, mode=mode, calibrators=calibrators, gaincalibrator_dict=gaincalibrator_dict, 
                        allow_gain_interpolation=allow_gain_interpolation,spectral_solution_fraction=spectral_solution_fraction,
-                       do_fallback_calonly=do_fallback_calonly, guess_scan_combine=guess_scan_combine)
+                       do_fallback_calonly=do_fallback_calonly, guess_scan_combine=guess_scan_combine, preapply_targets_own_inf_EB=preapply_targets_own_inf_EB)
 
             # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be 
             # selfcal'd because they have too much interpolation.
@@ -486,9 +504,12 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                marginal_inf_EB_will_attempt_next_solint = False
             else:
                marginal_inf_EB_will_attempt_next_solint =  True
-
-         RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
-                 ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and np.any([selfcal_plan[vis]['solint_snr'][solint] > 5 for vis in selfcal_library['vislist-to-gaincal']]))
+         RMS_change_acceptable= False
+         if mode != 'cocal':
+            RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05) or \
+                      ((post_RMS/RMS > 1.05 or post_RMS_NF/RMS_NF > 1.05) and np.any([selfcal_plan[vis]['solint_snr'][solint] > 5 for vis in selfcal_library['vislist-to-gaincal']]))
+         else:
+            RMS_change_acceptable = (post_RMS/RMS < 1.05 and post_RMS_NF/RMS_NF < 1.05)
 
          if (((post_SNR >= SNR) and (post_SNR_NF >= SNR_NF) and (delta_beamarea < delta_beam_thresh)) or ((('inf_EB' in solint) or 'd' in solint) and marginal_inf_EB_will_attempt_next_solint and ((post_SNR-SNR)/SNR > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and (delta_beamarea < delta_beam_thresh))) and np.any(field_by_field_success) and RMS_change_acceptable: 
 
@@ -655,14 +676,26 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                if reason !='':
                   reason=reason+'; '
                reason=reason+'Beam change beyond '+str(delta_beam_thresh)
-            if (post_RMS/RMS > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library['vislist-to-gaincal']])):
-               if reason != '':
-                  reason=reason+'; '
-               reason=reason+'RMS increase beyond 5%'
-            if (post_RMS_NF/RMS_NF > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library['vislist-to-gaincal']])):
-               if reason != '':
-                  reason=reason+'; '
-               reason=reason+'NF RMS increase beyond 5%'
+
+            if mode != 'cocal':
+                if (post_RMS/RMS > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library['vislist-to-gaincal']])):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'RMS increase beyond 5%'
+                if (post_RMS_NF/RMS_NF > 1.05 and np.all([selfcal_plan[vis]['solint_snr'][solint] <= 5 for vis in selfcal_library['vislist-to-gaincal']])):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'NF RMS increase beyond 5%'
+            else:
+                if (post_RMS/RMS > 1.05):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'RMS increase beyond 5%'
+                if (post_RMS_NF/RMS_NF > 1.05):
+                   if reason != '':
+                      reason=reason+'; '
+                   reason=reason+'NF RMS increase beyond 5%'
+        
             if not np.any(field_by_field_success):
                 if reason != '':
                     reason=reason+'; '
@@ -813,6 +846,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                continue
             elif mode == "cocal" and "inf_fb" in solint:
                print('****************Cocal failed, attempting next inf_fb option*************')
+               iteration += 1
                continue
             else:
                print('****************Aborting further self-calibration attempts for '+target+' '+band+'**************')
