@@ -228,7 +228,6 @@ def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tole
         else:
             alt_key = key
         
-
         if type(dictionary1[alt_key]) == dict:
             difference_count += compare_two_dictionaries(dictionary1[alt_key], dictionary2[key], path.copy()+[key], exclude=exclude, tolerance=tolerance, key_map=key_map)
         else:

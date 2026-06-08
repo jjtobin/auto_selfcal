@@ -55,11 +55,10 @@ def prepare_cocal(selfcal_library, selfcal_plan, inf_EB_gaincal_combine, inf_EB_
                 # Update the relevant lists if we are going to do a fallback mode.
                 selfcal_plan[target][band]['solints'] += ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]
                 selfcal_plan[target][band]['solmode'] += ["p","p","p","p"]
-                selfcal_plan[target][band]['solint_interval'] += ["inf","inf","inf","inf"]
 
                 for vis in selfcal_library[target][band]['vislist']:
-                    selfcal_plan[target][band][vis]['solint_settings'] = {}
                     for solint_name in ["inf_EB_fb","inf_fb1","inf_fb2","inf_fb3"]:
+                        selfcal_plan[target][band][vis]['solint_settings'][solint_name] = {}
                         selfcal_plan[target][band][vis]['solint_settings'][solint_name]['interval'] = solint_name
                         selfcal_plan[target][band][vis]['solint_settings'][solint_name]['sub-name'] = solint_name
                 
@@ -89,7 +88,6 @@ def prepare_cocal(selfcal_library, selfcal_plan, inf_EB_gaincal_combine, inf_EB_
                     for cal_target in inf_fields[band]:
                         selfcal_plan[target][band][vis]['solint_settings']["inf_fb3"]["preapply_gaintable_dict"][cal_target] = selfcal_plan[cal_target][band][vis.replace(sanitize_string(target),  sanitize_string(cal_target))]['solint_settings']['inf_EB']['accepted_gaintable']
                 
-                selfcal_plan[target][band]['gaincal_combine'] += [selfcal_plan[target][band]['gaincal_combine'][0], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1], selfcal_plan[target][band]['gaincal_combine'][1]]
                 selfcal_plan[target][band]['applycal_mode'] += [selfcal_plan[target][band]['applycal_mode'][0], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1], selfcal_plan[target][band]['applycal_mode'][1]]
                 
                 calibrators[band] = [inf_EB_fields[band], inf_fields[band], inf_fields[band], inf_fields[band]]

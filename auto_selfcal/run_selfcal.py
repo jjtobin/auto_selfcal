@@ -46,7 +46,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
    if mode == "cocal":
        # Check whether there are suitable calibrators, otherwise skip this target/band.
-       include_targets, include_scans = triage_calibrators(vislist[0], target, band, calibrators[band][0])
+       include_targets, include_scans = triage_calibrators(selfcal_library['vislist'][0], target, band, calibrators[band][0])
        print('Co-calibrators: ',include_targets)
        print('Co-calibrator scans: ',include_scans)
        if include_targets == "":
@@ -54,7 +54,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
            selfcal_library['Stop_Reason'] += '; No suitable co-calibrators'
            return
        else:
-           for vis in vislist:
+           for vis in selfcal_library['vislist']:
                clearcal(vis=vis,addmodel=True)
                os.system('mv '+vis+' '+vis.replace('.ms','_orig.ms'))
                os.system('mv '+vis+'.flagversions '+vis.replace('.ms','_orig.ms.flagversions'))
@@ -107,7 +107,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
           calculate_inf_EB_fb_anyways = False
           preapply_targets_own_inf_EB = True
           # If there was no inf solint (e.g. because each source was observed only a single time, skip this as there are no gain tables to stick together.
-          if "inf" not in selfcal_plan['solints']:
+          if "inf" not in [selfcal_plan[vislist[0]]['solint_settings'][solint]['sub-name'] for solint in selfcal_plan['solints']]:
               iteration += 1
               continue
 
@@ -417,7 +417,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                      (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] < 1.05) or \
                      (((post_mosaic_RMS[fid] - mosaic_RMS[fid])/mosaic_RMS[fid] > 1.05 or \
                      (post_mosaic_RMS_NF[fid] - mosaic_RMS_NF[fid])/mosaic_RMS_NF[fid] > 1.05) and \
-                     selfcal_plan[fid]['solint_snr_per_field'][solint] > 5)
+                     np.all([selfcal_plan[fid][vis]['solint_snr_per_field'][solint] > 5 for vis in selfcal_library['vislist-to-gaincal']]))
 
          if 'inf_EB' in solint or 'd' in solint:
              # If any of the fields succeed in the "strict" sense, then allow for minor reductions in the evaluation quantity in other
@@ -498,7 +498,8 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
 
          marginal_inf_EB_will_attempt_next_solint=False
          if (solint =='inf_EB' or 'd' in solint) and ((((post_SNR-SNR)/SNR > -0.02) and ((post_SNR-SNR)/SNR < 0.00)) or (((post_SNR_NF - SNR_NF)/SNR_NF > -0.02) and ((post_SNR_NF - SNR_NF)/SNR_NF < 0.00))) and (delta_beamarea < delta_beam_thresh):
-            if selfcal_plan['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed and np.all([selfcal_plan[fid]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]):
+            if np.all([selfcal_plan[vis]['solint_snr'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for vis in selfcal_library['vislist-to-gaincal']]) and \
+                np.all([np.all([selfcal_plan[fid][vis]['solint_snr_per_field'][selfcal_plan['solints'][iteration+1]] < minsnr_to_proceed for fid in selfcal_library['sub-fields']]) for vis in selfcal_library['vislist-to-gaincal']]):
                marginal_inf_EB_will_attempt_next_solint = False
             else:
                marginal_inf_EB_will_attempt_next_solint =  True
