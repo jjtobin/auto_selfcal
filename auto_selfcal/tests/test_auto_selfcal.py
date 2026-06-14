@@ -92,6 +92,7 @@ def test_benchmark(tmp_path, dataset):
         pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAnFUlx_SR0SLdj_vX8MVUWAbMu9BveHCsb9NB07-OD3bo?e=TNBTXq&download=1', id="Band8-7m-2"),
         pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCT-CkbAW7YT5LIev5CrDSOAZt5uC_tUIReMwlA14Tu9y4?e=2zF126&download=1', id="M82-C-conf-C-band_small"),
         pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=7adSCD&download=1', id='K-band-mini-mosaic'),
+        pytest.param("Band8-7m-cocal.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAjUGmKxJpoSq25LNp6qnhUAfhcQ-o3RnP7q13r0OgPCfc?e=rX9LaN&download=1', id='Band8-7m-cocal'),
         pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=MMXCaT&download=1', id='2019.1.00691.S_SB'),
         pytest.param("VLBA-1-spw.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQATgZY3r_6MS50DqJaFu4QIAVn9jnOq2X-oubxzGtY8-bM?e=fBnvSh&download=1', id='VLBA-1-spw')
     ]
@@ -121,7 +122,7 @@ def test_on_github(tmp_path, request, zip_file, link):
         auto_selfcal(iscalibrator=True, refant='FD,NL,PT', do_delay_cal=True, shorter_amp_solints=True,
             targets='J1154+6022', applytargets='J1203+6031', imsize=640, cell='0.0002arcsec')
     else:
-        auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, weblog=True, usermask=usermask, usermodel=usermodel)
+        auto_selfcal(sort_targets_and_EBs=True, align_EBs=True, weblog=True, allow_cocal=True, usermask=usermask, usermodel=usermodel)
 
     os.system('rm -rf *.ms*') # Delete MS files as space is limited on GitHub.
 

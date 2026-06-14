@@ -534,7 +534,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
 
     return selfcal_library, selfcal_plan, gaincalibrator_dict
 
-def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=True):
+def plan_selfcal_per_solint(selfcal_library, selfcal_plan, optimize_spw_combine=True, solints=None):
    # there are some extra keys in this dictionary that stem from how my thinking was orginally and how it evolved
    # the current philosophy is that for each solint it will specify how to apply each gain table, and if it should 
    # be pre-applied for gaincal solves. Then in gaincal wrapper, the parameters for preapplying all tables and for applying
@@ -559,8 +559,13 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 if selfcal_library[target][band][vis]['baseband'][baseband]['nspws']> maxspws_per_bb:
                    maxspws_per_bb=selfcal_library[target][band][vis]['baseband'][baseband]['nspws']+0.0
 
-             selfcal_plan[target][band][vis]['solint_settings']={}
-             for solint in selfcal_plan[target][band]['solints']:
+             if solints is not None:
+                use_solints = solints
+             else:
+                selfcal_plan[target][band][vis]['solint_settings']={}
+                use_solints = selfcal_plan[target][band]['solints']
+
+             for solint in use_solints:
                 gaincal_combine=''
                 filename_append=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]={}
@@ -582,8 +587,7 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['final_mode']=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['accepted_gaintable']=''
                 selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=[]
-                min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_spw'][solint])
-                min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_bb'][solint])
+                
                 print('Nspws: {}, spws per BB: {}, basebands: {}'.format(nspws,maxspws_per_bb,n_basebands))
                 if selfcal_library[target][band]['telescope'] == 'VLBA' and 'delay' in solint and maxspws_per_bb > 1.0:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
@@ -591,11 +595,14 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespw')    
                 if 'delay' in solint and n_basebands > 1:
                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
-                if solint == 'inf_EB':
+                if "inf_EB" in solint:
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('combinespwpol')
-                    selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
+                    if solint == 'inf_EB':
+                        selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True
                 print('solint',solint,'N basebands: ',n_basebands, 'modes to attempt: ',selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'])
-                if 'spw' not in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine']:
+                if 'spw' not in selfcal_plan[target][band][vis]['inf_EB_gaincal_combine'] and 'fb' not in solint:
+                    min_SNR_spw=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_spw'][solint])
+                    min_SNR_bb=get_min_SNR_spw(selfcal_plan[target][band]['solint_snr_per_bb'][solint])
                     if min_SNR_spw > 2.0: 
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_spw')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
@@ -606,12 +613,15 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        if 'per_bb' not in selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']:
                           selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt'].append('per_bb')
                        #selfcal_plan[target][band][vis]['solint_settings'][solint]['preapply_this_gaintable']=True    # leave default to off and have it decide after eval
-                    if '_ap' in solint:
-                       selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='ap'
-                    else:
-                       selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='p'
-                    if solint != 'inf_EB' and optimize_spw_combine==False:
-                        selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=['combinespw']
+                
+                if '_ap' in solint:
+                   selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='ap'
+                else:
+                   selfcal_plan[target][band][vis]['solint_settings'][solint]['solmode']='p'
+                
+                if 'inf_EB' not in solint and optimize_spw_combine==False:
+                    selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']=['combinespw']
+                
                 for mode in selfcal_plan[target][band][vis]['solint_settings'][solint]['modes_to_attempt']:
                     gaincal_combine=''
                     if mode =='combinespw':
@@ -630,11 +640,12 @@ def plan_selfcal_per_solint(selfcal_library, selfcal_plan,optimize_spw_combine=T
                        gaincal_combine='spw'
                        filename_append='per_bb'
                        selfcal_plan[target][band][vis]['solint_settings'][solint]['spwmap_for_mode']['per_bb']=selfcal_library[target][band][vis]['baseband_spwmap']
-                    if solint in ['inf_EB','inf_EB_delay','scan_inf','300s_ap']:
+                    if solint in ['inf_EB','inf_EB_delay','scan_inf','300s_ap','inf_EB_fb']:
                        if gaincal_combine!='':
                           gaincal_combine+=','
                        gaincal_combine+='scan'
-                       if solint in ['inf_EB','inf_EB_delay','scan_inf'] and selfcal_library[target][band]['obstype'] == 'mosaic':
+                       if (solint in ['inf_EB','inf_EB_delay','scan_inf'] and selfcal_library[target][band]['obstype'] == 'mosaic') or \
+                              solint == "inf_EB_fb":
                            gaincal_combine+=',field'
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['gaincal_combine'][mode]=gaincal_combine
                     selfcal_plan[target][band][vis]['solint_settings'][solint]['filename_append'][mode]=filename_append
