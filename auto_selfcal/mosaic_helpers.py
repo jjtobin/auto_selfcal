@@ -1,14 +1,14 @@
 import numpy as np
 from .selfcal_helpers import *
 
-def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iteration, solmode, solints, selfcal_plan, 
+def evaluate_subfields_to_gaincal(vis, selfcal_library, target, band, solint, iteration, solmode, solints, selfcal_plan, 
         minsnr_to_proceed, allow_gain_interpolation=False,):
 
      sani_target=sanitize_string(target)
 
      # Fields that don't have any mask in the primary beam should be removed from consideration, as their models are likely bad.
      new_fields_to_selfcal = []
-     for fid in selfcal_library['sub-fields-to-selfcal']:
+     for fid in selfcal_library[vis]['sub-fields-to-selfcal']:
          os.system('rm -rf test*.mask')
          tmp_SNR_NF,tmp_RMS_NF=estimate_near_field_SNR(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0', \
                  las=selfcal_library['LAS'], mosaic_sub_field=True, save_near_field_mask=False)
@@ -41,8 +41,8 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
          if not checkmask(sani_target+'_field_'+str(fid)+'_'+band+'_'+solint+'_'+str(iteration)+'.image.tt0'):
              print("Removing field "+str(fid)+" from gaincal because there is no signal within the primary beam.")
              skip_reason = "No signal"
-         elif selfcal_plan[fid]['solint_snr_per_field'][solints[iteration]] < minsnr_to_proceed and \
-                 solint not in ['inf_EB','scan_inf']:
+         elif selfcal_plan[fid][vis]['solint_snr_per_field'][solints[iteration]] < minsnr_to_proceed and \
+                 selfcal_plan[vis]['solint_settings'][solint]['sub-name'] not in ['inf_EB','scan_inf']:
              print("Removing field "+str(fid)+" from gaincal because the estimated solint snr is too low.")
              skip_reason = "Estimated SNR"
          elif updated_intflux > selfcal_library['flux_threshold'] * original_intflux:
@@ -53,21 +53,20 @@ def evaluate_subfields_to_gaincal(selfcal_library, target, band, solint, iterati
              new_fields_to_selfcal.append(fid)
 
          if fid not in new_fields_to_selfcal and solint != "inf_EB" and not allow_gain_interpolation:
-             for vis in selfcal_library[fid]['vislist']:
-                 #selfcal_library[fid][vis][solint]['interpolated_gains'] = True
-                 #selfcal_library[fid]['Stop_Reason'] = "Gaincal solutions would be interpolated"
-                 selfcal_library[fid]['Stop_Reason'] = skip_reason
-                 selfcal_library[fid][vis][solint]['Pass'] = "None"
-                 selfcal_library[fid][vis][solint]['Fail_Reason'] = skip_reason
+             #selfcal_library[fid][vis][solint]['interpolated_gains'] = True
+             #selfcal_library[fid]['Stop_Reason'] = "Gaincal solutions would be interpolated"
+             selfcal_library[fid][vis]['Stop_Reason'] = skip_reason
+             selfcal_library[fid][vis][solint]['Pass'] = "None"
+             selfcal_library[fid][vis][solint]['Fail_Reason'] = skip_reason
 
      return new_fields_to_selfcal
 
 
 
 
-def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iteration, solmode, allow_gain_interpolation=False):
+def evaluate_subfields_after_gaincal(vis, selfcal_library, selfcal_plan, target, band, solint, iteration, solmode, allow_gain_interpolation=False):
 
-     new_fields_to_selfcal = selfcal_library['sub-fields-to-selfcal'].copy()
+     new_fields_to_selfcal = selfcal_library[vis]['sub-fields-to-selfcal'].copy()
 
      sani_target=sanitize_string(target)
 
@@ -75,23 +74,23 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
              (allow_gain_interpolation and "inf" not in solint)):
         # With gaincal done and bad fields removed from gain tables if necessary, check whether any fields should no longer be selfcal'd
         # because they have too much interpolation.
-        for vis in selfcal_library['vislist']:
+        #for vis in selfcal_library['vislist']:
+        if True:
             ## If an EB had no fields to gaincal on, remove all fields in that EB from being selfcal'd as there is no calibration available
             ## in this EB.
-            if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
+            if np.intersect1d(selfcal_library[vis]['sub-fields-to-gaincal'],\
                     list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                 for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                     new_fields_to_selfcal.remove(fid)
 
-                    selfcal_library[fid]['Stop_Reason'] = 'No viable calibrator fields in at least 1 EB'
-                    for v in selfcal_library[fid]['vislist']:
-                        selfcal_library[fid][v][solint]['Pass'] = 'None'
-                        if 'Fail_Reason' in selfcal_library[fid][v][solint]:
-                            selfcal_library[fid][v][solint]['Fail_Reason'] += '; '
-                        else:
-                            selfcal_library[fid][v][solint]['Fail_Reason'] = ''
-                        selfcal_library[fid][v][solint]['Fail_Reason'] += 'No viable fields'
-                continue
+                    selfcal_library[fid][vis]['Stop_Reason'] = 'No viable calibrator fields in at least 1 EB'
+                    selfcal_library[fid][vis][solint]['Pass'] = 'None'
+                    if 'Fail_Reason' in selfcal_library[fid][vis][solint]:
+                        selfcal_library[fid][vis][solint]['Fail_Reason'] += '; '
+                    else:
+                        selfcal_library[fid][vis][solint]['Fail_Reason'] = ''
+                    selfcal_library[fid][vis][solint]['Fail_Reason'] += 'No viable fields'
+                return new_fields_to_selfcal
             ## NEXT TO DO: check % of flagged solutions - DONE, see above
             ## After that enable option for interpolation through inf - DONE
             tb.open(sani_target+'_'+vis+'_'+band+'_'+solint+'_'+str(iteration)+'_'+solmode[iteration]+'_'+
@@ -100,7 +99,7 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
             scans = tb.getcol("SCAN_NUMBER")
 
             for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
-                if solint == "scan_inf":
+                if selfcal_plan[vis]['solint_settings'][solint]['sub-name'] == "scan_inf":
                     msmd.open(vis)
                     cals_for_scan = []
                     total_cals_for_scan = []
@@ -125,29 +124,29 @@ def evaluate_subfields_after_gaincal(selfcal_library, target, band, solint, iter
                         new_fields_to_selfcal.remove(fid)
 
                 if fid not in new_fields_to_selfcal:
-                    # We need to update all the EBs, not just the one that failed.
-                    for v in selfcal_library[fid]['vislist']:
-                        selfcal_library[fid][v][solint]['Pass'] = 'None'
-                        if allow_gain_interpolation:
-                            selfcal_library[fid][v][solint]['Fail_Reason'] = 'Interpolation beyond inf'
-                        else:
-                            selfcal_library[fid][v][solint]['Fail_Reason'] = 'Bad gaincal solutions'
+                    selfcal_library[fid][vis][solint]['Pass'] = 'None'
+                    if allow_gain_interpolation:
+                        selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Interpolation beyond inf'
+                    else:
+                        selfcal_library[fid][vis][solint]['Fail_Reason'] = 'Bad gaincal solutions'
 
 
             tb.close()
      elif selfcal_library['obstype'] == 'mosaic' and solint == "inf_EB":
         ## If an EB had no fields to gaincal on, remove all fields in that EB from being selfcal'd as there is no calibration available
         ## in this EB.
-        for vis in selfcal_library['vislist']:
-            if np.intersect1d(selfcal_library['sub-fields-to-gaincal'],\
+        #for vis in selfcal_library['vislist']:
+        if True:
+            if np.intersect1d(selfcal_library[vis]['sub-fields-to-gaincal'],\
                     list(selfcal_library['sub-fields-fid_map'][vis].keys())).size == 0:
                 for fid in np.intersect1d(new_fields_to_selfcal,list(selfcal_library['sub-fields-fid_map'][vis].keys())):
                     new_fields_to_selfcal.remove(fid)
 
-                    selfcal_library[fid]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
-                    for v in selfcal_library[fid]['vislist']:
-                        selfcal_library[fid][v][solint]['Pass'] = 'None'
-                        selfcal_library[fid][v][solint]['Fail_Reason'] = 'No viable inf_EB fields'
+                    selfcal_library[fid][vis]['Stop_Reason'] = 'No viable calibrator fields for inf_EB in at least 1 EB'
+                    selfcal_library[fid][vis][solint]['Pass'] = 'None'
+                    selfcal_library[fid][vis][solint]['Fail_Reason'] = 'No viable inf_EB fields'
+
+     print("new_fields_to_selfcal", new_fields_to_selfcal)
 
      return new_fields_to_selfcal
 
