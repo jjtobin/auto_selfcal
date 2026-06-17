@@ -516,7 +516,7 @@ def tclean_wrapper(selfcal_library, imagename, band, scales=[0], smallscalebias 
                  uvrange=selfcal_library['uvrange'],
                  reffreq = reffreq,
                  threshold=threshold,
-                 parallel=False,
+                 parallel = parallel,
                  phasecenter=phasecenter,spw=spws_per_vis,wprojplanes=wprojplanes)
     
     elif savemodel=='modelcolumn' and selfcal_library['usermodel'] !='':
