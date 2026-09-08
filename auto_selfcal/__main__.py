@@ -26,6 +26,7 @@ parser.add_argument('--spectral_average', default=True, type=bool)
 parser.add_argument('--do_amp_selfcal', default=True)
 parser.add_argument('--usermask', default={}, type=ast.literal_eval)  # require that it is a CRTF region (CASA region format)
 parser.add_argument('--usermodel', default={}, type=ast.literal_eval) 
+parser.add_argument('--uniform_solints', default=False)
 parser.add_argument('--inf_EB_gaincal_combine', default='scan', type=str)  # should we get rid of this option?
 parser.add_argument('--inf_EB_gaintype', default='G', type=str)
 parser.add_argument('--inf_EB_override', action='store_true')
