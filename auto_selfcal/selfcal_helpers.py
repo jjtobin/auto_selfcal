@@ -320,23 +320,24 @@ def tclean_wrapper(selfcal_library, imagename, band, scales=[0], smallscalebias 
        reffreq = ''
     else:
        reffreq = selfcal_library['reffreq']
-
+    theoretical_sensitivity=0.0
     if "theoretical" in threshold:
         dr_mod=1.0
         if telescope =='ALMA' or telescope =='ACA':
-           sensitivity=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,
-                   imsize=selfcal_library['imsize'],cellsize=selfcal_library['cellsize'])
-           dr_mod=get_dr_correction(telescope,selfcal_library['SNR_dirty']*selfcal_library['RMS_dirty'],sensitivity,vlist)
-           sensitivity_nomod=sensitivity.copy()
+           theoretical_sensitivity=get_sensitivity(vlist,selfcal_library,telescope,field,virtual_spw=spw,
+                   imsize=selfcal_library['imsize'],cellsize=selfcal_library['cellsize'], obstype=selfcal_library['obstype'])
+           dr_mod=get_dr_correction(telescope,selfcal_library['SNR_dirty']*selfcal_library['RMS_dirty'],theoretical_sensitivity,vlist)
+           sensitivity_nomod=theoretical_sensitivity.copy()
            print('DR modifier: ',dr_mod, 'SPW: ',spw)
 
-           sensitivity=sensitivity*dr_mod   # apply DR modifier
+           sensitivity=theoretical_sensitivity*dr_mod   # apply DR modifier
            if (band =='Band_9' or band == 'Band_10') and spw != 'all':   # adjust for DSB noise increase
-               sensitivity=4.0*sensitivity   #*4.0  might be unnecessary with DR mods
-
-           selfcal_library['theoretical_sensitivity']=sensitivity_nomod
+               sensitivity=4.0*theoretical_sensitivity   #*4.0  might be unnecessary with DR mods
+           if 'theoretical_sensitivity' not in selfcal_library.keys():
+               selfcal_library['theoretical_sensitivity']=sensitivity_nomod
            for fid in selfcal_library['sub-fields']:
-               selfcal_library[fid]['theoretical_sensitivity']=sensitivity_nomod
+               if 'theoretical_sensitivity' not in selfcal_library[fid].keys():
+                   selfcal_library[fid]['theoretical_sensitivity']=sensitivity_nomod
         else:
            sensitivity=0.0
            selfcal_library['theoretical_sensitivity']=-99.0
@@ -349,11 +350,15 @@ def tclean_wrapper(selfcal_library, imagename, band, scales=[0], smallscalebias 
             if spw == 'all':
                 sensitivity_scale_factor = 1.0
             else:
-                sensitivity_agg=get_sensitivity(vlist,selfcal_library,field,virtual_spw=spw,imsize=selfcal_library['imsize'],
-                        cellsize=selfcal_library['cellsize'])
+                sensitivity_agg=get_sensitivity(vlist,selfcal_library,telescope,field,virtual_spw=spw,imsize=selfcal_library['imsize'],
+                        cellsize=selfcal_library['cellsize'], obstype=selfcal_library['obstype'])
                 sensitivity_scale_factor=selfcal_library['RMS_NF_curr']/sensitivity_agg
             threshold = str(4.0*sensitivity_nomod*sensitivity_scale_factor)+'Jy'
+    if theoretical_sensitivity == 0.0:
+        theoretical_sensitivity=get_sensitivity(vlist,selfcal_library,telescope,field,virtual_spw=spw,
+               imsize=selfcal_library['imsize'],cellsize=selfcal_library['cellsize'], obstype=selfcal_library['obstype'])
 
+    print('Theoretical Sensitivity: ', theoretical_sensitivity)    
     if threshold != '0.0Jy':
        nsigma=0.0
 
@@ -525,7 +530,7 @@ def tclean_wrapper(selfcal_library, imagename, band, scales=[0], smallscalebias 
           print('Using user model already filled to model column, skipping model write.')
     
     if not savemodel_only:
-        return tclean_return
+        return tclean_return, theoretical_sensitivity
 
 def usermodel_wrapper(selfcal_library, imagename, band,scales=[0], smallscalebias = 0.6, mask = '',\
                    nsigma=5.0, interactive = False, robust = 0.5, gain = 0.1, niter = 50000,\
@@ -1961,15 +1966,28 @@ def get_SNR_self_update(selfcal_library,selfcal_plan,n_ant,solint_curr,solint_ne
       selfcal_plan['solint_snr_per_bb'][solint_next][baseband]=selfcal_plan['solint_snr_per_bb'][solint_next][baseband]*SNR_ratio
 
 
-def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=[1600,1600],robust=0.5,specmode='mfs',uvtaper=''):
+def get_sensitivity(vislist,selfcal_library,telescope,field='',virtual_spw='all',chan=0,cellsize='0.025arcsec',imsize=[1600,1600],robust=0.5,specmode='mfs',uvtaper='',obstype='single-pointing',phasecenter=['ICRS','0.0rad','0.0rad']):
+   mosaic = False
+   if obstype == 'mosaic':
+      mosaic = True
    for vis in vislist:
       if virtual_spw == 'all':
-          im.selectvis(vis=vis,field=selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]],spw=selfcal_library[vis]['spws'])
+          fieldlist=''
+          for fieldid in [selfcal_library['sub-fields'][0]]:
+             fieldlist+=str(selfcal_library['sub-fields-fid_map'][vis][fieldid])+','
+          fieldlist=fieldlist[:-1]
+          im.selectvis(vis=vis,field=fieldlist,spw=selfcal_library[vis]['spws'])
       else:
-          im.selectvis(vis=vis,field=selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]],spw=selfcal_library['spw_map'][virtual_spw][vis])
+          fieldlist=''
+          for fieldid in [selfcal_library['sub-fields'][0]]:
+             fieldlist+=str(selfcal_library['sub-fields-fid_map'][vis][fieldid])+','
+          fieldlist=fieldlist[:-1]
+          im.selectvis(vis=vis,field=fieldlist,spw=selfcal_library['spw_map'][virtual_spw][vis])
 
-   im.defineimage(mode=specmode,stokes='I',spw=[0],cellx=cellsize,celly=cellsize,nx=imsize[0],ny=imsize[1])  
-   im.weight(type='briggs',robust=robust)  
+   im.defineimage(mode=specmode,stokes='I',spw=[0],cellx=cellsize,celly=cellsize,nx=imsize[0],ny=imsize[1]) #,phasecenter=phasecenter)
+   field_of_view = np.max(np.array([imsize[0],imsize[1]]))*float(cellsize.replace('arcsec',''))
+   print('FOV:', field_of_view,obstype,mosaic,selfcal_library['sub-fields-fid_map'][vis][selfcal_library['sub-fields'][0]])
+   im.weight(type='briggs', robust=robust) #, mosaic=mosaic, fieldofview=str(field_of_view)+'arcsec')  parameters don't affect a mosaic
    if uvtaper != '':
       if 'klambda' in uvtaper:
          uvtaper=uvtaper.replace('klambda','')
@@ -1992,9 +2010,22 @@ def get_sensitivity(vislist,selfcal_library,field='',virtual_spw='all',chan=0,ce
        print('# Data in this spw/MS may be flagged')
        print('#')
        sys.exit(0)
+   if mosaic:
+      print('Scaling estimated sensitivity by 1/sqrt(2) since this is a mosaic and assuming nyquist sampling')
+      estsens=estsens/2.0**0.5
+   if 'VLA' in selfcal_library['telescope']:
+      # need to reduce sensivity because of VLA offline get_spw_bandwidthhanning smoothing
+      # calculated Hanning vs. non-Hanning bandwidth to determine how much
+      # to increase calculated sensitivity
+      # assume first visibility file is representative for bandwidth
+      hanning_scale_factor=(1.66 * selfcal_library[vislist[0]]['effective_bandwidth_hanning'] + selfcal_library[vislist[0]]['effective_bandwidth_no_hanning'])/(selfcal_library[vislist[0]]['effective_bandwidth_hanning'] + selfcal_library[vislist[0]]['effective_bandwidth_no_hanning'])
+      print('VLA Hanning Scale Factor: ', hanning_scale_factor)
+      estsens = estsens * hanning_scale_factor
    print('Estimated Sensitivity: ',estsens)
    im.close()
    return estsens
+
+
 
 
 def LSRKfreq_to_chan(msfile, field, spw, LSRKfreq,spwsarray,minmaxchans=False):
@@ -2292,13 +2323,20 @@ def get_spw_chanwidths(vis,spwarray):
 def get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope):
    spwbws={}
    spwfreqs={}
+   spwhanning={}
+   bw_hanning=0.0
+   bw_no_hanning=0.0
+   tb.open(vis+'/SPECTRAL_WINDOW')
+   msmd.open(vis)
    for spw in spwsarray_dict[vis]:
-      tb.open(vis+'/SPECTRAL_WINDOW')
       spwbws[spw]=np.abs(np.unique(tb.getcol('TOTAL_BANDWIDTH', startrow = spw, nrow = 1)))[0]/1.0e9 # put bandwidths into GHz
-      tb.close()
-      msmd.open(vis)
+      if 'OFFLINE_HANNING_SMOOTH' in tb.colnames():
+         spwhanning[spw]=tb.getcol('OFFLINE_HANNING_SMOOTH', startrow = spw, nrow = 1)[0]
+      else:
+         spwhanning[spw]=True
       spwfreqs[spw]=msmd.meanfreq(spw)
-      msmd.close()
+   msmd.close()
+   tb.close()
    spweffbws=spwbws.copy()
    if os.path.exists("cont.dat"):
       spweffbws=get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope)
@@ -2309,8 +2347,13 @@ def get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope):
             if spw not in spweffbws.keys():
                print(f'    falling back to total bandwidth for {spw}')
                spweffbws[spw]=spwbws[spw]
+   for spw in spwbws.keys():
+      if spwhanning[spw]:
+         bw_hanning+=spweffbws[spw]
+      else:
+         bw_no_hanning+=spweffbws[spw]
 
-   return spwbws,spweffbws,spwfreqs
+   return spwbws,spweffbws,spwfreqs,spwhanning,bw_hanning,bw_no_hanning
 
 
 def get_spw_eff_bandwidth(vis,target,vislist,spwsarray_dict, telescope):
