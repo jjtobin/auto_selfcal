@@ -46,3 +46,7 @@ markers = [
     "ghtest: fast tests to run on GitHub Actions.",
     "benchmark: the auto_selfcal benchmark tests."
 ]
+norecursedirs = [
+    "casa-*",
+    "pytest*",
+]

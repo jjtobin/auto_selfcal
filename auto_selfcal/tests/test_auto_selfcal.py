@@ -36,7 +36,6 @@ import os
         pytest.param('disjoint_missing_spwfid_combo', id='disjoint_missing_spwfid_combo'), # tests spw-mapping, particularly in cases where spws and sub-fields are missing
         pytest.param('EE11.1.00032.S', id='EE11.1.00032.S'), # tests a dataset with spw names crossing a naming scheme change
         pytest.param('VLBA_CASA_Guide', id='VLBA_CASA_Guide'), # VLBA dataset
-
     ]
 )
 def test_benchmark(tmp_path, dataset):
@@ -72,10 +71,28 @@ def test_benchmark(tmp_path, dataset):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
+    with open('selfcal_plan.pickle', 'rb') as handle:
+        selfcal_plan = pickle.load(handle)
+
+    solint_map = {}
+    for target in selfcal_library2:
+        for band in selfcal_library2[target]:
+            for vis in selfcal_library2[target][band]['vislist']:
+                for solint in selfcal_plan[target][band][vis]['solint_settings']:
+                    if solint not in solint_map:
+                        solint_map[solint] = []
+
+                    mapped_solint = selfcal_plan[target][band][vis]['solint_settings'][solint]['sub-name']
+
+                    solint_map[solint].append(mapped_solint)
+    print(solint_map)
+
     difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=1e-3,\
      exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets',\
          'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
-         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope'])
+         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope', "final_phase_solint", "final_solint", \
+         "gaintable_final", "per_EB_SNR", "per_scan_SNR", "vislist-to-gaincal", "telescope", "gaintable","sub-fields-to-gaincal", \
+         "sub-fields-to-selfcal", "Stop_Reason"])
 
     for msfile in starting_MS_files:
         print(f"rm -rf {os.path.basename(msfile)}")
@@ -84,17 +101,22 @@ def test_benchmark(tmp_path, dataset):
 
 # Note for future reference: to create the tar file properly, update the files in the folder on OneDrive, and then run:
 # tar czf Band8-7m-2.tar.gz -C Band8-7m-2 .
+# Once uploaded to OneDrive, you need to:
+# - Click "Share"
+# - Go to settings and make sure Anyone can access
+# - Then hit "Copy Link"
+# To ensure that the link you get is publicly accessible.
 @pytest.mark.ghtest
 @pytest.mark.parametrize(
     "zip_file,link",
     [
-        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCvDRlo5TabTZ8qoP-tscZnAdJZOuCKQew3ewIH5bZzZF0?e=XWOGxH&download=1', id="2018.1.01284.S_HOPS-384"),
-        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAnFUlx_SR0SLdj_vX8MVUWAbMu9BveHCsb9NB07-OD3bo?e=TNBTXq&download=1', id="Band8-7m-2"),
-        pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCT-CkbAW7YT5LIev5CrDSOAZt5uC_tUIReMwlA14Tu9y4?e=2zF126&download=1', id="M82-C-conf-C-band_small"),
-        pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=7adSCD&download=1', id='K-band-mini-mosaic'),
-        pytest.param("Band8-7m-cocal.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAjUGmKxJpoSq25LNp6qnhUAfhcQ-o3RnP7q13r0OgPCfc?e=rX9LaN&download=1', id='Band8-7m-cocal'),
-        pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=MMXCaT&download=1', id='2019.1.00691.S_SB'),
-        pytest.param("VLBA-1-spw.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQATgZY3r_6MS50DqJaFu4QIAVn9jnOq2X-oubxzGtY8-bM?e=fBnvSh&download=1', id='VLBA-1-spw')
+        pytest.param("2018.1.01284.S_HOPS-384.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCvDRlo5TabTZ8qoP-tscZnAdJZOuCKQew3ewIH5bZzZF0?e=gkf7TS&download=1', id="2018.1.01284.S_HOPS-384"),
+        pytest.param("Band8-7m-2.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAnFUlx_SR0SLdj_vX8MVUWAbMu9BveHCsb9NB07-OD3bo?e=VHwhw1&download=1', id="Band8-7m-2"),
+        pytest.param("M82-C-conf-C-band_small.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQCT-CkbAW7YT5LIev5CrDSOAZt5uC_tUIReMwlA14Tu9y4?e=dBKNYC&download=1', id="M82-C-conf-C-band_small"),
+        pytest.param("K-band-mini-mosaic.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQBCQc-REEGYQrBwBu2F9uUTAfpCRQq1gYAPO18e-CL_IUk?e=IQYNrv&download=1', id='K-band-mini-mosaic'),
+        pytest.param("Band8-7m-cocal.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAjUGmKxJpoSq25LNp6qnhUAfhcQ-o3RnP7q13r0OgPCfc?e=rjgG4k&download=1', id='Band8-7m-cocal'),
+        pytest.param("2019.1.00691.S_SB.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQAoeNLrwb1aSrWCfo8ekE6NAXVJ4Qlpps0gdAeY1U9Axn0?e=IIcRdp&download=1', id='2019.1.00691.S_SB'),
+        pytest.param("VLBA-1-spw.tar.gz", 'https://nrao-my.sharepoint.com/:u:/g/personal/psheehan_nrao_edu/IQATgZY3r_6MS50DqJaFu4QIAVn9jnOq2X-oubxzGtY8-bM?e=eLLGi0&download=1', id='VLBA-1-spw')
     ]
 )
 def test_on_github(tmp_path, request, zip_file, link):
@@ -131,10 +153,27 @@ def test_on_github(tmp_path, request, zip_file, link):
     with open('selfcal_library.pickle', 'rb') as handle:
         selfcal_library2 = pickle.load(handle)
 
-    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001,\
-     exclude=['vislist_orig','field_str','imsize','flux_threshold','overlap_tol','bands_for_targets',\
-         'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
-         'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope'])
+    with open('selfcal_plan.pickle', 'rb') as handle:
+        selfcal_plan = pickle.load(handle)
+
+    solint_map = {}
+    for target in selfcal_library2:
+        for band in selfcal_library2[target]:
+            for vis in selfcal_library2[target][band]['vislist']:
+                for solint in selfcal_plan[target][band][vis]['solint_settings']:
+                    if solint not in solint_map:
+                        solint_map[solint] = []
+
+                    mapped_solint = selfcal_plan[target][band][vis]['solint_settings'][solint]['sub-name']
+
+                    solint_map[solint].append(mapped_solint)
+    #print(solint_map)
+
+    difference_count = compare_two_dictionaries(selfcal_library1, selfcal_library2, tolerance=0.001,
+                                                exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal", "telescope", 
+                                                         "gaintable","sub-fields-to-gaincal", "sub-fields-to-selfcal", "am_dogrowprune", "am_growiterations", 
+                                                         "am_lownoisethreshold", "am_minbeamfrac", "am_noisethreshold", "am_sidelobethreshold", 
+                                                         "am_smoothfactor", "Stop_Reason"])
 
     assert difference_count == 0
 
@@ -150,13 +189,15 @@ def compare_values(list1, list2, tol=1e-3):
             return np.all([compare_values(list1[i], list2[i], tol=tol) for i in range(len(list1))])
     elif type(list1) == str or type(list1) == np.str_ or type(list1) == bool:
         return list1 == list2
+    elif type(list1) == type(None):
+        return list1 == list2
     else:
         if list1 == 0:
             return abs(list2) < tol
         else:
             return abs(list1 - list2) < abs(list1*tol)
 
-def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tolerance=1e-3):
+def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tolerance=1e-3, key_map={}, verbose=True):
     if isinstance(dictionary1, str):
         with open(dictionary1, 'rb') as handle:
             dictionary1 = pickle.load(handle)
@@ -172,35 +213,64 @@ def compare_two_dictionaries(dictionary1, dictionary2, path=[], exclude=[], tole
         if key in exclude:
             continue
 
-        if key not in intersect_keys:
+        if key not in intersect_keys and key not in key_map and not np.any([key in key_map[k] for k in key_map]):
             if key not in dictionary1:
-                print('/'.join([str(p) for p in path])+"/"+key+" not in dictionary1")
+                if verbose:
+                    print('/'.join([str(p) for p in path])+"/"+key+" not in dictionary1")
             else:
-                print('/'.join([str(p) for p in path])+"/"+key+" not in dictionary2")
+                if verbose:
+                    print('/'.join([str(p) for p in path])+"/"+key+" not in dictionary2")
 
             difference_count += 1
 
             continue
+        elif key not in intersect_keys and key not in key_map and np.any([key in key_map[k] for k in key_map]):
+            #print(f'key {key} has changed in dictionary2 and will be matched elsewhere')
+            continue
 
-        if key not in dictionary1 and int(key) in dictionary1:
-            key = int(key)
+        try:
+            if key not in dictionary1 and key not in key_map and int(key) in dictionary1:
+                key = int(key)
+        except:
+            continue
 
-        if type(dictionary1[key]) == dict:
-            difference_count += compare_two_dictionaries(dictionary1[key], dictionary2[key], path.copy()+[key], exclude=exclude, tolerance=tolerance)
+        if key in dictionary2 and not key in dictionary1 and key in key_map:
+            #print(f'Checking whether key {key} has its name changed')
+            found = False
+            for alt_key in key_map[key]:
+                #print(f'Checking for {alt_key} in dictionary1')
+                if alt_key in dictionary1:
+                    found = True
+                    break
+
+            if found:
+                pass
+                #print(f"Using alternative key {alt_key} to match with key {key}")
+            else:
+                if verbose:
+                    print(f"No match for key {key} found in dictionary1, this is a difference")
+                difference_count += 1
+                continue
         else:
-            value1 = np.array(dictionary1[key])[np.argsort(dictionary1['vislist'])] if key in ['spws_per_vis','vislist'] else dictionary1[key]
+            alt_key = key
+        
+        if type(dictionary1[alt_key]) == dict:
+            difference_count += compare_two_dictionaries(dictionary1[alt_key], dictionary2[key], path.copy()+[key], exclude=exclude, tolerance=tolerance, key_map=key_map, verbose=verbose)
+        else:
+            value1 = np.array(dictionary1[alt_key])[np.argsort(dictionary1['vislist'])] if alt_key in ['spws_per_vis','vislist'] else dictionary1[alt_key]
             value2 = np.array(dictionary2[key])[np.argsort(dictionary2['vislist'])] if key in ['spws_per_vis','vislist'] else dictionary2[key]
             #value1 = np.array(dictionary1[key])[np.argsort(dictionary1['vislist'])] if key in ['spws_per_vis'] else dictionary1[key]
             #value2 = np.array(dictionary2[key])[np.argsort(dictionary2['vislist'])] if key in ['spws_per_vis'] else dictionary2[key]
 
             if key == 'gaincal_combine':
-                value1 = dictionary1[key].split(',')
+                value1 = dictionary1[alt_key].split(',')
                 value1.sort()
                 value2 = dictionary2[key].split(',')
                 value2.sort()
 
             if not compare_values(value1, value2, tol=tolerance):
-                print('/'.join([str(p) for p in path])+"/"+key, dictionary1[key], dictionary2[key])
+                if verbose:
+                    print('/'.join([str(p) for p in path])+"/"+key, dictionary1[key], dictionary2[key])
                 difference_count += 1
 
     return difference_count
