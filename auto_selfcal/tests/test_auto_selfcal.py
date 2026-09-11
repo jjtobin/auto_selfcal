@@ -92,7 +92,7 @@ def test_benchmark(tmp_path, dataset):
          'am_dogrowprune','am_growiterations','am_lownoisethreshold','am_minbeamfrac',\
          'am_noisethreshold','am_sidelobethreshold','am_smoothfactor','telescope', "final_phase_solint", "final_solint", \
          "gaintable_final", "per_EB_SNR", "per_scan_SNR", "vislist-to-gaincal", "telescope", "gaintable","sub-fields-to-gaincal", \
-         "sub-fields-to-selfcal", "Stop_Reason"])
+         "sub-fields-to-selfcal", "Stop_Reason", "theoretical_sensitivity_final", "theoretical_sensitivity_orig", "theoretical_sensitivity_pre", "theoretical_sensitivity_post", "theoretical_sensitivity"])
 
     for msfile in starting_MS_files:
         print(f"rm -rf {os.path.basename(msfile)}")
@@ -173,7 +173,7 @@ def test_on_github(tmp_path, request, zip_file, link):
                                                 exclude=["final_phase_solint", "final_solint", "gaintable_final", "per_EB_SNR", "vislist-to-gaincal", "telescope", 
                                                          "gaintable","sub-fields-to-gaincal", "sub-fields-to-selfcal", "am_dogrowprune", "am_growiterations", 
                                                          "am_lownoisethreshold", "am_minbeamfrac", "am_noisethreshold", "am_sidelobethreshold", 
-                                                         "am_smoothfactor", "Stop_Reason"])
+                                                         "am_smoothfactor", "Stop_Reason", "theoretical_sensitivity_final", "theoretical_sensitivity_orig", "theoretical_sensitivity_pre", "theoretical_sensitivity_post", "theoretical_sensitivity"])
 
     assert difference_count == 0
 
