@@ -383,6 +383,10 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
          for vis in vislist:
             selfcal_library[vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
             selfcal_library[vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
+            for fid in selfcal_library['sub-fields']:
+               selfcal_library[fid][vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
+               selfcal_library[fid][vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
+
             ## Update RMS value if necessary
             if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr'] and \
                     "inf_EB_fb" not in solint and vis == vislist[-1]:
@@ -479,6 +483,9 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                 ## Update RMS value if necessary
                 selfcal_library[vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
                 selfcal_library[vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
+                for fid in selfcal_library['sub-fields']:
+                   selfcal_library[fid][vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
+                   selfcal_library[fid][vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
                 if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr']:
                    selfcal_library['RMS_curr']=selfcal_library[vis][solint]['RMS_post'].copy()
                 if selfcal_library[vis][solint]['RMS_NF_post'] < selfcal_library['RMS_NF_curr'] and \

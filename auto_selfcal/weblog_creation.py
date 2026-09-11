@@ -63,8 +63,9 @@ def generate_weblog(sclib,selfcal_plan,directory='weblog'):
        for band in selfcal_plan[target]:
           solints_string=', '.join([str(elem) for elem in selfcal_plan[target][band]['solints']])
           htmlOut.writelines('<br>'+target+', '+band+': '+solints_string)
-
+   count=0
    for target in targets:
+      print(target,targets)
       htmlOut.writelines('<a name="'+target+'"></a>\n')
       htmlOut.writelines('<h2>'+target+' Summary</h2>\n')
       htmlOut.writelines('<a href="#top">Back to Top</a><br>\n')
@@ -288,7 +289,7 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
             line += '</tr>\n'
             htmlOut.writelines(line)
          htmlOut.writelines('<tr bgcolor="#ffffff">\n    <td colspan="'+str(len(solint_list)+1)+'">Selfcal stats: </td></tr>\n')
-         quantities=['intflux_final','intflux_improvement','SNR_final','SNR_Improvement','SNR_NF_final','SNR_NF_Improvement','RMS_final','RMS_Improvement','RMS_NF_final','RMS_NF_Improvement','Beam_Ratio','clean_threshold','Plots']
+         quantities=['Pass', 'intflux_final', 'intflux_improvement', 'SNR_final', 'SNR_Improvement', 'SNR_NF_final', 'SNR_NF_Improvement', 'RMS_final', 'RMS_Improvement', 'RMS_vs_theory', 'RMS_NF_final', 'RMS_NF_Improvement', 'RMS_NF_vs_theory', 'Beam_Ratio', 'clean_threshold', 'Plots']
          for key in quantities:
             if key =='Pass':
                line='<tr bgcolor="#ffffff">\n    <td>Result: </td>\n'
@@ -365,19 +366,19 @@ def render_selfcal_solint_summary_table(htmlOut,sclib,target,band,selfcal_plan):
                      line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['SNR_NF_post']/sclib[target][band][vislist[ivis]][solint]['SNR_NF_pre'])
 
                   if key=='RMS_final':
-                     line+='    <td>{:0.3f} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']*1000.0)
+                     line+='    <td>{:0.3f} mJy/bm</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_post']*1000.0)
                   if key=='RMS_Improvement':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_pre']/sclib[target][band][vislist[ivis]][solint]['RMS_post'])
                   if key=='RMS_vs_theory':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['theoretical_sensitivity_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_post']/sclib[target][band][vislist[ivis]][solint]['theoretical_sensitivity_post'])
 
                   if key=='RMS_NF_final':
-                     line+='    <td>{:0.3f} mJy/bm</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post']*1000.0)
+                     line+='    <td>{:0.3f} mJy/bm</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_NF_post']*1000.0)
                   if key=='RMS_NF_Improvement':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_pre']/sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_NF_pre']/sclib[target][band][vislist[ivis]][solint]['RMS_NF_post'])
 
                   if key=='RMS_NF_vs_theory':
-                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[len(vislist)-1]][solint]['RMS_NF_post']/sclib[target][band][vislist[len(vislist)-1]][solint]['theoretical_sensitivity_post'])
+                     line+='    <td>{:0.3f}</td>\n'.format(sclib[target][band][vislist[ivis]][solint]['RMS_NF_post']/sclib[target][band][vislist[ivis]][solint]['theoretical_sensitivity_post'])
 
                   if key=='Beam_Ratio':
                      line+='    <td>{:0.3e}</td>\n'.format((sclib[target][band][vislist[ivis]][solint]['Beam_major_post']*sclib[target][band][vislist[ivis]][solint]['Beam_minor_post'])/(sclib[target][band]['Beam_major_orig']*sclib[target][band]['Beam_minor_orig']))

@@ -777,6 +777,9 @@ def auto_selfcal(
                    field=target,datacolumn='corrected',\
                    nfrms_multiplier=nfsnr_modifier)
        selfcal_library[target][band]['theoretical_sensitivity_final'] = theoretical_sensistivity
+       for fid in selfcal_library[target][band]['sub-fields']:
+           selfcal_library[target][band][fid]["theoretical_sensitivity_final"] = theoretical_sensistivity
+
        final_SNR, final_RMS, final_NF_SNR, final_NF_RMS = get_image_stats(sani_target+'_'+band+'_final.image.tt0', sani_target+'_'+band+'_final.mask',
                '', selfcal_library[target][band], (selfcal_library[target][band]['telescope'] !='ACA' or aca_use_nfmask), 'final', 'final')
 
