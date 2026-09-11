@@ -383,13 +383,17 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
           spw_bandwidths_dict={}
           spw_effective_bandwidths_dict={}
           spw_freqs_dict={}
+          spw_hanning_dict={}
           for vis in selfcal_library[target][band]['vislist']:
              selfcal_library[target][band][vis]['per_spw_stats'] = {}
               
-             spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
+             spw_bandwidths_dict[vis], spw_effective_bandwidths_dict[vis], spw_freqs_dict[vis], spw_hanning_dict[vis],bw_hanning,bw_no_hanning=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
+             print('HANNING BANDWIDTHS',bw_hanning,bw_no_hanning)
 
              selfcal_library[target][band][vis]['total_bandwidth']=0.0
              selfcal_library[target][band][vis]['total_effective_bandwidth']=0.0
+             selfcal_library[target][band][vis]['effective_bandwidth_hanning']=bw_hanning
+             selfcal_library[target][band][vis]['effective_bandwidth_no_hanning']=bw_no_hanning
              for spw in selfcal_library[target][band][vis]['spwlist']:
                 keylist=selfcal_library[target][band][vis]['per_spw_stats'].keys()
                 if spw not in keylist:
@@ -398,6 +402,7 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
                 selfcal_library[target][band][vis]['per_spw_stats'][spw]['effective_bandwidth']=spw_effective_bandwidths_dict[vis][spw]
                 selfcal_library[target][band][vis]['per_spw_stats'][spw]['bandwidth']=spw_bandwidths_dict[vis][spw]
                 selfcal_library[target][band][vis]['per_spw_stats'][spw]['frequency']=spw_freqs_dict[vis][spw]
+                selfcal_library[target][band][vis]['per_spw_stats'][spw]['hanning']=spw_hanning_dict[vis][spw]
                 selfcal_library[target][band][vis]['total_bandwidth']+=spw_bandwidths_dict[vis][spw]
                 selfcal_library[target][band][vis]['total_effective_bandwidth']+=spw_effective_bandwidths_dict[vis][spw]
              for baseband in selfcal_library[target][band][vis]['baseband'].keys():
@@ -418,10 +423,12 @@ def prepare_selfcal(all_targets, bands, bands_for_targets, vislist,
               for vis in selfcal_library[target][band][fid]['vislist']:
                   selfcal_library[target][band][fid][vis]['per_spw_stats'] = {}
 
-                  spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis]=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
+                  spw_bandwidths_dict[vis],spw_effective_bandwidths_dict[vis],spw_freqs_dict[vis], spw_hanning_dict[vis],bw_hanning,bw_no_hanning=get_spw_bandwidth(vis,spwsarray_dict,target,vislist, telescope)
 
                   selfcal_library[target][band][fid][vis]['total_bandwidth']=0.0
                   selfcal_library[target][band][fid][vis]['total_effective_bandwidth']=0.0
+                  selfcal_library[target][band][fid][vis]['effective_bandwidth_hanning']=bw_hanning
+                  selfcal_library[target][band][fid][vis]['effective_bandwidth_no_hanning']=bw_no_hanning
 
                   for spw in selfcal_library[target][band][fid][vis]['spwlist']:
                      keylist=selfcal_library[target][band][fid][vis]['per_spw_stats'].keys()

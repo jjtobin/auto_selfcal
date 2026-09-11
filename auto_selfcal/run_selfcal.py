@@ -198,7 +198,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
              #remove mask if exists from previous selfcal _post image user is specifying a mask
              if os.path.exists(sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask') and selfcal_library['usermask'] != '':
                 os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'.mask')
-             tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
+             tclean_return, theoretical_sensitivity_pre = tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration),
                          band,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                          threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                          savemodel='none',parallel=parallel,
@@ -329,7 +329,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
          ##
 
          os.system('rm -rf '+sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post*')
-         tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
+         tclean_return, theoretical_sensitivity_post = tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                   band,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                   threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                   savemodel='none',parallel=parallel,
@@ -381,10 +381,17 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
          ## record self cal results/details for this solint
          ##
          for vis in vislist:
+            selfcal_library[vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
+            selfcal_library[vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
+            for fid in selfcal_library['sub-fields']:
+               selfcal_library[fid][vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
+               selfcal_library[fid][vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
+
             ## Update RMS value if necessary
             if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr'] and \
                     "inf_EB_fb" not in solint and vis == vislist[-1]:
                selfcal_library['RMS_curr']=selfcal_library[vis][solint]['RMS_post'].copy()
+               
             if selfcal_library[vis][solint]['RMS_NF_post'] < selfcal_library['RMS_NF_curr'] and \
                     "inf_EB_fb" not in solint and selfcal_library[vis][solint]['RMS_NF_post'] > 0 and vis == vislist[-1]:
                selfcal_library['RMS_NF_curr']=selfcal_library[vis][solint]['RMS_NF_post'].copy()
@@ -447,7 +454,7 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
              for f in files:
                  os.system("mv "+f+" "+f.replace("_post","_post_intermediate"))
 
-             tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
+             tclean_return, theoretical_sensitivity_post = tclean_wrapper(selfcal_library,sani_target+'_'+band+'_'+solint+'_'+str(iteration)+'_post',
                       band,nsigma=selfcal_library['nsigma'][iteration], scales=[0],
                       threshold=str(selfcal_library[vislist[0]][solint]['clean_threshold'])+'Jy',
                       savemodel='none',parallel=parallel,
@@ -474,6 +481,11 @@ def run_selfcal(selfcal_library, selfcal_plan, target, band, n_ants, \
                 selfcal_library[vis][solint]['solmode']=selfcal_plan['solmode'][iteration]+''
 
                 ## Update RMS value if necessary
+                selfcal_library[vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
+                selfcal_library[vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
+                for fid in selfcal_library['sub-fields']:
+                   selfcal_library[fid][vis][solint]['theoretical_sensitivity_post'] = theoretical_sensitivity_post
+                   selfcal_library[fid][vis][solint]['theoretical_sensitivity_pre'] = theoretical_sensitivity_pre
                 if selfcal_library[vis][solint]['RMS_post'] < selfcal_library['RMS_curr']:
                    selfcal_library['RMS_curr']=selfcal_library[vis][solint]['RMS_post'].copy()
                 if selfcal_library[vis][solint]['RMS_NF_post'] < selfcal_library['RMS_NF_curr'] and \
